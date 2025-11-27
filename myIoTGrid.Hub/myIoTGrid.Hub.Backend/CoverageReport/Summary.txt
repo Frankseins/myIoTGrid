@@ -1,35 +1,28 @@
 Summary
-  Generated on: 27.11.2025 - 21:50:18
-  Coverage date: 27.11.2025 - 21:50:11
+  Generated on: 27.11.2025 - 21:58:34
+  Coverage date: 27.11.2025 - 21:58:23
   Parser: Cobertura
   Assemblies: 4
-  Classes: 85
-  Files: 65
-  Line coverage: 51.9%
-  Covered lines: 2430
-  Uncovered lines: 2244
-  Coverable lines: 4674
-  Total lines: 7336
-  Branch coverage: 76.3% (264 of 346)
-  Covered branches: 264
-  Total branches: 346
-  Method coverage: 89% (472 of 530)
-  Full method coverage: 86% (456 of 530)
-  Covered methods: 472
-  Fully covered methods: 456
-  Total methods: 530
+  Classes: 46
+  Files: 41
+  Line coverage: 99.4%
+  Covered lines: 1197
+  Uncovered lines: 7
+  Coverable lines: 1204
+  Total lines: 4038
+  Branch coverage: 92.3% (85 of 92)
+  Covered branches: 85
+  Total branches: 92
+  Method coverage: 95.7% (112 of 117)
+  Full method coverage: 94% (110 of 117)
+  Covered methods: 112
+  Fully covered methods: 110
+  Total methods: 117
 
 myIoTGrid.Hub.Domain                                                          100%
-  myIoTGrid.Hub.Domain.Entities.Alert                                         100%
-  myIoTGrid.Hub.Domain.Entities.AlertType                                     100%
-  myIoTGrid.Hub.Domain.Entities.Hub                                           100%
-  myIoTGrid.Hub.Domain.Entities.Sensor                                        100%
-  myIoTGrid.Hub.Domain.Entities.SensorData                                    100%
-  myIoTGrid.Hub.Domain.Entities.SensorType                                    100%
-  myIoTGrid.Hub.Domain.Entities.Tenant                                        100%
   myIoTGrid.Hub.Domain.ValueObjects.Location                                  100%
 
-myIoTGrid.Hub.Infrastructure                                                 20.3%
+myIoTGrid.Hub.Infrastructure                                                  100%
   myIoTGrid.Hub.Infrastructure.Data.Configurations.AlertConfiguration         100%
   myIoTGrid.Hub.Infrastructure.Data.Configurations.AlertTypeConfiguration     100%
   myIoTGrid.Hub.Infrastructure.Data.Configurations.HubConfiguration           100%
@@ -38,23 +31,13 @@ myIoTGrid.Hub.Infrastructure                                                 20.
   myIoTGrid.Hub.Infrastructure.Data.Configurations.SensorTypeConfiguration    100%
   myIoTGrid.Hub.Infrastructure.Data.Configurations.TenantConfiguration        100%
   myIoTGrid.Hub.Infrastructure.Data.HubDbContext                              100%
-  myIoTGrid.Hub.Infrastructure.Data.HubDbContextFactory                         0%
-  myIoTGrid.Hub.Infrastructure.Matter.MatterBridgeClient                     87.3%
-  myIoTGrid.Hub.Infrastructure.Matter.MatterBridgeStatus                      100%
-  myIoTGrid.Hub.Infrastructure.Matter.MatterCommissionInfo                    100%
-  myIoTGrid.Hub.Infrastructure.Matter.MatterDeviceInfo                       33.3%
-  myIoTGrid.Hub.Infrastructure.Matter.MatterDeviceMapping                    23.5%
-  myIoTGrid.Hub.Infrastructure.Matter.MatterQrCodeInfo                        100%
-  myIoTGrid.Hub.Infrastructure.Migrations.HubDbContextModelSnapshot             0%
-  myIoTGrid.Hub.Infrastructure.Migrations.InitialCreate                         0%
-  myIoTGrid.Hub.Infrastructure.Migrations.Sprint31_SensorEntityRefactoring      0%
-  myIoTGrid.Hub.Infrastructure.Mqtt.MqttClientService                           0%
-  myIoTGrid.Hub.Infrastructure.Mqtt.MqttOptions                                 0%
+  myIoTGrid.Hub.Infrastructure.Matter.MatterBridgeClient                      100%
+  myIoTGrid.Hub.Infrastructure.Matter.MatterDeviceMapping                     100%
   myIoTGrid.Hub.Infrastructure.Repositories.Repository<T>                     100%
   myIoTGrid.Hub.Infrastructure.Repositories.TenantRepository<T>               100%
-  myIoTGrid.Hub.Infrastructure.Repositories.UnitOfWork                       69.4%
+  myIoTGrid.Hub.Infrastructure.Repositories.UnitOfWork                        100%
 
-myIoTGrid.Hub.Service                                                        97.4%
+myIoTGrid.Hub.Service                                                        99.6%
   myIoTGrid.Hub.Service.Extensions.AlertMappingExtensions                     100%
   myIoTGrid.Hub.Service.Extensions.AlertTypeMappingExtensions                 100%
   myIoTGrid.Hub.Service.Extensions.EnumMappingExtensions                      100%
@@ -64,11 +47,11 @@ myIoTGrid.Hub.Service                                                        97.
   myIoTGrid.Hub.Service.Extensions.SensorMappingExtensions                    100%
   myIoTGrid.Hub.Service.Extensions.SensorTypeMappingExtensions                100%
   myIoTGrid.Hub.Service.Extensions.TenantMappingExtensions                   96.9%
-  myIoTGrid.Hub.Service.Services.AlertService                                  88%
+  myIoTGrid.Hub.Service.Services.AlertService                                 100%
   myIoTGrid.Hub.Service.Services.AlertTypeService                             100%
   myIoTGrid.Hub.Service.Services.HubService                                   100%
   myIoTGrid.Hub.Service.Services.SeedDataService                              100%
-  myIoTGrid.Hub.Service.Services.SensorDataService                           93.9%
+  myIoTGrid.Hub.Service.Services.SensorDataService                            100%
   myIoTGrid.Hub.Service.Services.SensorService                                100%
   myIoTGrid.Hub.Service.Services.SensorTypeService                            100%
   myIoTGrid.Hub.Service.Services.TenantService                                100%
@@ -82,32 +65,10 @@ myIoTGrid.Hub.Service                                                        97.
   myIoTGrid.Hub.Service.Validators.UpdateHubValidator                         100%
   myIoTGrid.Hub.Service.Validators.UpdateSensorValidator                      100%
 
-myIoTGrid.Hub.Shared                                                         95.3%
+myIoTGrid.Hub.Shared                                                         97.5%
   myIoTGrid.Hub.Shared.Constants.DefaultAlertTypes                            100%
   myIoTGrid.Hub.Shared.Constants.DefaultSensorTypes                           100%
   myIoTGrid.Hub.Shared.Constants.MqttTopics                                     0%
-  myIoTGrid.Hub.Shared.DTOs.AcknowledgeAlertDto                               100%
-  myIoTGrid.Hub.Shared.DTOs.AlertDto                                          100%
-  myIoTGrid.Hub.Shared.DTOs.AlertFilterDto                                    100%
-  myIoTGrid.Hub.Shared.DTOs.AlertTypeDto                                      100%
-  myIoTGrid.Hub.Shared.DTOs.CreateAlertDto                                    100%
-  myIoTGrid.Hub.Shared.DTOs.CreateAlertTypeDto                                100%
-  myIoTGrid.Hub.Shared.DTOs.CreateHubDto                                      100%
-  myIoTGrid.Hub.Shared.DTOs.CreateSensorDataDto                               100%
-  myIoTGrid.Hub.Shared.DTOs.CreateSensorDto                                   100%
-  myIoTGrid.Hub.Shared.DTOs.CreateSensorTypeDto                               100%
-  myIoTGrid.Hub.Shared.DTOs.CreateTenantDto                                   100%
-  myIoTGrid.Hub.Shared.DTOs.HubDto                                            100%
-  myIoTGrid.Hub.Shared.DTOs.LocationDto                                      83.3%
-  myIoTGrid.Hub.Shared.DTOs.PaginatedResultDto<T>                              70%
-  myIoTGrid.Hub.Shared.DTOs.SensorDataDto                                     100%
-  myIoTGrid.Hub.Shared.DTOs.SensorDataFilterDto                               100%
-  myIoTGrid.Hub.Shared.DTOs.SensorDto                                        92.8%
-  myIoTGrid.Hub.Shared.DTOs.SensorStatusDto                                   100%
-  myIoTGrid.Hub.Shared.DTOs.SensorTypeDto                                     100%
-  myIoTGrid.Hub.Shared.DTOs.TenantDto                                         100%
-  myIoTGrid.Hub.Shared.DTOs.UpdateHubDto                                      100%
-  myIoTGrid.Hub.Shared.DTOs.UpdateSensorDto                                   100%
-  myIoTGrid.Hub.Shared.DTOs.UpdateTenantDto                                   100%
+  myIoTGrid.Hub.Shared.DTOs.LocationDto                                       100%
+  myIoTGrid.Hub.Shared.DTOs.PaginatedResultDto<T>                             100%
   myIoTGrid.Hub.Shared.Options.MatterBridgeOptions                            100%
-  myIoTGrid.Hub.Shared.Options.MonitoringOptions                                0%

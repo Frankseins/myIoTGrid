@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Exclude>
+            <!-- Exclude auto-generated migrations -->
+            [*]myIoTGrid.Hub.Infrastructure.Migrations.*,
+            <!-- Exclude MQTT service (requires real broker) -->
+            [*]myIoTGrid.Hub.Infrastructure.Mqtt.*,
+            <!-- Exclude design-time factory -->
+            [*]myIoTGrid.Hub.Infrastructure.Data.HubDbContextFactory
+          </Exclude>
+          <ExcludeByFile>
+            **/Migrations/*.cs
+          </ExcludeByFile>
+          <ExcludeByAttribute>
+            Obsolete,
+            GeneratedCodeAttribute,
+            CompilerGeneratedAttribute,
+            ExcludeFromCodeCoverageAttribute
+          </ExcludeByAttribute>
+          <SingleHit>false</SingleHit>
+          <UseSourceLink>true</UseSourceLink>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+          <SkipAutoProps>true</SkipAutoProps>
+          <DeterministicReport>true</DeterministicReport>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

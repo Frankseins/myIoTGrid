@@ -2,6 +2,7 @@ using FluentAssertions;
 using myIoTGrid.Hub.Shared.Constants;
 using myIoTGrid.Hub.Shared.DTOs;
 using myIoTGrid.Hub.Shared.Enums;
+using myIoTGrid.Hub.Shared.Options;
 
 namespace myIoTGrid.Hub.Service.Tests.DTOs;
 
@@ -189,6 +190,56 @@ public class LocationDtoTests
         // Assert
         dto1.Should().Be(dto2);
         dto1.Should().NotBe(dto3);
+    }
+
+    [Fact]
+    public void LocationDto_HasCoordinates_WithBothCoordinates_ReturnsTrue()
+    {
+        // Arrange
+        var dto = new LocationDto(Latitude: 50.0, Longitude: 6.0);
+
+        // Assert
+        dto.HasCoordinates.Should().BeTrue();
+    }
+
+    [Fact]
+    public void LocationDto_HasCoordinates_WithOnlyLatitude_ReturnsFalse()
+    {
+        // Arrange
+        var dto = new LocationDto(Latitude: 50.0);
+
+        // Assert
+        dto.HasCoordinates.Should().BeFalse();
+    }
+
+    [Fact]
+    public void LocationDto_HasCoordinates_WithOnlyLongitude_ReturnsFalse()
+    {
+        // Arrange
+        var dto = new LocationDto(Longitude: 6.0);
+
+        // Assert
+        dto.HasCoordinates.Should().BeFalse();
+    }
+
+    [Fact]
+    public void LocationDto_HasCoordinates_WithNoCoordinates_ReturnsFalse()
+    {
+        // Arrange
+        var dto = new LocationDto(Name: "Living Room");
+
+        // Assert
+        dto.HasCoordinates.Should().BeFalse();
+    }
+
+    [Fact]
+    public void LocationDto_HasCoordinates_WithZeroCoordinates_ReturnsTrue()
+    {
+        // Arrange (0,0 is a valid GPS coordinate - Null Island)
+        var dto = new LocationDto(Latitude: 0.0, Longitude: 0.0);
+
+        // Assert
+        dto.HasCoordinates.Should().BeTrue();
     }
 }
 
@@ -511,6 +562,131 @@ public class PaginatedResultDtoTests
 
         // Assert
         dtoWithGuids.Items.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void PaginatedResultDto_HasNextPage_OnFirstPage_WithMorePages_ReturnsTrue()
+    {
+        // Arrange
+        var dto = new PaginatedResultDto<string>(
+            Items: ["a"],
+            TotalCount: 20,
+            Page: 1,
+            PageSize: 5
+        );
+
+        // Assert
+        dto.HasNextPage.Should().BeTrue();
+        dto.TotalPages.Should().Be(4);
+    }
+
+    [Fact]
+    public void PaginatedResultDto_HasNextPage_OnLastPage_ReturnsFalse()
+    {
+        // Arrange
+        var dto = new PaginatedResultDto<string>(
+            Items: ["a"],
+            TotalCount: 10,
+            Page: 2,
+            PageSize: 5
+        );
+
+        // Assert
+        dto.HasNextPage.Should().BeFalse();
+        dto.TotalPages.Should().Be(2);
+    }
+
+    [Fact]
+    public void PaginatedResultDto_HasPreviousPage_OnFirstPage_ReturnsFalse()
+    {
+        // Arrange
+        var dto = new PaginatedResultDto<string>(
+            Items: ["a"],
+            TotalCount: 10,
+            Page: 1,
+            PageSize: 5
+        );
+
+        // Assert
+        dto.HasPreviousPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PaginatedResultDto_HasPreviousPage_OnSecondPage_ReturnsTrue()
+    {
+        // Arrange
+        var dto = new PaginatedResultDto<string>(
+            Items: ["a"],
+            TotalCount: 10,
+            Page: 2,
+            PageSize: 5
+        );
+
+        // Assert
+        dto.HasPreviousPage.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PaginatedResultDto_Empty_ReturnsEmptyResult()
+    {
+        // Act
+        var dto = PaginatedResultDto<string>.Empty();
+
+        // Assert
+        dto.Items.Should().BeEmpty();
+        dto.TotalCount.Should().Be(0);
+        dto.Page.Should().Be(1);
+        dto.PageSize.Should().Be(50);
+        dto.TotalPages.Should().Be(0);
+        dto.HasNextPage.Should().BeFalse();
+        dto.HasPreviousPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PaginatedResultDto_Empty_WithCustomPageAndPageSize_ReturnsCorrectValues()
+    {
+        // Act
+        var dto = PaginatedResultDto<int>.Empty(page: 3, pageSize: 25);
+
+        // Assert
+        dto.Items.Should().BeEmpty();
+        dto.TotalCount.Should().Be(0);
+        dto.Page.Should().Be(3);
+        dto.PageSize.Should().Be(25);
+    }
+
+    [Fact]
+    public void PaginatedResultDto_SinglePage_HasCorrectNavigationFlags()
+    {
+        // Arrange - Single page of results
+        var dto = new PaginatedResultDto<string>(
+            Items: ["a", "b", "c"],
+            TotalCount: 3,
+            Page: 1,
+            PageSize: 10
+        );
+
+        // Assert
+        dto.TotalPages.Should().Be(1);
+        dto.HasNextPage.Should().BeFalse();
+        dto.HasPreviousPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PaginatedResultDto_MiddlePage_HasBothNavigationFlags()
+    {
+        // Arrange - Middle page of multiple pages
+        var dto = new PaginatedResultDto<string>(
+            Items: ["a"],
+            TotalCount: 30,
+            Page: 2,
+            PageSize: 10
+        );
+
+        // Assert
+        dto.TotalPages.Should().Be(3);
+        dto.HasNextPage.Should().BeTrue();
+        dto.HasPreviousPage.Should().BeTrue();
     }
 }
 
@@ -988,6 +1164,198 @@ public class DefaultAlertTypesTests
 
         // Assert
         dto.AlertId.Should().Be(alertId);
+    }
+}
+
+#endregion
+
+#region MonitoringOptions Tests
+
+public class MonitoringOptionsTests
+{
+    [Fact]
+    public void MonitoringOptions_ShouldHaveCorrectSectionName()
+    {
+        // Assert
+        MonitoringOptions.SectionName.Should().Be("Monitoring");
+    }
+
+    [Fact]
+    public void MonitoringOptions_ShouldHaveCorrectDefaults()
+    {
+        // Act
+        var options = new MonitoringOptions();
+
+        // Assert
+        options.SensorCheckIntervalSeconds.Should().Be(60);
+        options.SensorOfflineTimeoutMinutes.Should().Be(5);
+        options.HubCheckIntervalSeconds.Should().Be(60);
+        options.HubOfflineTimeoutMinutes.Should().Be(5);
+        options.DataRetentionIntervalHours.Should().Be(24);
+        options.DataRetentionDays.Should().Be(30);
+        options.EnableSensorMonitoring.Should().BeTrue();
+        options.EnableHubMonitoring.Should().BeTrue();
+        options.EnableDataRetention.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MonitoringOptions_ShouldAllowCustomValues()
+    {
+        // Act
+        var options = new MonitoringOptions
+        {
+            SensorCheckIntervalSeconds = 120,
+            SensorOfflineTimeoutMinutes = 10,
+            HubCheckIntervalSeconds = 90,
+            HubOfflineTimeoutMinutes = 15,
+            DataRetentionIntervalHours = 12,
+            DataRetentionDays = 90,
+            EnableSensorMonitoring = false,
+            EnableHubMonitoring = false,
+            EnableDataRetention = false
+        };
+
+        // Assert
+        options.SensorCheckIntervalSeconds.Should().Be(120);
+        options.SensorOfflineTimeoutMinutes.Should().Be(10);
+        options.HubCheckIntervalSeconds.Should().Be(90);
+        options.HubOfflineTimeoutMinutes.Should().Be(15);
+        options.DataRetentionIntervalHours.Should().Be(12);
+        options.DataRetentionDays.Should().Be(90);
+        options.EnableSensorMonitoring.Should().BeFalse();
+        options.EnableHubMonitoring.Should().BeFalse();
+        options.EnableDataRetention.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MonitoringOptions_PropertiesAreModifiable()
+    {
+        // Arrange
+        var options = new MonitoringOptions();
+
+        // Act
+        options.SensorCheckIntervalSeconds = 30;
+        options.EnableSensorMonitoring = false;
+
+        // Assert
+        options.SensorCheckIntervalSeconds.Should().Be(30);
+        options.EnableSensorMonitoring.Should().BeFalse();
+    }
+}
+
+#endregion
+
+#region Extended SensorDto Tests
+
+public class ExtendedSensorDtoTests
+{
+    [Fact]
+    public void SensorDto_WithNullOptionalValues_Works()
+    {
+        // Arrange & Act
+        var dto = new SensorDto(
+            Id: Guid.NewGuid(),
+            HubId: Guid.NewGuid(),
+            SensorId: "sensor-01",
+            Name: "Test Sensor",
+            Protocol: ProtocolDto.WLAN,
+            Location: null,
+            SensorTypes: [],
+            LastSeen: null,
+            IsOnline: false,
+            FirmwareVersion: null,
+            BatteryLevel: null,
+            CreatedAt: DateTime.UtcNow
+        );
+
+        // Assert
+        dto.Location.Should().BeNull();
+        dto.LastSeen.Should().BeNull();
+        dto.FirmwareVersion.Should().BeNull();
+        dto.BatteryLevel.Should().BeNull();
+        dto.SensorTypes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SensorDto_WithLoRaWANProtocol_Works()
+    {
+        // Arrange & Act
+        var dto = new SensorDto(
+            Id: Guid.NewGuid(),
+            HubId: Guid.NewGuid(),
+            SensorId: "sensor-lora-01",
+            Name: "LoRa Sensor",
+            Protocol: ProtocolDto.LoRaWAN,
+            Location: new LocationDto("Field"),
+            SensorTypes: ["temperature", "humidity"],
+            LastSeen: DateTime.UtcNow,
+            IsOnline: true,
+            FirmwareVersion: "2.0.0",
+            BatteryLevel: 100,
+            CreatedAt: DateTime.UtcNow
+        );
+
+        // Assert
+        dto.Protocol.Should().Be(ProtocolDto.LoRaWAN);
+        dto.SensorTypes.Should().HaveCount(2);
+        dto.BatteryLevel.Should().Be(100);
+    }
+
+    [Fact]
+    public void SensorDto_Properties_AreAccessible()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var hubId = Guid.NewGuid();
+        var createdAt = DateTime.UtcNow;
+        var sensorTypes = new List<string> { "temperature" };
+
+        var dto = new SensorDto(id, hubId, "s1", "name", ProtocolDto.WLAN, null, sensorTypes, null, true, null, null, createdAt);
+
+        // Assert - all properties are accessible
+        dto.Id.Should().Be(id);
+        dto.HubId.Should().Be(hubId);
+        dto.SensorId.Should().Be("s1");
+        dto.Name.Should().Be("name");
+        dto.Protocol.Should().Be(ProtocolDto.WLAN);
+        dto.Location.Should().BeNull();
+        dto.SensorTypes.Should().Contain("temperature");
+        dto.LastSeen.Should().BeNull();
+        dto.IsOnline.Should().BeTrue();
+        dto.FirmwareVersion.Should().BeNull();
+        dto.BatteryLevel.Should().BeNull();
+        dto.CreatedAt.Should().Be(createdAt);
+    }
+
+    [Fact]
+    public void CreateSensorDto_WithEmptySensorTypes_Works()
+    {
+        // Act
+        var dto = new CreateSensorDto(
+            SensorId: "sensor-new",
+            SensorTypes: new List<string>()
+        );
+
+        // Assert
+        dto.SensorTypes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UpdateSensorDto_WithAllProperties_Works()
+    {
+        // Act
+        var dto = new UpdateSensorDto(
+            Name: "New Name",
+            Location: new LocationDto("New Location"),
+            SensorTypes: ["temperature", "humidity", "pressure"],
+            FirmwareVersion: "3.0.0"
+        );
+
+        // Assert
+        dto.Name.Should().Be("New Name");
+        dto.Location.Should().NotBeNull();
+        dto.SensorTypes.Should().HaveCount(3);
+        dto.FirmwareVersion.Should().Be("3.0.0");
     }
 }
 
