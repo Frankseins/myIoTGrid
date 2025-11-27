@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/images/logo.png" alt="myIoTGrid Logo" width="200"/>
-</p>
-
 <h1 align="center">myIoTGrid</h1>
 
 <p align="center">
