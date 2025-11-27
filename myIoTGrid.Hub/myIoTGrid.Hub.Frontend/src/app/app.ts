@@ -2,14 +2,14 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
-import { SidebarComponent } from '@myiotgrid/core/navigation';
+import { NavigationRailComponent } from '@myiotgrid/core/navigation';
 import { SignalRService } from '@myiotgrid/shared/data-access';
 import { AuthService } from '@myiotgrid/core/auth';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterModule, SidebarComponent],
+  imports: [CommonModule, RouterModule, NavigationRailComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

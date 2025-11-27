@@ -3,12 +3,12 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { Alert, AlertLevel } from '@myiotgrid/shared/models';
-import { RelativeTimePipe, AlertLevelPipe } from '@myiotgrid/shared/utils';
+import { RelativeTimePipe } from '@myiotgrid/shared/utils';
 
 @Component({
   selector: 'myiotgrid-alert-banner',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, RelativeTimePipe, AlertLevelPipe],
+  imports: [CommonModule, MatIconModule, MatButtonModule, RelativeTimePipe],
   templateUrl: './alert-banner.component.html',
   styleUrl: './alert-banner.component.scss'
 })

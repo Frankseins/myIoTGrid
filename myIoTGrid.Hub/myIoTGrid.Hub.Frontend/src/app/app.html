@@ -7,10 +7,13 @@
   </div>
 } @else {
   <div class="app-shell">
+    <!-- Navigation Rail (Material Design 3) -->
     @if (showNavigation()) {
-      <myiotgrid-sidebar></myiotgrid-sidebar>
+      <myiotgrid-navigation-rail></myiotgrid-navigation-rail>
     }
-    <main class="main-content" [class.no-nav]="!showNavigation()">
+
+    <!-- Content Area -->
+    <main class="content-area" [class.no-nav]="!showNavigation()">
       <router-outlet></router-outlet>
     </main>
   </div>

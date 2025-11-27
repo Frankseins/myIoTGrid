@@ -1,0 +1,117 @@
+<nav class="navigation-rail" [class.collapsed]="isCollapsed()" role="navigation" aria-label="Main navigation">
+  <!-- Header: Toggle Button -->
+  <div class="rail-header">
+    <button
+      mat-icon-button
+      class="rail-toggle-button"
+      (click)="toggleCollapsed()"
+      [matTooltip]="isCollapsed() ? 'Navigation erweitern' : 'Navigation minimieren'"
+      matTooltipPosition="right"
+      aria-label="Navigation umschalten">
+      <mat-icon>{{ isCollapsed() ? 'menu' : 'menu_open' }}</mat-icon>
+    </button>
+  </div>
+
+  <!-- Navigation Destinations -->
+  <div class="rail-destinations">
+    @for (destination of destinations(); track destination.route) {
+      <a
+        [routerLink]="destination.route"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: destination.route === '/dashboard' }"
+        class="destination"
+        [class.disabled]="destination.disabled"
+        [matTooltip]="isCollapsed() ? destination.label : ''"
+        matTooltipPosition="right">
+
+        <!-- Active Indicator (Pill Shape) -->
+        <div class="active-indicator"></div>
+
+        <!-- Icon Container with Badge -->
+        <div class="icon-container">
+          <mat-icon
+            [matBadge]="getBadgeForDestination(destination.route)"
+            [matBadgeHidden]="!getBadgeForDestination(destination.route)"
+            matBadgeColor="warn"
+            matBadgeSize="small">
+            {{ destination.icon }}
+          </mat-icon>
+        </div>
+
+        <!-- Destination Label (visible when expanded) -->
+        <span class="destination-label">{{ destination.label }}</span>
+      </a>
+    }
+  </div>
+
+  <!-- Spacer to push footer to bottom -->
+  <div class="rail-spacer"></div>
+
+  <!-- Global Destinations (Settings) -->
+  <div class="rail-global">
+    @for (destination of globalDestinations(); track destination.route) {
+      <a
+        [routerLink]="destination.route"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: false }"
+        class="destination"
+        [class.disabled]="destination.disabled"
+        [matTooltip]="isCollapsed() ? destination.label : ''"
+        matTooltipPosition="right">
+
+        <!-- Active Indicator (Pill Shape) -->
+        <div class="active-indicator"></div>
+
+        <!-- Icon Container -->
+        <div class="icon-container">
+          <mat-icon>{{ destination.icon }}</mat-icon>
+        </div>
+
+        <!-- Destination Label -->
+        <span class="destination-label">{{ destination.label }}</span>
+      </a>
+    }
+  </div>
+
+  <!-- Footer: Profile Menu -->
+  <div class="rail-footer">
+    <button
+      mat-icon-button
+      [matMenuTriggerFor]="profileMenu"
+      class="profile-button"
+      [matTooltip]="isCollapsed() ? userName() : ''"
+      matTooltipPosition="right"
+      aria-label="Benutzermenü">
+
+      <!-- User Avatar with Initials -->
+      <div class="user-avatar">
+        {{ getInitialsAvatar() }}
+      </div>
+    </button>
+
+    <!-- Profile Menu -->
+    <mat-menu #profileMenu="matMenu" xPosition="after">
+      <div class="profile-menu-header">
+        <div class="user-avatar-large">
+          {{ getInitialsAvatar() }}
+        </div>
+        <div class="user-info">
+          <div class="user-name">{{ userName() }}</div>
+          <div class="user-role">Hub Administrator</div>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <button mat-menu-item (click)="openProfile()">
+        <mat-icon>settings</mat-icon>
+        <span>Einstellungen</span>
+      </button>
+
+      <button mat-menu-item (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Abmelden</span>
+      </button>
+    </mat-menu>
+  </div>
+</nav>

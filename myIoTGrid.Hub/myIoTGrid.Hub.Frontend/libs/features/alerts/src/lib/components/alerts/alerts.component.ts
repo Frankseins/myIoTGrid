@@ -65,7 +65,7 @@ export class AlertsComponent implements OnInit, OnDestroy {
   private async loadAlerts(): Promise<void> {
     this.isLoading.set(true);
     try {
-      const alerts = await this.alertApiService.getAll().toPromise();
+      const alerts = await this.alertApiService.getActive().toPromise();
       this.alerts.set(alerts || []);
     } catch (error) {
       console.error('Error loading alerts:', error);

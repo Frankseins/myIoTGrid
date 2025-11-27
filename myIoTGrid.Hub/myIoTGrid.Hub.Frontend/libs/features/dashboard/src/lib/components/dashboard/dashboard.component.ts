@@ -8,13 +8,12 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   SignalRService,
-  SensorApiService,
+  HubApiService,
   SensorDataApiService,
   AlertApiService
 } from '@myiotgrid/shared/data-access';
-import { Sensor, SensorData, Alert, AlertLevel } from '@myiotgrid/shared/models';
+import { Hub, Sensor, SensorData, Alert, AlertLevel } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent, ConnectionStatusComponent, EmptyStateComponent } from '@myiotgrid/shared/ui';
-import { RelativeTimePipe, SensorUnitPipe, AlertLevelPipe } from '@myiotgrid/shared/utils';
 import { SensorCardComponent } from '../sensor-card/sensor-card.component';
 import { AlertBannerComponent } from '../alert-banner/alert-banner.component';
 
@@ -33,21 +32,19 @@ import { AlertBannerComponent } from '../alert-banner/alert-banner.component';
     ConnectionStatusComponent,
     EmptyStateComponent,
     SensorCardComponent,
-    AlertBannerComponent,
-    RelativeTimePipe,
-    SensorUnitPipe,
-    AlertLevelPipe
+    AlertBannerComponent
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private readonly signalRService = inject(SignalRService);
-  private readonly sensorApiService = inject(SensorApiService);
+  private readonly hubApiService = inject(HubApiService);
   private readonly sensorDataApiService = inject(SensorDataApiService);
   private readonly alertApiService = inject(AlertApiService);
 
   readonly isLoading = signal(true);
+  readonly hubs = signal<Hub[]>([]);
   readonly sensors = signal<Sensor[]>([]);
   readonly latestSensorData = signal<Map<string, SensorData>>(new Map());
   readonly activeAlerts = signal<Alert[]>([]);
@@ -58,6 +55,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   readonly warningAlerts = computed(() =>
     this.activeAlerts().filter(a => a.level === AlertLevel.Warning)
+  );
+
+  readonly onlineHubs = computed(() =>
+    this.hubs().filter(h => h.isOnline)
+  );
+
+  readonly offlineHubs = computed(() =>
+    this.hubs().filter(h => !h.isOnline)
   );
 
   readonly onlineSensors = computed(() =>
@@ -76,20 +81,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.signalRService.off('NewSensorData');
     this.signalRService.off('AlertReceived');
-    this.signalRService.off('SensorStatusChanged');
+    this.signalRService.off('HubStatusChanged');
   }
 
   private async loadData(): Promise<void> {
     this.isLoading.set(true);
     try {
-      const [sensors, alerts, latestData] = await Promise.all([
-        this.sensorApiService.getAll().toPromise(),
+      // Load hubs, alerts, and latest sensor data
+      const [hubs, alerts, latestData] = await Promise.all([
+        this.hubApiService.getAll().toPromise(),
         this.alertApiService.getActive().toPromise(),
         this.sensorDataApiService.getLatest().toPromise()
       ]);
 
-      this.sensors.set(sensors || []);
+      this.hubs.set(hubs || []);
       this.activeAlerts.set(alerts || []);
+
+      // Load sensors for each hub
+      if (hubs && hubs.length > 0) {
+        const sensorPromises = hubs.map(hub =>
+          this.hubApiService.getSensors(hub.id).toPromise()
+        );
+        const sensorArrays = await Promise.all(sensorPromises);
+        const allSensors = sensorArrays.flat().filter((s): s is Sensor => s !== undefined);
+        this.sensors.set(allSensors);
+      }
 
       if (latestData) {
         const dataMap = new Map<string, SensorData>();
@@ -126,9 +142,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.activeAlerts.update(alerts => [alert, ...alerts]);
       });
 
-      this.signalRService.onSensorStatusChanged((sensorId: string, isOnline: boolean) => {
-        this.sensors.update(sensors =>
-          sensors.map(s => s.id === sensorId ? { ...s, isOnline } : s)
+      this.signalRService.onHubStatusChanged((hub: Hub) => {
+        this.hubs.update(hubs =>
+          hubs.map(h => h.id === hub.id ? { ...h, ...hub } : h)
         );
       });
     } catch (error) {

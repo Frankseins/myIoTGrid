@@ -1,0 +1,376 @@
+/**
+ * Navigation Rail - Material Design 3
+ * Based on mySocialCare GlobalNavigationRailComponent
+ *
+ * Dimensions (M3 Spec):
+ * - Collapsed Width: 72px (icons only, default state)
+ * - Expanded Width: 256px (icons + labels horizontally)
+ * - Destination Height: 56px (collapsed), 48px (expanded)
+ * - Active Indicator: 4px × 32px, vertical pill
+ *
+ * Colors:
+ * - Primary: #106EBE (Microsoft Blue)
+ * - Surface Container: #FEFBFF
+ * - On Surface Variant: #49454F
+ * - Secondary Container: #E8DEF8
+ */
+
+// CSS Custom Properties for rail width
+:host {
+  --rail-width-collapsed: 72px;
+  --rail-width-expanded: 256px;
+}
+
+.navigation-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--rail-width-collapsed);
+  height: 100vh;
+  background-color: #FEFBFF;
+  border-right: 1px solid #E5E5E5;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  padding: 4px 0;
+  transition: width 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Expanded State
+  &:not(.collapsed) {
+    width: var(--rail-width-expanded);
+    align-items: flex-start;
+  }
+
+  // Responsive: Keep collapsed on mobile
+  @media (max-width: 767px) {
+    width: var(--rail-width-collapsed);
+
+    &:not(.collapsed) {
+      width: var(--rail-width-collapsed);
+    }
+  }
+}
+
+// ============ Header: Toggle Button ============
+
+.rail-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  gap: 4px;
+  padding: 12px 0;
+  margin-bottom: 8px;
+
+  .navigation-rail:not(.collapsed) & {
+    align-items: flex-start;
+    padding: 12px 12px;
+  }
+
+  .rail-toggle-button {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:hover {
+      background-color: rgba(16, 110, 190, 0.08);
+    }
+
+    &:active {
+      background-color: rgba(16, 110, 190, 0.12);
+    }
+
+    &:focus-visible {
+      outline: 2px solid #106EBE;
+      outline-offset: 2px;
+    }
+
+    mat-icon {
+      color: #49454F;
+    }
+  }
+}
+
+// ============ Destinations ============
+
+.rail-destinations {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 4px;
+  padding: 0 8px;
+
+  .navigation-rail:not(.collapsed) & {
+    align-items: stretch;
+    padding: 0 12px;
+  }
+}
+
+.destination {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: #49454F;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+
+  // Expanded State: Horizontal layout
+  .navigation-rail:not(.collapsed) & {
+    flex-direction: row;
+    width: 100%;
+    height: 48px;
+    padding: 0 12px;
+    gap: 12px;
+    border-radius: 24px;
+  }
+
+  // Active Indicator (Pill Shape)
+  .active-indicator {
+    position: absolute;
+    left: -8px;
+    width: 4px;
+    height: 32px;
+    background-color: transparent;
+    border-radius: 0 2px 2px 0;
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    .navigation-rail:not(.collapsed) & {
+      left: -12px;
+    }
+  }
+
+  // Icon Container
+  .icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+
+    .navigation-rail:not(.collapsed) & {
+      margin-bottom: 0;
+    }
+
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  // Destination Label
+  .destination-label {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    text-align: center;
+    letter-spacing: 0.5px;
+    display: none;
+
+    // Expanded: Show label
+    .navigation-rail:not(.collapsed) & {
+      display: block;
+      font-size: 14px;
+      line-height: 20px;
+      text-align: left;
+      flex: 1;
+    }
+  }
+
+  // Hover State
+  &:hover:not(.disabled):not(.active) {
+    background-color: rgba(16, 110, 190, 0.08);
+  }
+
+  // Pressed State
+  &:active:not(.disabled) {
+    background-color: rgba(16, 110, 190, 0.12);
+  }
+
+  // Focus State
+  &:focus-visible {
+    outline: 2px solid #106EBE;
+    outline-offset: 2px;
+  }
+
+  // Active State (Current Route)
+  &.active {
+    background-color: #E8DEF8;
+    color: #1D192B;
+
+    .active-indicator {
+      background-color: #106EBE;
+    }
+
+    mat-icon {
+      color: #106EBE;
+    }
+  }
+
+  // Disabled State
+  &.disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+// ============ Spacer ============
+
+.rail-spacer {
+  flex: 1;
+}
+
+// ============ Global Destinations ============
+
+.rail-global {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 8px;
+  border-top: 1px solid #E5E5E5;
+  margin-bottom: 8px;
+
+  .navigation-rail:not(.collapsed) & {
+    align-items: stretch;
+    padding: 8px 12px;
+  }
+}
+
+// ============ Footer: Profile Menu ============
+
+.rail-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 56px;
+  margin-top: 8px;
+  padding-bottom: 8px;
+
+  .navigation-rail:not(.collapsed) & {
+    justify-content: flex-start;
+    padding: 0 12px 8px;
+  }
+
+  .profile-button {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: 50%;
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:hover {
+      background-color: rgba(16, 110, 190, 0.08);
+    }
+
+    &:active {
+      background-color: rgba(16, 110, 190, 0.12);
+    }
+
+    &:focus-visible {
+      outline: 2px solid #106EBE;
+      outline-offset: 2px;
+    }
+
+    .user-avatar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #106EBE 0%, #764BA2 100%);
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+  }
+}
+
+// ============ Profile Menu Styles ============
+
+.profile-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #E5E5E5;
+
+  .user-avatar-large {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #106EBE 0%, #764BA2 100%);
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+
+    .user-name {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 20px;
+      color: #1D192B;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-role {
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 16px;
+      color: #49454F;
+    }
+  }
+}
+
+// ============ Badge Customization ============
+
+::ng-deep {
+  .navigation-rail {
+    .mat-badge-content {
+      background-color: #F59E0B;
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+    }
+
+    .mat-badge-small .mat-badge-content {
+      font-size: 9px;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+    }
+  }
+}

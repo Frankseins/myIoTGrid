@@ -8,8 +8,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
-import { SensorApiService, SensorDataApiService } from '@myiotgrid/shared/data-access';
-import { Sensor, SensorData } from '@myiotgrid/shared/models';
+import { HubApiService, SensorDataApiService } from '@myiotgrid/shared/data-access';
+import { Hub, Sensor, SensorData } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent, EmptyStateComponent } from '@myiotgrid/shared/ui';
 import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
 
@@ -35,10 +35,11 @@ import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
   styleUrl: './sensor-list.component.scss'
 })
 export class SensorListComponent implements OnInit {
-  private readonly sensorApiService = inject(SensorApiService);
+  private readonly hubApiService = inject(HubApiService);
   private readonly sensorDataApiService = inject(SensorDataApiService);
 
   readonly isLoading = signal(true);
+  readonly hubs = signal<Hub[]>([]);
   readonly sensors = signal<Sensor[]>([]);
   readonly latestData = signal<Map<string, SensorData>>(new Map());
 
@@ -63,12 +64,22 @@ export class SensorListComponent implements OnInit {
   private async loadSensors(): Promise<void> {
     this.isLoading.set(true);
     try {
-      const [sensors, data] = await Promise.all([
-        this.sensorApiService.getAll().toPromise(),
-        this.sensorDataApiService.getLatest().toPromise()
-      ]);
-      this.sensors.set(sensors || []);
+      // First load all hubs
+      const hubs = await this.hubApiService.getAll().toPromise();
+      this.hubs.set(hubs || []);
 
+      // Then load sensors for each hub
+      if (hubs && hubs.length > 0) {
+        const sensorPromises = hubs.map(hub =>
+          this.hubApiService.getSensors(hub.id).toPromise()
+        );
+        const sensorArrays = await Promise.all(sensorPromises);
+        const allSensors = sensorArrays.flat().filter((s): s is Sensor => s !== undefined);
+        this.sensors.set(allSensors);
+      }
+
+      // Load latest sensor data
+      const data = await this.sensorDataApiService.getLatest().toPromise();
       if (data) {
         const dataMap = new Map<string, SensorData>();
         data.forEach(d => {
@@ -89,6 +100,11 @@ export class SensorListComponent implements OnInit {
 
   getLatestData(sensorId: string): SensorData | undefined {
     return this.latestData().get(sensorId);
+  }
+
+  getHubName(hubId: string): string {
+    const hub = this.hubs().find(h => h.id === hubId);
+    return hub?.name || 'Unbekannt';
   }
 
   getSensorIcon(typeCode: string): string {

@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -33,6 +33,7 @@ import { RelativeTimePipe, ProtocolPipe } from '@myiotgrid/shared/utils';
 export class HubDetailComponent implements OnInit {
   private readonly hubApiService = inject(HubApiService);
   private readonly sensorApiService = inject(SensorApiService);
+  readonly router = inject(Router);
 
   id = input.required<string>();
 
@@ -49,7 +50,7 @@ export class HubDetailComponent implements OnInit {
     try {
       const [hub, sensors] = await Promise.all([
         this.hubApiService.getById(this.id()).toPromise(),
-        this.sensorApiService.getByHub(this.id()).toPromise()
+        this.sensorApiService.getByHubId(this.id()).toPromise()
       ]);
       this.hub.set(hub || null);
       this.sensors.set(sensors || []);

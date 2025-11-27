@@ -5,8 +5,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Sensor, SensorData, Protocol } from '@myiotgrid/shared/models';
-import { RelativeTimePipe, SensorUnitPipe, ProtocolPipe } from '@myiotgrid/shared/utils';
+import { Sensor, SensorData } from '@myiotgrid/shared/models';
+import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
 
 @Component({
   selector: 'myiotgrid-sensor-card',
@@ -19,8 +19,7 @@ import { RelativeTimePipe, SensorUnitPipe, ProtocolPipe } from '@myiotgrid/share
     MatChipsModule,
     MatTooltipModule,
     RelativeTimePipe,
-    SensorUnitPipe,
-    ProtocolPipe
+    SensorUnitPipe
   ],
   templateUrl: './sensor-card.component.html',
   styleUrl: './sensor-card.component.scss'
