@@ -32,20 +32,30 @@
     <section class="stats-section">
       <mat-card class="stat-card">
         <mat-card-content>
-          <mat-icon class="stat-icon online">sensors</mat-icon>
+          <mat-icon class="stat-icon hubs">hub</mat-icon>
           <div class="stat-info">
-            <span class="stat-value">{{ onlineSensors().length }}</span>
-            <span class="stat-label">Online</span>
+            <span class="stat-value">{{ onlineHubs().length }}/{{ hubs().length }}</span>
+            <span class="stat-label">Hubs Online</span>
           </div>
         </mat-card-content>
       </mat-card>
 
       <mat-card class="stat-card">
         <mat-card-content>
-          <mat-icon class="stat-icon offline">sensors_off</mat-icon>
+          <mat-icon class="stat-icon online">router</mat-icon>
           <div class="stat-info">
-            <span class="stat-value">{{ offlineSensors().length }}</span>
-            <span class="stat-label">Offline</span>
+            <span class="stat-value">{{ onlineNodes().length }}</span>
+            <span class="stat-label">Nodes Online</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-content>
+          <mat-icon class="stat-icon offline">router</mat-icon>
+          <div class="stat-info">
+            <span class="stat-value">{{ offlineNodes().length }}</span>
+            <span class="stat-label">Nodes Offline</span>
           </div>
         </mat-card-content>
       </mat-card>
@@ -61,24 +71,24 @@
       </mat-card>
     </section>
 
-    <!-- Sensors Grid -->
-    <section class="sensors-section">
-      <h2 class="section-title">Sensoren</h2>
+    <!-- Nodes Grid -->
+    <section class="nodes-section">
+      <h2 class="section-title">Nodes</h2>
 
-      @if (sensors().length === 0) {
+      @if (nodes().length === 0) {
         <myiotgrid-empty-state
-          icon="sensors"
-          title="Keine Sensoren"
-          message="Es wurden noch keine Sensoren registriert. Verbinden Sie einen Sensor mit dem Hub."
+          icon="router"
+          title="Keine Nodes"
+          message="Es wurden noch keine Nodes registriert. Verbinden Sie einen ESP32 oder LoRa32 Node mit dem Hub."
           actionLabel="Mehr erfahren">
         </myiotgrid-empty-state>
       } @else {
-        <div class="sensors-grid">
-          @for (sensor of sensors(); track sensor.id) {
-            <myiotgrid-sensor-card
-              [sensor]="sensor"
-              [latestData]="getLatestDataForSensor(sensor.id)">
-            </myiotgrid-sensor-card>
+        <div class="nodes-grid">
+          @for (node of nodes(); track node.id) {
+            <myiotgrid-node-card
+              [node]="node"
+              [latestReadings]="getLatestReadingsForNode(node.id)">
+            </myiotgrid-node-card>
           }
         </div>
       }

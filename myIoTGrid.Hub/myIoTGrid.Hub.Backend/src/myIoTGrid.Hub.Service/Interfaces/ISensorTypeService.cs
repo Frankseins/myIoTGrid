@@ -4,7 +4,7 @@ namespace myIoTGrid.Hub.Service.Interfaces;
 
 /// <summary>
 /// Service Interface for SensorType management.
-/// Matter-konform: Entspricht Matter Clusters.
+/// Hardware sensor library with default configurations.
 /// </summary>
 public interface ISensorTypeService
 {
@@ -14,21 +14,30 @@ public interface ISensorTypeService
     /// <summary>Returns all SensorTypes (cached for 1 hour)</summary>
     Task<IEnumerable<SensorTypeDto>> GetAllCachedAsync(CancellationToken ct = default);
 
-    /// <summary>Returns a SensorType by TypeId</summary>
-    Task<SensorTypeDto?> GetByTypeIdAsync(string typeId, CancellationToken ct = default);
+    /// <summary>Returns a SensorType by Id</summary>
+    Task<SensorTypeDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Returns a SensorType by Code</summary>
+    Task<SensorTypeDto?> GetByCodeAsync(string code, CancellationToken ct = default);
 
     /// <summary>Returns SensorTypes by category</summary>
     Task<IEnumerable<SensorTypeDto>> GetByCategoryAsync(string category, CancellationToken ct = default);
 
-    /// <summary>Gets the unit for a SensorType</summary>
-    Task<string> GetUnitAsync(string typeId, CancellationToken ct = default);
+    /// <summary>Returns all capabilities for a SensorType</summary>
+    Task<IEnumerable<SensorTypeCapabilityDto>> GetCapabilitiesAsync(Guid sensorTypeId, CancellationToken ct = default);
 
     /// <summary>Creates a new SensorType</summary>
     Task<SensorTypeDto> CreateAsync(CreateSensorTypeDto dto, CancellationToken ct = default);
 
+    /// <summary>Updates a SensorType</summary>
+    Task<SensorTypeDto> UpdateAsync(Guid id, UpdateSensorTypeDto dto, CancellationToken ct = default);
+
+    /// <summary>Deletes a SensorType</summary>
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
+
     /// <summary>Synchronizes SensorTypes from the Cloud</summary>
     Task SyncFromCloudAsync(CancellationToken ct = default);
 
-    /// <summary>Seeds default SensorTypes with Matter Cluster IDs</summary>
+    /// <summary>Seeds default SensorTypes (Hardware Library)</summary>
     Task SeedDefaultTypesAsync(CancellationToken ct = default);
 }

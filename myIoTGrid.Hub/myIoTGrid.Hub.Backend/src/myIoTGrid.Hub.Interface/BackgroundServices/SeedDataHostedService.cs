@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using myIoTGrid.Hub.Infrastructure.Data;
 using myIoTGrid.Hub.Service.Interfaces;
 
+// ReSharper disable ClassNeverInstantiated.Global
+
 namespace myIoTGrid.Hub.Interface.BackgroundServices;
 
 /// <summary>
@@ -13,16 +15,13 @@ namespace myIoTGrid.Hub.Interface.BackgroundServices;
 public class SeedDataHostedService : IHostedService
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IHostEnvironment _environment;
     private readonly ILogger<SeedDataHostedService> _logger;
 
     public SeedDataHostedService(
         IServiceScopeFactory scopeFactory,
-        IHostEnvironment environment,
         ILogger<SeedDataHostedService> logger)
     {
         _scopeFactory = scopeFactory;
-        _environment = environment;
         _logger = logger;
     }
 
@@ -34,14 +33,11 @@ public class SeedDataHostedService : IHostedService
 
         try
         {
-            // Apply migrations in Development
-            if (_environment.IsDevelopment())
-            {
-                var dbContext = scope.ServiceProvider.GetRequiredService<HubDbContext>();
-                _logger.LogInformation("Applying database migrations...");
-                await dbContext.Database.MigrateAsync(cancellationToken);
-                _logger.LogInformation("Database migrations applied successfully");
-            }
+            // Apply migrations (always - required for Docker containers)
+            var dbContext = scope.ServiceProvider.GetRequiredService<HubDbContext>();
+            _logger.LogInformation("Applying database migrations...");
+            await dbContext.Database.MigrateAsync(cancellationToken);
+            _logger.LogInformation("Database migrations applied successfully");
 
             // Seed default data
             var seedDataService = scope.ServiceProvider.GetRequiredService<ISeedDataService>();

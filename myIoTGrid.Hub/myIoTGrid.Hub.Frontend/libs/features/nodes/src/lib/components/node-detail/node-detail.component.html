@@ -1,0 +1,175 @@
+<div class="node-detail-page">
+  @if (isLoading()) {
+    <myiotgrid-loading-spinner message="Node wird geladen..."></myiotgrid-loading-spinner>
+  } @else if (!node()) {
+    <myiotgrid-empty-state
+      icon="error"
+      title="Node nicht gefunden"
+      message="Der angeforderte Node konnte nicht gefunden werden."
+      actionLabel="Zurück zur Liste"
+      (actionClicked)="goBack()">
+    </myiotgrid-empty-state>
+  } @else {
+    <!-- Header -->
+    <header class="page-header">
+      <button mat-icon-button (click)="goBack()" class="back-btn">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div class="header-content">
+        <div class="title-row">
+          <mat-icon class="node-icon">{{ nodeIcon() }}</mat-icon>
+          <h1 class="page-title">{{ node()!.location?.name || node()!.name }}</h1>
+        </div>
+        <div class="header-meta">
+          <mat-chip [class.online]="node()!.isOnline" [class.offline]="!node()!.isOnline">
+            <mat-icon matChipAvatar>{{ node()!.isOnline ? 'check_circle' : 'cancel' }}</mat-icon>
+            {{ node()!.isOnline ? 'Online' : 'Offline' }}
+          </mat-chip>
+          <code class="node-id">{{ node()!.nodeId }}</code>
+        </div>
+      </div>
+    </header>
+
+    <!-- Current Values Card -->
+    <mat-card class="values-card">
+      <mat-card-header>
+        <mat-card-title>Aktuelle Messwerte</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        @if (latestReadings().length > 0) {
+          <div class="readings-grid">
+            @for (reading of latestReadings(); track reading.sensorTypeId) {
+              <div class="reading-item">
+                <mat-icon [style.color]="getSensorColor(reading.sensorTypeId)">
+                  {{ getSensorIcon(reading.sensorTypeId) }}
+                </mat-icon>
+                <span class="reading-value">{{ reading.value | sensorUnit:reading.unit }}</span>
+                <span class="reading-type">{{ getSensorDisplayName(reading.sensorTypeId) }}</span>
+                <span class="reading-timestamp">{{ reading.timestamp | relativeTime }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="no-readings">
+            <mat-icon>timeline</mat-icon>
+            <span>Keine Messwerte vorhanden</span>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Sensors Card -->
+    @if (node()!.sensors && node()!.sensors.length > 0) {
+      <mat-card class="sensors-card">
+        <mat-card-header>
+          <mat-card-title>Sensoren auf diesem Node</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="sensors-list">
+            @for (sensor of node()!.sensors; track sensor.id) {
+              <div class="sensor-item">
+                <mat-icon [style.color]="getSensorColor(sensor.sensorTypeId)">
+                  {{ getSensorIcon(sensor.sensorTypeId) }}
+                </mat-icon>
+                <div class="sensor-info">
+                  <span class="sensor-name">{{ sensor.name || sensor.sensorTypeId }}</span>
+                  <span class="sensor-meta">Endpoint {{ sensor.endpointId }} &bull; {{ getSensorDisplayName(sensor.sensorTypeId) }}</span>
+                </div>
+                <mat-chip [class.active]="sensor.isActive" [class.inactive]="!sensor.isActive">
+                  {{ sensor.isActive ? 'Aktiv' : 'Inaktiv' }}
+                </mat-chip>
+              </div>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <!-- Info Card -->
+    <mat-card class="info-card">
+      <mat-card-header>
+        <mat-card-title>Node-Informationen</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">Node ID</span>
+            <code class="value">{{ node()!.nodeId }}</code>
+          </div>
+          <div class="info-item">
+            <span class="label">Name</span>
+            <span class="value">{{ node()!.name }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Standort</span>
+            <span class="value">{{ node()!.location?.name || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Protokoll</span>
+            <span class="value">{{ node()!.protocol === 1 ? 'WLAN' : node()!.protocol === 2 ? 'LoRaWAN' : 'Unbekannt' }}</span>
+          </div>
+          @if (node()!.firmwareVersion) {
+            <div class="info-item">
+              <span class="label">Firmware</span>
+              <code class="value">{{ node()!.firmwareVersion }}</code>
+            </div>
+          }
+          @if (node()!.batteryLevel !== null && node()!.batteryLevel !== undefined) {
+            <div class="info-item">
+              <span class="label">Batterie</span>
+              <span class="value">{{ node()!.batteryLevel }}%</span>
+            </div>
+          }
+          <div class="info-item">
+            <span class="label">Zuletzt gesehen</span>
+            <span class="value">{{ node()!.lastSeen | relativeTime }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Registriert</span>
+            <span class="value">{{ node()!.createdAt | relativeTime }}</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- History Section -->
+    <section class="history-section">
+      <div class="section-header">
+        <h2 class="section-title">Messwert-Verlauf</h2>
+        <mat-form-field appearance="outline">
+          <mat-label>Zeitraum</mat-label>
+          <mat-select [(ngModel)]="timeRange" (selectionChange)="onTimeRangeChange()">
+            <mat-option value="24h">Letzte 24 Stunden</mat-option>
+            <mat-option value="7d">Letzte 7 Tage</mat-option>
+            <mat-option value="30d">Letzte 30 Tage</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      @if (readings().length === 0) {
+        <myiotgrid-empty-state
+          icon="timeline"
+          title="Keine Daten"
+          message="Im ausgewählten Zeitraum sind keine Messwerte vorhanden.">
+        </myiotgrid-empty-state>
+      } @else {
+        <mat-card class="history-card">
+          <mat-card-content>
+            <div class="history-list">
+              @for (reading of readings(); track reading.id) {
+                <div class="history-item">
+                  <mat-icon [style.color]="getSensorColor(reading.sensorTypeId)">
+                    {{ getSensorIcon(reading.sensorTypeId) }}
+                  </mat-icon>
+                  <span class="history-type">{{ getSensorDisplayName(reading.sensorTypeId) }}</span>
+                  <span class="history-value">{{ reading.value | sensorUnit:reading.unit }}</span>
+                  <span class="history-time">{{ reading.timestamp | relativeTime }}</span>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+    </section>
+  }
+</div>

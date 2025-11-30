@@ -21,20 +21,32 @@ public class HubDbContext : DbContext
     /// <summary>Nodes (ESP32/LoRa32 Devices) - Matter Nodes</summary>
     public DbSet<Node> Nodes => Set<Node>();
 
-    /// <summary>Sensors (Physical sensor chips: DHT22, BME280) - Matter Endpoints</summary>
-    public DbSet<Sensor> Sensors => Set<Sensor>();
+    // === Dreistufiges Sensor-Modell ===
 
-    /// <summary>Sensor Types - Matter Clusters</summary>
+    /// <summary>Sensor Types (Hardware Library) - e.g., DHT22, BME280</summary>
     public DbSet<SensorType> SensorTypes => Set<SensorType>();
 
-    /// <summary>Readings (Measurement Data) - Matter Attribute Reports</summary>
+    /// <summary>Sensor Type Capabilities (Measurement types per SensorType)</summary>
+    public DbSet<SensorTypeCapability> SensorTypeCapabilities => Set<SensorTypeCapability>();
+
+    /// <summary>Sensors (Instances with calibration)</summary>
+    public DbSet<Sensor> Sensors => Set<Sensor>();
+
+    /// <summary>Node Sensor Assignments (Hardware Binding) - Matter Endpoints</summary>
+    public DbSet<NodeSensorAssignment> NodeSensorAssignments => Set<NodeSensorAssignment>();
+
+    /// <summary>Readings (Measurement Data with raw + calibrated values)</summary>
     public DbSet<Reading> Readings => Set<Reading>();
+
+    // === Synced Data from Cloud ===
 
     /// <summary>Synced Nodes (from Cloud)</summary>
     public DbSet<SyncedNode> SyncedNodes => Set<SyncedNode>();
 
     /// <summary>Synced Readings (from Cloud)</summary>
     public DbSet<SyncedReading> SyncedReadings => Set<SyncedReading>();
+
+    // === Alerts ===
 
     /// <summary>Alert Types</summary>
     public DbSet<AlertType> AlertTypes => Set<AlertType>();

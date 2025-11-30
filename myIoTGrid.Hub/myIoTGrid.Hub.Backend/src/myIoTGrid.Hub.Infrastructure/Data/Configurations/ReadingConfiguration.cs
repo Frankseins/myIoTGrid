@@ -5,8 +5,8 @@ using myIoTGrid.Hub.Domain.Entities;
 namespace myIoTGrid.Hub.Infrastructure.Data.Configurations;
 
 /// <summary>
-/// EF Core Configuration for Reading Entity (Measurement).
-/// Matter-konform: Entspricht einem Attribute Report.
+/// EF Core Configuration for Reading Entity.
+/// Time-series measurement with raw and calibrated values.
 /// </summary>
 public class ReadingConfiguration : IEntityTypeConfiguration<Reading>
 {
@@ -27,12 +27,22 @@ public class ReadingConfiguration : IEntityTypeConfiguration<Reading>
         builder.Property(r => r.NodeId)
             .IsRequired();
 
-        builder.Property(r => r.SensorTypeId)
+        builder.Property(r => r.AssignmentId)
+            .IsRequired();
+
+        builder.Property(r => r.MeasurementType)
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(r => r.RawValue)
+            .IsRequired();
+
         builder.Property(r => r.Value)
             .IsRequired();
+
+        builder.Property(r => r.Unit)
+            .IsRequired()
+            .HasMaxLength(20);
 
         builder.Property(r => r.Timestamp)
             .IsRequired();
@@ -47,20 +57,21 @@ public class ReadingConfiguration : IEntityTypeConfiguration<Reading>
             .HasForeignKey(r => r.NodeId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne(r => r.SensorType)
-            .WithMany(st => st.Readings)
-            .HasForeignKey(r => r.SensorTypeId)
-            .HasPrincipalKey(st => st.TypeId)
-            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(r => r.Assignment)
+            .WithMany(a => a.Readings)
+            .HasForeignKey(r => r.AssignmentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes for Performance (time-series queries)
         builder.HasIndex(r => r.TenantId);
         builder.HasIndex(r => r.NodeId);
-        builder.HasIndex(r => r.SensorTypeId);
+        builder.HasIndex(r => r.AssignmentId);
+        builder.HasIndex(r => r.MeasurementType);
         builder.HasIndex(r => r.Timestamp);
         builder.HasIndex(r => r.IsSyncedToCloud);
         builder.HasIndex(r => new { r.TenantId, r.Timestamp });
         builder.HasIndex(r => new { r.NodeId, r.Timestamp });
-        builder.HasIndex(r => new { r.NodeId, r.SensorTypeId, r.Timestamp });
+        builder.HasIndex(r => new { r.AssignmentId, r.Timestamp });
+        builder.HasIndex(r => new { r.AssignmentId, r.MeasurementType, r.Timestamp });
     }
 }

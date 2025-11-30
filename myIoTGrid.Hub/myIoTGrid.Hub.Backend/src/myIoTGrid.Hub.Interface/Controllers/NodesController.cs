@@ -16,18 +16,18 @@ namespace myIoTGrid.Hub.Interface.Controllers;
 public class NodesController : ControllerBase
 {
     private readonly INodeService _nodeService;
-    private readonly ISensorService _sensorService;
+    private readonly INodeSensorAssignmentService _assignmentService;
     private readonly IHubService _hubService;
     private readonly IHubContext<SensorHub> _hubContext;
 
     public NodesController(
         INodeService nodeService,
-        ISensorService sensorService,
+        INodeSensorAssignmentService assignmentService,
         IHubService hubService,
         IHubContext<SensorHub> hubContext)
     {
         _nodeService = nodeService;
-        _sensorService = sensorService;
+        _assignmentService = assignmentService;
         _hubService = hubService;
         _hubContext = hubContext;
     }
@@ -66,17 +66,37 @@ public class NodesController : ControllerBase
     }
 
     /// <summary>
-    /// Returns all Sensors for a Node
+    /// Returns all Sensor Assignments for a Node with effective configuration
     /// </summary>
     /// <param name="id">Node-ID</param>
     /// <param name="ct">Cancellation Token</param>
-    /// <returns>List of Sensors</returns>
-    [HttpGet("{id:guid}/sensors")]
-    [ProducesResponseType(typeof(IEnumerable<SensorDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetSensors(Guid id, CancellationToken ct)
+    /// <returns>List of Assignments with effective config (pins, intervals, calibration)</returns>
+    [HttpGet("{id:guid}/assignments")]
+    [ProducesResponseType(typeof(IEnumerable<NodeSensorAssignmentDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAssignments(Guid id, CancellationToken ct)
     {
-        var sensors = await _sensorService.GetByNodeAsync(id, ct);
-        return Ok(sensors);
+        var assignments = await _assignmentService.GetByNodeAsync(id, ct);
+        return Ok(assignments);
+    }
+
+    /// <summary>
+    /// Returns an Assignment by EndpointId for a Node
+    /// </summary>
+    /// <param name="id">Node-ID</param>
+    /// <param name="endpointId">Matter-konformer EndpointId (1-254)</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>The Assignment with effective configuration</returns>
+    [HttpGet("{id:guid}/assignments/endpoint/{endpointId:int}")]
+    [ProducesResponseType(typeof(NodeSensorAssignmentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAssignmentByEndpoint(Guid id, int endpointId, CancellationToken ct)
+    {
+        var assignment = await _assignmentService.GetByEndpointAsync(id, endpointId, ct);
+
+        if (assignment == null)
+            return NotFound();
+
+        return Ok(assignment);
     }
 
     /// <summary>

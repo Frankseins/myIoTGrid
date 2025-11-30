@@ -3,29 +3,29 @@ using myIoTGrid.Hub.Shared.DTOs;
 namespace myIoTGrid.Hub.Service.Interfaces;
 
 /// <summary>
-/// Service Interface for Sensor (Physical sensor chip: DHT22, BME280) management.
-/// Matter-konform: Entspricht einem Matter Endpoint.
+/// Service Interface for Sensor instance management.
+/// Concrete sensors with calibration settings.
 /// </summary>
 public interface ISensorService
 {
-    /// <summary>Returns all Sensors for a Node</summary>
-    Task<IEnumerable<SensorDto>> GetByNodeAsync(Guid nodeId, CancellationToken ct = default);
+    /// <summary>Returns all Sensors for the current tenant</summary>
+    Task<IEnumerable<SensorDto>> GetAllAsync(CancellationToken ct = default);
 
-    /// <summary>Returns a Sensor by ID</summary>
+    /// <summary>Returns a Sensor by Id</summary>
     Task<SensorDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Returns a Sensor by SensorTypeId within a Node</summary>
-    Task<SensorDto?> GetBySensorTypeAsync(Guid nodeId, string sensorTypeId, CancellationToken ct = default);
+    /// <summary>Returns Sensors by SensorType</summary>
+    Task<IEnumerable<SensorDto>> GetBySensorTypeAsync(Guid sensorTypeId, CancellationToken ct = default);
 
-    /// <summary>Creates a new Sensor on a Node</summary>
-    Task<SensorDto> CreateAsync(Guid nodeId, CreateSensorDto dto, CancellationToken ct = default);
+    /// <summary>Creates a new Sensor instance</summary>
+    Task<SensorDto> CreateAsync(CreateSensorDto dto, CancellationToken ct = default);
 
-    /// <summary>Updates a Sensor</summary>
-    Task<SensorDto?> UpdateAsync(Guid id, UpdateSensorDto dto, CancellationToken ct = default);
+    /// <summary>Updates a Sensor instance</summary>
+    Task<SensorDto> UpdateAsync(Guid id, UpdateSensorDto dto, CancellationToken ct = default);
+
+    /// <summary>Calibrates a Sensor</summary>
+    Task<SensorDto> CalibrateAsync(Guid id, CalibrateSensorDto dto, CancellationToken ct = default);
 
     /// <summary>Deletes a Sensor</summary>
-    Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
-
-    /// <summary>Creates or updates sensors for a node based on sensor type IDs</summary>
-    Task<IEnumerable<SensorDto>> SyncSensorsAsync(Guid nodeId, IEnumerable<string> sensorTypeIds, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
 }

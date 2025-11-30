@@ -3,9 +3,21 @@ import { Observable } from 'rxjs';
 import { BaseApiService } from './base-api.service';
 import { Sensor, CreateSensorDto, UpdateSensorDto } from '@myiotgrid/shared/models';
 
+/**
+ * API Service for physical Sensor chips (DHT22, BME280, etc.)
+ * Matter-konform: Corresponds to Matter Endpoints
+ */
 @Injectable({ providedIn: 'root' })
 export class SensorApiService extends BaseApiService {
   private readonly endpoint = '/sensors';
+
+  /**
+   * Get all sensors
+   * GET /api/sensors
+   */
+  getAll(): Observable<Sensor[]> {
+    return this.get<Sensor[]>(this.endpoint);
+  }
 
   /**
    * Get sensor by ID
@@ -16,27 +28,19 @@ export class SensorApiService extends BaseApiService {
   }
 
   /**
-   * Get all sensors for a specific hub
-   * GET /api/hubs/{hubId}/sensors
+   * Get sensors for a specific node
+   * GET /api/sensors?nodeId={nodeId}
    */
-  getByHubId(hubId: string): Observable<Sensor[]> {
-    return this.get<Sensor[]>(`/hubs/${hubId}/sensors`);
+  getByNodeId(nodeId: string): Observable<Sensor[]> {
+    return this.get<Sensor[]>(this.endpoint, { nodeId });
   }
 
   /**
-   * Create new sensor
+   * Create new sensor on a node
    * POST /api/sensors
    */
-  create(dto: CreateSensorDto): Observable<Sensor> {
-    return this.post<Sensor>(this.endpoint, dto);
-  }
-
-  /**
-   * Register/auto-register sensor
-   * POST /api/sensors/register
-   */
-  register(dto: CreateSensorDto): Observable<Sensor> {
-    return this.post<Sensor>(`${this.endpoint}/register`, dto);
+  create(nodeId: string, dto: CreateSensorDto): Observable<Sensor> {
+    return this.post<Sensor>(this.endpoint, { ...dto, nodeId });
   }
 
   /**
@@ -48,10 +52,18 @@ export class SensorApiService extends BaseApiService {
   }
 
   /**
-   * Update sensor status
-   * PUT /api/sensors/{id}/status
+   * Delete sensor
+   * DELETE /api/sensors/{id}
    */
-  updateStatus(id: string, isOnline: boolean): Observable<void> {
-    return this.put<void>(`${this.endpoint}/${id}/status`, { isOnline });
+  remove(id: string): Observable<void> {
+    return this.delete<void>(`${this.endpoint}/${id}`);
+  }
+
+  /**
+   * Activate/deactivate sensor
+   * PUT /api/sensors/{id}/active
+   */
+  setActive(id: string, isActive: boolean): Observable<Sensor> {
+    return this.put<Sensor>(`${this.endpoint}/${id}`, { isActive });
   }
 }

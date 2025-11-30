@@ -194,17 +194,21 @@ public class UpdateHubValidatorTests
 
 #endregion
 
-#region CreateSensorValidator Tests (Sensor = Physical Sensor Chip on Node)
+#region CreateSensorValidator Tests (New 3-tier Model)
 
 public class CreateSensorValidatorTests
 {
     private readonly CreateSensorValidator _sut = new();
+    private readonly Guid _validSensorTypeId = Guid.NewGuid();
 
     [Fact]
     public void Validate_WithValidData_ShouldNotHaveValidationErrors()
     {
         // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "temperature", EndpointId: 1);
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "Living Room Temperature Sensor"
+        );
 
         // Act
         var result = _sut.TestValidate(dto);
@@ -214,10 +218,17 @@ public class CreateSensorValidatorTests
     }
 
     [Fact]
-    public void Validate_WithValidDataAndName_ShouldNotHaveValidationErrors()
+    public void Validate_WithAllOptionalFields_ShouldNotHaveValidationErrors()
     {
         // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "humidity", EndpointId: 2, Name: "Living Room Humidity");
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "DHT22 Sensor",
+            Description: "Temperature and humidity sensor",
+            SerialNumber: "DHT22-001",
+            IntervalSecondsOverride: 60,
+            ActiveCapabilityIds: new[] { Guid.NewGuid(), Guid.NewGuid() }
+        );
 
         // Act
         var result = _sut.TestValidate(dto);
@@ -230,7 +241,10 @@ public class CreateSensorValidatorTests
     public void Validate_WithEmptySensorTypeId_ShouldHaveValidationError()
     {
         // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "", EndpointId: 1);
+        var dto = new CreateSensorDto(
+            SensorTypeId: Guid.Empty,
+            Name: "Test Sensor"
+        );
 
         // Act
         var result = _sut.TestValidate(dto);
@@ -241,106 +255,30 @@ public class CreateSensorValidatorTests
     }
 
     [Fact]
-    public void Validate_WithSensorTypeIdTooLong_ShouldHaveValidationError()
+    public void Validate_WithEmptyName_ShouldHaveValidationError()
     {
         // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: new string('a', 51), EndpointId: 1);
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: ""
+        );
 
         // Act
         var result = _sut.TestValidate(dto);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x.SensorTypeId)
-            .WithErrorMessage("SensorTypeId must not exceed 50 characters");
-    }
-
-    [Theory]
-    [InlineData("Temperature")]
-    [InlineData("HUMIDITY")]
-    [InlineData("soil-moisture")]
-    [InlineData("co2.level")]
-    public void Validate_WithInvalidSensorTypeIdFormat_ShouldHaveValidationError(string sensorTypeId)
-    {
-        // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: sensorTypeId, EndpointId: 1);
-
-        // Act
-        var result = _sut.TestValidate(dto);
-
-        // Assert
-        result.ShouldHaveValidationErrorFor(x => x.SensorTypeId)
-            .WithErrorMessage("SensorTypeId must be lowercase with underscores (e.g., 'temperature', 'soil_moisture')");
-    }
-
-    [Theory]
-    [InlineData("temperature")]
-    [InlineData("humidity")]
-    [InlineData("soil_moisture")]
-    [InlineData("co2")]
-    [InlineData("pm25")]
-    public void Validate_WithValidSensorTypeIdFormat_ShouldNotHaveValidationErrors(string sensorTypeId)
-    {
-        // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: sensorTypeId, EndpointId: 1);
-
-        // Act
-        var result = _sut.TestValidate(dto);
-
-        // Assert
-        result.ShouldNotHaveValidationErrorFor(x => x.SensorTypeId);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public void Validate_WithInvalidEndpointId_ShouldHaveValidationError(int endpointId)
-    {
-        // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "temperature", EndpointId: endpointId);
-
-        // Act
-        var result = _sut.TestValidate(dto);
-
-        // Assert
-        result.ShouldHaveValidationErrorFor(x => x.EndpointId)
-            .WithErrorMessage("EndpointId must be greater than 0");
-    }
-
-    [Fact]
-    public void Validate_WithEndpointIdTooLarge_ShouldHaveValidationError()
-    {
-        // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "temperature", EndpointId: 256);
-
-        // Act
-        var result = _sut.TestValidate(dto);
-
-        // Assert
-        result.ShouldHaveValidationErrorFor(x => x.EndpointId)
-            .WithErrorMessage("EndpointId must not exceed 255 (Matter limitation)");
-    }
-
-    [Theory]
-    [InlineData(1)]
-    [InlineData(128)]
-    [InlineData(255)]
-    public void Validate_WithValidEndpointId_ShouldNotHaveValidationErrors(int endpointId)
-    {
-        // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "temperature", EndpointId: endpointId);
-
-        // Act
-        var result = _sut.TestValidate(dto);
-
-        // Assert
-        result.ShouldNotHaveValidationErrorFor(x => x.EndpointId);
+        result.ShouldHaveValidationErrorFor(x => x.Name)
+            .WithErrorMessage("Name is required");
     }
 
     [Fact]
     public void Validate_WithNameTooLong_ShouldHaveValidationError()
     {
         // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "temperature", EndpointId: 1, Name: new string('a', 201));
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: new string('a', 201)
+        );
 
         // Act
         var result = _sut.TestValidate(dto);
@@ -351,10 +289,112 @@ public class CreateSensorValidatorTests
     }
 
     [Fact]
-    public void Validate_WithNullName_ShouldNotHaveValidationErrors()
+    public void Validate_WithDescriptionTooLong_ShouldHaveValidationError()
     {
         // Arrange
-        var dto = new CreateSensorDto(SensorTypeId: "temperature", EndpointId: 1, Name: null);
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "Test Sensor",
+            Description: new string('a', 1001)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.Description)
+            .WithErrorMessage("Description must not exceed 1000 characters");
+    }
+
+    [Fact]
+    public void Validate_WithSerialNumberTooLong_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "Test Sensor",
+            SerialNumber: new string('a', 101)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.SerialNumber)
+            .WithErrorMessage("SerialNumber must not exceed 100 characters");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Validate_WithInvalidIntervalSecondsOverride_ShouldHaveValidationError(int interval)
+    {
+        // Arrange
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "Test Sensor",
+            IntervalSecondsOverride: interval
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert - Validator uses x.IntervalSecondsOverride!.Value so property path is "IntervalSecondsOverride.Value"
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("IntervalSecondsOverride must be greater than 0");
+    }
+
+    [Fact]
+    public void Validate_WithIntervalSecondsOverrideTooLarge_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "Test Sensor",
+            IntervalSecondsOverride: 86401 // More than 24 hours
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert - Validator uses x.IntervalSecondsOverride!.Value so property path is "IntervalSecondsOverride.Value"
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("IntervalSecondsOverride must not exceed 86400 seconds (24 hours)");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(60)]
+    [InlineData(3600)]
+    [InlineData(86400)]
+    public void Validate_WithValidIntervalSecondsOverride_ShouldNotHaveValidationErrors(int interval)
+    {
+        // Arrange
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "Test Sensor",
+            IntervalSecondsOverride: interval
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.IntervalSecondsOverride);
+    }
+
+    [Fact]
+    public void Validate_WithNullOptionalFields_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CreateSensorDto(
+            SensorTypeId: _validSensorTypeId,
+            Name: "Test Sensor",
+            Description: null,
+            SerialNumber: null,
+            IntervalSecondsOverride: null,
+            ActiveCapabilityIds: null
+        );
 
         // Act
         var result = _sut.TestValidate(dto);
@@ -366,7 +406,7 @@ public class CreateSensorValidatorTests
 
 #endregion
 
-#region UpdateSensorValidator Tests (Sensor = Physical Sensor Chip on Node)
+#region UpdateSensorValidator Tests (New 3-tier Model)
 
 public class UpdateSensorValidatorTests
 {
@@ -413,6 +453,64 @@ public class UpdateSensorValidatorTests
     }
 
     [Fact]
+    public void Validate_WithDescriptionTooLong_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new UpdateSensorDto(Description: new string('a', 1001));
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.Description)
+            .WithErrorMessage("Description must not exceed 1000 characters");
+    }
+
+    [Fact]
+    public void Validate_WithSerialNumberTooLong_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new UpdateSensorDto(SerialNumber: new string('a', 101));
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.SerialNumber)
+            .WithErrorMessage("SerialNumber must not exceed 100 characters");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Validate_WithInvalidIntervalSecondsOverride_ShouldHaveValidationError(int interval)
+    {
+        // Arrange
+        var dto = new UpdateSensorDto(IntervalSecondsOverride: interval);
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert - Validator uses x.IntervalSecondsOverride!.Value so property path is "IntervalSecondsOverride.Value"
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("IntervalSecondsOverride must be greater than 0");
+    }
+
+    [Fact]
+    public void Validate_WithIntervalSecondsOverrideTooLarge_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new UpdateSensorDto(IntervalSecondsOverride: 86401);
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert - Validator uses x.IntervalSecondsOverride!.Value so property path is "IntervalSecondsOverride.Value"
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("IntervalSecondsOverride must not exceed 86400 seconds (24 hours)");
+    }
+
+    [Fact]
     public void Validate_WithNullFields_ShouldNotHaveValidationErrors()
     {
         // Arrange
@@ -436,6 +534,212 @@ public class UpdateSensorValidatorTests
 
         // Assert
         result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithAllOptionalFields_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new UpdateSensorDto(
+            Name: "Updated Sensor",
+            Description: "Updated description",
+            SerialNumber: "SN-001",
+            IntervalSecondsOverride: 120,
+            ActiveCapabilityIds: new[] { Guid.NewGuid() },
+            IsActive: true
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+}
+
+#endregion
+
+#region CalibrateSensorValidator Tests
+
+public class CalibrateSensorValidatorTests
+{
+    private readonly CalibrateSensorValidator _sut = new();
+
+    [Fact]
+    public void Validate_WithValidData_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.5,
+            GainCorrection: 1.0
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithAllFields_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: -2.5,
+            GainCorrection: 1.05,
+            CalibrationNotes: "Calibrated against reference thermometer",
+            CalibrationDueAt: DateTime.UtcNow.AddMonths(6)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithNaNOffsetCorrection_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: double.NaN,
+            GainCorrection: 1.0
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.OffsetCorrection)
+            .WithErrorMessage("OffsetCorrection must be a valid number");
+    }
+
+    [Fact]
+    public void Validate_WithInfinityOffsetCorrection_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: double.PositiveInfinity,
+            GainCorrection: 1.0
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.OffsetCorrection)
+            .WithErrorMessage("OffsetCorrection must be a valid number");
+    }
+
+    [Fact]
+    public void Validate_WithNaNGainCorrection_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.0,
+            GainCorrection: double.NaN
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.GainCorrection)
+            .WithErrorMessage("GainCorrection must be a valid number");
+    }
+
+    [Fact]
+    public void Validate_WithZeroGainCorrection_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.0,
+            GainCorrection: 0.0
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.GainCorrection)
+            .WithErrorMessage("GainCorrection cannot be zero");
+    }
+
+    [Fact]
+    public void Validate_WithCalibrationNotesTooLong_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.0,
+            GainCorrection: 1.0,
+            CalibrationNotes: new string('a', 1001)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.CalibrationNotes)
+            .WithErrorMessage("CalibrationNotes must not exceed 1000 characters");
+    }
+
+    [Fact]
+    public void Validate_WithCalibrationDueAtInPast_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.0,
+            GainCorrection: 1.0,
+            CalibrationDueAt: DateTime.UtcNow.AddDays(-1)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert - Validator uses x.CalibrationDueAt!.Value so property path is "CalibrationDueAt.Value"
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("CalibrationDueAt must be in the future");
+    }
+
+    [Theory]
+    [InlineData(-10.0)]
+    [InlineData(0.0)]
+    [InlineData(10.0)]
+    public void Validate_WithValidOffsetCorrection_ShouldNotHaveValidationErrors(double offset)
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: offset,
+            GainCorrection: 1.0
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.OffsetCorrection);
+    }
+
+    [Theory]
+    [InlineData(0.5)]
+    [InlineData(1.0)]
+    [InlineData(2.0)]
+    [InlineData(-1.0)]
+    public void Validate_WithValidGainCorrection_ShouldNotHaveValidationErrors(double gain)
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.0,
+            GainCorrection: gain
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.GainCorrection);
     }
 }
 
@@ -901,7 +1205,7 @@ public class AlertFilterValidatorTests
 
 #endregion
 
-#region ReadingFilterValidator Tests
+#region ReadingFilterValidator Tests (New Model)
 
 public class ReadingFilterValidatorTests
 {
@@ -933,7 +1237,7 @@ public class ReadingFilterValidatorTests
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Page)
-            .WithErrorMessage("Page must be at least 1");
+            .WithErrorMessage("Page must be greater than 0");
     }
 
     [Theory]
@@ -949,8 +1253,7 @@ public class ReadingFilterValidatorTests
         var result = _sut.TestValidate(dto);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x.PageSize)
-            .WithErrorMessage("PageSize must be between 1 and 1000");
+        result.ShouldHaveValidationErrorFor(x => x.PageSize);
     }
 
     [Fact]
@@ -968,17 +1271,51 @@ public class ReadingFilterValidatorTests
     }
 
     [Fact]
-    public void Validate_WithSensorTypeIdTooLong_ShouldHaveValidationError()
+    public void Validate_WithMeasurementTypeTooLong_ShouldHaveValidationError()
     {
         // Arrange
-        var dto = new ReadingFilterDto(SensorTypeId: new string('a', 51));
+        var dto = new ReadingFilterDto(MeasurementType: new string('a', 51));
 
         // Act
         var result = _sut.TestValidate(dto);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x.SensorTypeId)
-            .WithErrorMessage("SensorTypeId must not exceed 50 characters");
+        result.ShouldHaveValidationErrorFor(x => x.MeasurementType)
+            .WithErrorMessage("MeasurementType must not exceed 50 characters");
+    }
+
+    [Theory]
+    [InlineData("Temperature")]
+    [InlineData("HUMIDITY")]
+    [InlineData("soil-moisture")]
+    public void Validate_WithInvalidMeasurementTypeFormat_ShouldHaveValidationError(string type)
+    {
+        // Arrange
+        var dto = new ReadingFilterDto(MeasurementType: type);
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.MeasurementType)
+            .WithErrorMessage("MeasurementType must be lowercase with underscores");
+    }
+
+    [Theory]
+    [InlineData("temperature")]
+    [InlineData("humidity")]
+    [InlineData("soil_moisture")]
+    [InlineData("co2")]
+    public void Validate_WithValidMeasurementTypeFormat_ShouldNotHaveValidationErrors(string type)
+    {
+        // Arrange
+        var dto = new ReadingFilterDto(MeasurementType: type);
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.MeasurementType);
     }
 
     [Fact]
@@ -1028,6 +1365,548 @@ public class ReadingFilterValidatorTests
 
         // Assert
         result.ShouldNotHaveValidationErrorFor(x => x.PageSize);
+    }
+
+    [Fact]
+    public void Validate_WithAssignmentId_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new ReadingFilterDto(AssignmentId: Guid.NewGuid());
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithNodeId_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new ReadingFilterDto(NodeId: Guid.NewGuid());
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+}
+
+#endregion
+
+#region CreateReadingValidator Tests (New 3-tier Model)
+
+public class CreateReadingValidatorTests
+{
+    private readonly CreateReadingValidator _sut = new();
+
+    [Fact]
+    public void Validate_WithValidData_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "sensor-node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithAllFields_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "sensor-node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            HubId: "hub-01",
+            Timestamp: DateTime.UtcNow
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithEmptyNodeId_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.NodeId)
+            .WithErrorMessage("NodeId is required");
+    }
+
+    [Fact]
+    public void Validate_WithNodeIdTooLong_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: new string('a', 101),
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.NodeId)
+            .WithErrorMessage("NodeId must not exceed 100 characters");
+    }
+
+    [Theory]
+    [InlineData("node with spaces")]
+    [InlineData("node.with.dots")]
+    [InlineData("node@special")]
+    public void Validate_WithInvalidNodeIdFormat_ShouldHaveValidationError(string nodeId)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: nodeId,
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.NodeId)
+            .WithErrorMessage("NodeId can only contain letters, numbers, hyphens, and underscores");
+    }
+
+    [Theory]
+    [InlineData("node-01")]
+    [InlineData("node_01")]
+    [InlineData("NODE123")]
+    [InlineData("my-Node_123")]
+    public void Validate_WithValidNodeIdFormat_ShouldNotHaveValidationErrors(string nodeId)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: nodeId,
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.NodeId);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Validate_WithInvalidEndpointId_ShouldHaveValidationError(int endpointId)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: endpointId,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.EndpointId)
+            .WithErrorMessage("EndpointId must be greater than 0");
+    }
+
+    [Fact]
+    public void Validate_WithEndpointIdTooLarge_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 255,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.EndpointId)
+            .WithErrorMessage("EndpointId must not exceed 254 (Matter limitation)");
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(128)]
+    [InlineData(254)]
+    public void Validate_WithValidEndpointId_ShouldNotHaveValidationErrors(int endpointId)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: endpointId,
+            MeasurementType: "temperature",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.EndpointId);
+    }
+
+    [Fact]
+    public void Validate_WithEmptyMeasurementType_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "",
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.MeasurementType)
+            .WithErrorMessage("MeasurementType is required");
+    }
+
+    [Fact]
+    public void Validate_WithMeasurementTypeTooLong_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: new string('a', 51),
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.MeasurementType)
+            .WithErrorMessage("MeasurementType must not exceed 50 characters");
+    }
+
+    [Theory]
+    [InlineData("Temperature")]
+    [InlineData("HUMIDITY")]
+    [InlineData("soil-moisture")]
+    [InlineData("co2.level")]
+    public void Validate_WithInvalidMeasurementTypeFormat_ShouldHaveValidationError(string type)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: type,
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.MeasurementType)
+            .WithErrorMessage("MeasurementType must be lowercase with underscores (e.g., 'temperature', 'soil_moisture')");
+    }
+
+    [Theory]
+    [InlineData("temperature")]
+    [InlineData("humidity")]
+    [InlineData("soil_moisture")]
+    [InlineData("co2")]
+    [InlineData("pm25")]
+    public void Validate_WithValidMeasurementTypeFormat_ShouldNotHaveValidationErrors(string type)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: type,
+            RawValue: 21.5
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.MeasurementType);
+    }
+
+    [Fact]
+    public void Validate_WithNaNRawValue_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: double.NaN
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.RawValue)
+            .WithErrorMessage("RawValue must be a valid number");
+    }
+
+    [Fact]
+    public void Validate_WithPositiveInfinityRawValue_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: double.PositiveInfinity
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.RawValue)
+            .WithErrorMessage("RawValue must be a valid number");
+    }
+
+    [Fact]
+    public void Validate_WithNegativeInfinityRawValue_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: double.NegativeInfinity
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.RawValue)
+            .WithErrorMessage("RawValue must be a valid number");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-100)]
+    [InlineData(100)]
+    [InlineData(21.5)]
+    [InlineData(-40.0)]
+    public void Validate_WithValidRawValue_ShouldNotHaveValidationErrors(double value)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: value
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.RawValue);
+    }
+
+    [Fact]
+    public void Validate_WithHubIdTooLong_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            HubId: new string('a', 101)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.HubId)
+            .WithErrorMessage("HubId must not exceed 100 characters");
+    }
+
+    [Theory]
+    [InlineData("hub with spaces")]
+    [InlineData("hub.with.dots")]
+    [InlineData("hub@special")]
+    public void Validate_WithInvalidHubIdFormat_ShouldHaveValidationError(string hubId)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            HubId: hubId
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.HubId)
+            .WithErrorMessage("HubId can only contain letters, numbers, hyphens, and underscores");
+    }
+
+    [Theory]
+    [InlineData("hub-01")]
+    [InlineData("hub_01")]
+    [InlineData("HUB123")]
+    public void Validate_WithValidHubIdFormat_ShouldNotHaveValidationErrors(string hubId)
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            HubId: hubId
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.HubId);
+    }
+
+    [Fact]
+    public void Validate_WithNullHubId_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            HubId: null
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithTimestampTooFarInFuture_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            Timestamp: DateTime.UtcNow.AddMinutes(10)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor("Timestamp.Value")
+            .WithErrorMessage("Timestamp cannot be more than 5 minutes in the future");
+    }
+
+    [Fact]
+    public void Validate_WithTimestampTooFarInPast_ShouldHaveValidationError()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            Timestamp: DateTime.UtcNow.AddYears(-2)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor("Timestamp.Value")
+            .WithErrorMessage("Timestamp cannot be more than 1 year in the past");
+    }
+
+    [Fact]
+    public void Validate_WithTimestampInValidRange_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            Timestamp: DateTime.UtcNow.AddMinutes(-5)
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WithNullTimestamp_ShouldNotHaveValidationErrors()
+    {
+        // Arrange
+        var dto = new CreateReadingDto(
+            NodeId: "node-01",
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 21.5,
+            Timestamp: null
+        );
+
+        // Act
+        var result = _sut.TestValidate(dto);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
     }
 }
 

@@ -1,0 +1,85 @@
+# =============================================================================
+# myIoTGrid Hub - Docker Compose (Development)
+# =============================================================================
+# Usage:
+#   docker compose up -d        # Start all services
+#   docker compose logs -f      # View logs
+#   docker compose down         # Stop all services
+#   docker compose build        # Rebuild images
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Hub API (.NET 10)
+  # ---------------------------------------------------------------------------
+  hub-api:
+    build:
+      context: .
+      dockerfile: src/myIoTGrid.Hub.Api/Dockerfile
+    container_name: myiotgrid-hub-api
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__HubDb=Data Source=/app/data/hub.db
+      - Mqtt__Host=mosquitto
+      - Mqtt__Port=1883
+    volumes:
+      - hub-data:/app/data
+      - hub-logs:/app/logs
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - hub-network
+
+  # ---------------------------------------------------------------------------
+  # Mosquitto MQTT Broker
+  # ---------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: myiotgrid-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-logs:/mosquitto/log
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - hub-network
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  hub-network:
+    driver: bridge
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  hub-data:
+    name: myiotgrid-hub-data
+  hub-logs:
+    name: myiotgrid-hub-logs
+  mosquitto-data:
+    name: myiotgrid-mosquitto-data
+  mosquitto-logs:
+    name: myiotgrid-mosquitto-logs

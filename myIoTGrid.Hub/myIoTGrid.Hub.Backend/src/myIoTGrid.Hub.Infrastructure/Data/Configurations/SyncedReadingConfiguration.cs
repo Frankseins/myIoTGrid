@@ -43,11 +43,9 @@ public class SyncedReadingConfiguration : IEntityTypeConfiguration<SyncedReading
             .HasForeignKey(sr => sr.SyncedNodeId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne(sr => sr.SensorType)
-            .WithMany(st => st.SyncedReadings)
-            .HasForeignKey(sr => sr.SensorTypeId)
-            .HasPrincipalKey(st => st.TypeId)
-            .OnDelete(DeleteBehavior.Restrict);
+        // Note: SensorType relationship is now by Code, navigation not configured
+        // SensorTypeId refers to the sensor type code (e.g., "temperature")
+        builder.Ignore(sr => sr.SensorType);
 
         // Indexes for Performance (time-series queries)
         builder.HasIndex(sr => sr.SyncedNodeId);

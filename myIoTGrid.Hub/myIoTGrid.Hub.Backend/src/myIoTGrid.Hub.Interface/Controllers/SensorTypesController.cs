@@ -5,8 +5,8 @@ using myIoTGrid.Hub.Shared.DTOs;
 namespace myIoTGrid.Hub.Interface.Controllers;
 
 /// <summary>
-/// REST API Controller for Sensor Types.
-/// Matter-konform: Entspricht Matter Clusters.
+/// REST API Controller for SensorTypes (Hardware Library).
+/// Global sensor definitions with capabilities and default configurations.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -21,10 +21,10 @@ public class SensorTypesController : ControllerBase
     }
 
     /// <summary>
-    /// Returns all Sensor Types (cached)
+    /// Returns all SensorTypes (cached)
     /// </summary>
     /// <param name="ct">Cancellation Token</param>
-    /// <returns>List of all Sensor Types</returns>
+    /// <returns>List of all SensorTypes</returns>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<SensorTypeDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken ct)
@@ -34,19 +34,19 @@ public class SensorTypesController : ControllerBase
     }
 
     /// <summary>
-    /// Returns a Sensor Type by TypeId
+    /// Returns a SensorType by Id
     /// </summary>
-    /// <param name="typeId">SensorType-TypeId (e.g. "temperature")</param>
+    /// <param name="id">SensorType-ID</param>
     /// <param name="ct">Cancellation Token</param>
-    /// <returns>The Sensor Type</returns>
-    /// <response code="200">Sensor Type found</response>
-    /// <response code="404">Sensor Type not found</response>
-    [HttpGet("{typeId}")]
+    /// <returns>The SensorType</returns>
+    /// <response code="200">SensorType found</response>
+    /// <response code="404">SensorType not found</response>
+    [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(SensorTypeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetByTypeId(string typeId, CancellationToken ct)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var sensorType = await _sensorTypeService.GetByTypeIdAsync(typeId, ct);
+        var sensorType = await _sensorTypeService.GetByIdAsync(id, ct);
 
         if (sensorType == null)
             return NotFound();
@@ -55,11 +55,32 @@ public class SensorTypesController : ControllerBase
     }
 
     /// <summary>
-    /// Returns Sensor Types by Category
+    /// Returns a SensorType by Code
     /// </summary>
-    /// <param name="category">Category (e.g. "climate", "air_quality")</param>
+    /// <param name="code">SensorType Code (e.g. "dht22", "bme280")</param>
     /// <param name="ct">Cancellation Token</param>
-    /// <returns>List of Sensor Types in category</returns>
+    /// <returns>The SensorType</returns>
+    /// <response code="200">SensorType found</response>
+    /// <response code="404">SensorType not found</response>
+    [HttpGet("code/{code}")]
+    [ProducesResponseType(typeof(SensorTypeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByCode(string code, CancellationToken ct)
+    {
+        var sensorType = await _sensorTypeService.GetByCodeAsync(code, ct);
+
+        if (sensorType == null)
+            return NotFound();
+
+        return Ok(sensorType);
+    }
+
+    /// <summary>
+    /// Returns SensorTypes by Category
+    /// </summary>
+    /// <param name="category">Category (e.g. "climate", "water", "location")</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>List of SensorTypes in category</returns>
     [HttpGet("category/{category}")]
     [ProducesResponseType(typeof(IEnumerable<SensorTypeDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCategory(string category, CancellationToken ct)
@@ -69,27 +90,27 @@ public class SensorTypesController : ControllerBase
     }
 
     /// <summary>
-    /// Returns the unit for a Sensor Type
+    /// Returns all Capabilities for a SensorType
     /// </summary>
-    /// <param name="typeId">SensorType-TypeId</param>
+    /// <param name="id">SensorType-ID</param>
     /// <param name="ct">Cancellation Token</param>
-    /// <returns>The unit string</returns>
-    [HttpGet("{typeId}/unit")]
-    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetUnit(string typeId, CancellationToken ct)
+    /// <returns>List of Capabilities</returns>
+    [HttpGet("{id:guid}/capabilities")]
+    [ProducesResponseType(typeof(IEnumerable<SensorTypeCapabilityDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCapabilities(Guid id, CancellationToken ct)
     {
-        var unit = await _sensorTypeService.GetUnitAsync(typeId, ct);
-        return Ok(unit);
+        var capabilities = await _sensorTypeService.GetCapabilitiesAsync(id, ct);
+        return Ok(capabilities);
     }
 
     /// <summary>
-    /// Creates a new custom Sensor Type
+    /// Creates a new custom SensorType
     /// </summary>
-    /// <param name="dto">Sensor Type data</param>
+    /// <param name="dto">SensorType data</param>
     /// <param name="ct">Cancellation Token</param>
-    /// <returns>The created Sensor Type</returns>
-    /// <response code="201">Sensor Type successfully created</response>
-    /// <response code="400">Invalid data or TypeId already exists</response>
+    /// <returns>The created SensorType</returns>
+    /// <response code="201">SensorType successfully created</response>
+    /// <response code="400">Invalid data or Code already exists</response>
     [HttpPost]
     [ProducesResponseType(typeof(SensorTypeDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -98,7 +119,7 @@ public class SensorTypesController : ControllerBase
         try
         {
             var sensorType = await _sensorTypeService.CreateAsync(dto, ct);
-            return CreatedAtAction(nameof(GetByTypeId), new { typeId = sensorType.TypeId }, sensorType);
+            return CreatedAtAction(nameof(GetById), new { id = sensorType.Id }, sensorType);
         }
         catch (InvalidOperationException ex)
         {
@@ -108,5 +129,87 @@ public class SensorTypesController : ControllerBase
                 Detail = ex.Message
             });
         }
+    }
+
+    /// <summary>
+    /// Updates a SensorType
+    /// </summary>
+    /// <param name="id">SensorType-ID</param>
+    /// <param name="dto">Update data</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>The updated SensorType</returns>
+    /// <response code="200">SensorType successfully updated</response>
+    /// <response code="400">Invalid data</response>
+    /// <response code="404">SensorType not found</response>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(SensorTypeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateSensorTypeDto dto, CancellationToken ct)
+    {
+        try
+        {
+            var sensorType = await _sensorTypeService.UpdateAsync(id, dto, ct);
+            return Ok(sensorType);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "Not Found",
+                Detail = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Deletes a SensorType
+    /// </summary>
+    /// <param name="id">SensorType-ID</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>No content</returns>
+    /// <response code="204">SensorType successfully deleted</response>
+    /// <response code="400">Cannot delete global SensorType</response>
+    /// <response code="404">SensorType not found</response>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            await _sensorTypeService.DeleteAsync(id, ct);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("global"))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Request",
+                Detail = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Title = "Not Found",
+                Detail = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Triggers synchronization with Cloud
+    /// </summary>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>No content</returns>
+    [HttpPost("sync")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SyncFromCloud(CancellationToken ct)
+    {
+        await _sensorTypeService.SyncFromCloudAsync(ct);
+        return NoContent();
     }
 }

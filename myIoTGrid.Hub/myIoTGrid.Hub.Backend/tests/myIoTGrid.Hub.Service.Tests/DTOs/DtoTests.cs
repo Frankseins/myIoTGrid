@@ -17,6 +17,7 @@ public class NodeDtoTests
     public void NodeDto_ShouldBeCreatedWithAllProperties()
     {
         // Arrange & Act
+        // New model: NodeDto has AssignmentCount instead of Sensors collection
         var dto = new NodeDto(
             Id: Guid.NewGuid(),
             HubId: Guid.NewGuid(),
@@ -24,7 +25,7 @@ public class NodeDtoTests
             Name: "Test Node",
             Protocol: ProtocolDto.WLAN,
             Location: new LocationDto("Living Room"),
-            Sensors: new List<SensorDto>(),
+            AssignmentCount: 3,
             LastSeen: DateTime.UtcNow,
             IsOnline: true,
             FirmwareVersion: "1.0.0",
@@ -39,7 +40,7 @@ public class NodeDtoTests
         dto.IsOnline.Should().BeTrue();
         dto.FirmwareVersion.Should().Be("1.0.0");
         dto.BatteryLevel.Should().Be(85);
-        dto.Sensors.Should().BeEmpty();
+        dto.AssignmentCount.Should().Be(3);
     }
 
     [Fact]
@@ -137,85 +138,126 @@ public class NodeDtoTests
 
 #endregion
 
-#region SensorDto Tests (Physical Sensor Chip = Matter Endpoint)
+#region SensorDto Tests (Sensor Instance with Calibration)
 
 /// <summary>
-/// Tests for Sensor DTOs (physical sensor chips like DHT22, BME280 = Matter Endpoints)
+/// Tests for Sensor DTOs (concrete sensor instances with calibration settings)
+/// New 3-tier model: SensorType (Library) → Sensor (Instance) → NodeSensorAssignment (Binding)
 /// </summary>
 public class SensorDtoTests
 {
     [Fact]
     public void SensorDto_ShouldBeCreatedWithAllProperties()
     {
-        // Arrange
-        var sensorType = new SensorTypeDto(
-            TypeId: "temperature",
-            DisplayName: "Temperatur",
-            ClusterId: 0x0402,
-            MatterClusterName: "TemperatureMeasurement",
-            Unit: "°C",
-            Resolution: 0.1,
-            MinValue: -40,
-            MaxValue: 125,
-            Description: "Temperature measurement",
-            IsCustom: false,
-            Category: "weather",
-            Icon: "thermostat",
-            Color: "#FF5722",
-            IsGlobal: true,
-            CreatedAt: DateTime.UtcNow
-        );
-
-        // Act
+        // Arrange & Act - New model: Sensor has calibration, no NodeId/EndpointId
+        var activeCapabilityIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
         var dto = new SensorDto(
             Id: Guid.NewGuid(),
-            NodeId: Guid.NewGuid(),
-            SensorTypeId: "temperature",
-            EndpointId: 1,
-            Name: "Temperature Sensor",
+            TenantId: Guid.NewGuid(),
+            SensorTypeId: Guid.NewGuid(),
+            SensorTypeCode: "dht22",
+            SensorTypeName: "DHT22 Temperature & Humidity Sensor",
+            Name: "Living Room DHT22",
+            Description: "Temperature and humidity sensor in living room",
+            SerialNumber: "DHT22-001",
+            IntervalSecondsOverride: 30,
+            OffsetCorrection: 0.5,
+            GainCorrection: 1.02,
+            LastCalibratedAt: DateTime.UtcNow.AddMonths(-1),
+            CalibrationNotes: "Calibrated with reference thermometer",
+            CalibrationDueAt: DateTime.UtcNow.AddMonths(5),
+            ActiveCapabilityIds: activeCapabilityIds,
             IsActive: true,
-            SensorType: sensorType,
-            CreatedAt: DateTime.UtcNow
+            CreatedAt: DateTime.UtcNow.AddDays(-10),
+            UpdatedAt: DateTime.UtcNow
         );
 
         // Assert
-        dto.SensorTypeId.Should().Be("temperature");
-        dto.EndpointId.Should().Be(1);
-        dto.Name.Should().Be("Temperature Sensor");
+        dto.SensorTypeCode.Should().Be("dht22");
+        dto.SensorTypeName.Should().Be("DHT22 Temperature & Humidity Sensor");
+        dto.Name.Should().Be("Living Room DHT22");
+        dto.Description.Should().Be("Temperature and humidity sensor in living room");
+        dto.SerialNumber.Should().Be("DHT22-001");
+        dto.IntervalSecondsOverride.Should().Be(30);
+        dto.OffsetCorrection.Should().Be(0.5);
+        dto.GainCorrection.Should().Be(1.02);
+        dto.LastCalibratedAt.Should().NotBeNull();
+        dto.CalibrationNotes.Should().Be("Calibrated with reference thermometer");
+        dto.ActiveCapabilityIds.Should().HaveCount(2);
         dto.IsActive.Should().BeTrue();
-        dto.SensorType.Should().NotBeNull();
-        dto.SensorType!.Unit.Should().Be("°C");
     }
 
     [Fact]
     public void CreateSensorDto_ShouldHaveRequiredAndOptionalValues()
     {
-        // Act
+        // Act - New model: CreateSensorDto has SensorTypeId (Guid), no EndpointId
+        var sensorTypeId = Guid.NewGuid();
         var dto = new CreateSensorDto(
-            SensorTypeId: "humidity",
-            EndpointId: 2,
-            Name: "Humidity Sensor"
+            SensorTypeId: sensorTypeId,
+            Name: "Kitchen Sensor",
+            Description: "Sensor in the kitchen",
+            SerialNumber: "BME280-042"
         );
 
         // Assert
-        dto.SensorTypeId.Should().Be("humidity");
-        dto.EndpointId.Should().Be(2);
-        dto.Name.Should().Be("Humidity Sensor");
+        dto.SensorTypeId.Should().Be(sensorTypeId);
+        dto.Name.Should().Be("Kitchen Sensor");
+        dto.Description.Should().Be("Sensor in the kitchen");
+        dto.SerialNumber.Should().Be("BME280-042");
+        dto.IntervalSecondsOverride.Should().BeNull();
+        dto.ActiveCapabilityIds.Should().BeNull();
     }
 
     [Fact]
-    public void CreateSensorDto_ShouldAllowNullName()
+    public void CreateSensorDto_ShouldAllowMinimalProperties()
     {
-        // Act
+        // Act - New model: Only SensorTypeId and Name required
+        var sensorTypeId = Guid.NewGuid();
         var dto = new CreateSensorDto(
-            SensorTypeId: "co2",
-            EndpointId: 3
+            SensorTypeId: sensorTypeId,
+            Name: "Simple Sensor"
         );
 
         // Assert
-        dto.SensorTypeId.Should().Be("co2");
-        dto.EndpointId.Should().Be(3);
-        dto.Name.Should().BeNull();
+        dto.SensorTypeId.Should().Be(sensorTypeId);
+        dto.Name.Should().Be("Simple Sensor");
+        dto.Description.Should().BeNull();
+        dto.SerialNumber.Should().BeNull();
+    }
+
+    [Fact]
+    public void UpdateSensorDto_ShouldAllowPartialUpdates()
+    {
+        // Act - New model: UpdateSensorDto for updating sensor properties
+        var dto = new UpdateSensorDto(
+            Name: "Updated Name",
+            IsActive: false
+        );
+
+        // Assert
+        dto.Name.Should().Be("Updated Name");
+        dto.IsActive.Should().BeFalse();
+        dto.Description.Should().BeNull();
+        dto.SerialNumber.Should().BeNull();
+    }
+
+    [Fact]
+    public void CalibrateSensorDto_ShouldSetCalibrationValues()
+    {
+        // Act - New model: CalibrateSensorDto for sensor calibration
+        var dueDate = DateTime.UtcNow.AddMonths(6);
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.5,
+            GainCorrection: 1.02,
+            CalibrationNotes: "Calibrated with NIST-traceable reference",
+            CalibrationDueAt: dueDate
+        );
+
+        // Assert
+        dto.OffsetCorrection.Should().Be(0.5);
+        dto.GainCorrection.Should().Be(1.02);
+        dto.CalibrationNotes.Should().Be("Calibrated with NIST-traceable reference");
+        dto.CalibrationDueAt.Should().Be(dueDate);
     }
 }
 
@@ -465,14 +507,17 @@ public class ReadingDtoTests
     [Fact]
     public void ReadingDto_ShouldBeCreatedWithAllProperties()
     {
-        // Arrange & Act
+        // Arrange & Act - New model: Reading has AssignmentId, MeasurementType, RawValue, Value
+        var assignmentId = Guid.NewGuid();
         var dto = new ReadingDto(
             Id: 1,
             TenantId: Guid.NewGuid(),
             NodeId: Guid.NewGuid(),
-            SensorTypeId: "temperature",
-            SensorTypeName: "Temperature",
-            Value: 21.5,
+            NodeName: "Test Node",
+            AssignmentId: assignmentId,
+            MeasurementType: "temperature",
+            RawValue: 21.3,
+            Value: 21.5, // Calibrated
             Unit: "°C",
             Timestamp: DateTime.UtcNow,
             Location: new LocationDto("Living Room"),
@@ -480,26 +525,30 @@ public class ReadingDtoTests
         );
 
         // Assert
-        dto.SensorTypeId.Should().Be("temperature");
+        dto.MeasurementType.Should().Be("temperature");
+        dto.RawValue.Should().Be(21.3);
         dto.Value.Should().Be(21.5);
         dto.Unit.Should().Be("°C");
+        dto.AssignmentId.Should().Be(assignmentId);
         dto.IsSyncedToCloud.Should().BeFalse();
     }
 
     [Fact]
     public void CreateReadingDto_ShouldHaveRequiredAndOptionalValues()
     {
-        // Act
+        // Act - New model: CreateReadingDto has EndpointId, MeasurementType, RawValue
         var dto = new CreateReadingDto(
             NodeId: "node-01",
-            Type: "temperature",
-            Value: 22.3
+            EndpointId: 1,
+            MeasurementType: "temperature",
+            RawValue: 22.3
         );
 
         // Assert
         dto.NodeId.Should().Be("node-01");
-        dto.Type.Should().Be("temperature");
-        dto.Value.Should().Be(22.3);
+        dto.EndpointId.Should().Be(1);
+        dto.MeasurementType.Should().Be("temperature");
+        dto.RawValue.Should().Be(22.3);
         dto.HubId.Should().BeNull();
         dto.Timestamp.Should().BeNull();
     }
@@ -510,19 +559,21 @@ public class ReadingDtoTests
         // Arrange
         var timestamp = DateTime.UtcNow;
 
-        // Act
+        // Act - New model with EndpointId and MeasurementType
         var dto = new CreateReadingDto(
             NodeId: "node-01",
-            Type: "humidity",
-            Value: 65.5,
+            EndpointId: 2,
+            MeasurementType: "humidity",
+            RawValue: 65.5,
             HubId: "hub-01",
             Timestamp: timestamp
         );
 
         // Assert
         dto.NodeId.Should().Be("node-01");
-        dto.Type.Should().Be("humidity");
-        dto.Value.Should().Be(65.5);
+        dto.EndpointId.Should().Be(2);
+        dto.MeasurementType.Should().Be("humidity");
+        dto.RawValue.Should().Be(65.5);
         dto.HubId.Should().Be("hub-01");
         dto.Timestamp.Should().Be(timestamp);
     }
@@ -530,14 +581,15 @@ public class ReadingDtoTests
     [Fact]
     public void ReadingFilterDto_ShouldHaveDefaultValues()
     {
-        // Act
+        // Act - New model: ReadingFilterDto has MeasurementType and AssignmentId instead of SensorTypeId
         var dto = new ReadingFilterDto();
 
         // Assert
         dto.NodeId.Should().BeNull();
         dto.NodeIdentifier.Should().BeNull();
         dto.HubId.Should().BeNull();
-        dto.SensorTypeId.Should().BeNull();
+        dto.AssignmentId.Should().BeNull();
+        dto.MeasurementType.Should().BeNull();
         dto.From.Should().BeNull();
         dto.To.Should().BeNull();
         dto.IsSyncedToCloud.Should().BeNull();
@@ -551,15 +603,17 @@ public class ReadingDtoTests
         // Arrange
         var nodeId = Guid.NewGuid();
         var hubId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
         var from = DateTime.UtcNow.AddDays(-7);
         var to = DateTime.UtcNow;
 
-        // Act
+        // Act - New model: MeasurementType and AssignmentId instead of SensorTypeId
         var dto = new ReadingFilterDto(
             NodeId: nodeId,
             NodeIdentifier: "node-01",
             HubId: hubId,
-            SensorTypeId: "temperature",
+            AssignmentId: assignmentId,
+            MeasurementType: "temperature",
             From: from,
             To: to,
             IsSyncedToCloud: false,
@@ -571,7 +625,8 @@ public class ReadingDtoTests
         dto.NodeId.Should().Be(nodeId);
         dto.NodeIdentifier.Should().Be("node-01");
         dto.HubId.Should().Be(hubId);
-        dto.SensorTypeId.Should().Be("temperature");
+        dto.AssignmentId.Should().Be(assignmentId);
+        dto.MeasurementType.Should().Be("temperature");
         dto.From.Should().Be(from);
         dto.To.Should().Be(to);
         dto.IsSyncedToCloud.Should().BeFalse();
@@ -740,67 +795,138 @@ public class TenantDtoTests
 
 #endregion
 
-#region SensorTypeDto Tests
+#region SensorTypeDto Tests (New 3-tier Model)
 
 public class SensorTypeDtoTests
 {
     [Fact]
     public void SensorTypeDto_ShouldBeCreatedWithAllProperties()
     {
-        // Act
+        // Act - New model: SensorTypeDto has Id, Code, Name, Protocol, Capabilities
+        var capabilities = new List<SensorTypeCapabilityDto>
+        {
+            new SensorTypeCapabilityDto(
+                Id: Guid.NewGuid(),
+                MeasurementType: "temperature",
+                DisplayName: "Temperature",
+                Unit: "°C",
+                MinValue: -40,
+                MaxValue: 80,
+                Resolution: 0.1,
+                Accuracy: 0.5,
+                MatterClusterId: 0x0402,
+                MatterClusterName: "TemperatureMeasurement",
+                SortOrder: 0,
+                IsActive: true
+            )
+        };
+
         var dto = new SensorTypeDto(
-            TypeId: "temperature",
-            DisplayName: "Temperatur",
-            ClusterId: 0x0402,
-            MatterClusterName: "TemperatureMeasurement",
-            Unit: "°C",
-            Resolution: 0.1,
-            MinValue: -40,
-            MaxValue: 125,
-            Description: "Temperature measurement",
-            IsCustom: false,
-            Category: "weather",
+            Id: Guid.NewGuid(),
+            Code: "dht22",
+            Name: "DHT22 Temperature & Humidity Sensor",
+            Manufacturer: "Aosong",
+            DatasheetUrl: "https://example.com/dht22.pdf",
+            Description: "Digital temperature and humidity sensor",
+            Protocol: CommunicationProtocolDto.OneWire,
+            DefaultI2CAddress: null,
+            DefaultSdaPin: null,
+            DefaultSclPin: null,
+            DefaultOneWirePin: 4,
+            DefaultAnalogPin: null,
+            DefaultDigitalPin: null,
+            DefaultTriggerPin: null,
+            DefaultEchoPin: null,
+            DefaultIntervalSeconds: 60,
+            MinIntervalSeconds: 2,
+            WarmupTimeMs: 1000,
+            DefaultOffsetCorrection: 0,
+            DefaultGainCorrection: 1.0,
+            Category: "climate",
             Icon: "thermostat",
             Color: "#FF5722",
             IsGlobal: true,
-            CreatedAt: DateTime.UtcNow
+            IsActive: true,
+            Capabilities: capabilities,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: DateTime.UtcNow
         );
 
         // Assert
-        dto.TypeId.Should().Be("temperature");
-        dto.DisplayName.Should().Be("Temperatur");
-        dto.ClusterId.Should().Be(0x0402u);
-        dto.Unit.Should().Be("°C");
+        dto.Code.Should().Be("dht22");
+        dto.Name.Should().Be("DHT22 Temperature & Humidity Sensor");
+        dto.Protocol.Should().Be(CommunicationProtocolDto.OneWire);
+        dto.Capabilities.Should().HaveCount(1);
         dto.IsGlobal.Should().BeTrue();
     }
 
     [Fact]
     public void SensorTypeDto_ShouldAllowNullOptionalValues()
     {
-        // Act
+        // Act - New model with minimal properties
         var dto = new SensorTypeDto(
-            TypeId: "custom_sensor",
-            DisplayName: "Custom Sensor",
-            ClusterId: 0xFC00,
-            MatterClusterName: null,
-            Unit: "units",
-            Resolution: 1.0,
-            MinValue: null,
-            MaxValue: null,
+            Id: Guid.NewGuid(),
+            Code: "custom_sensor",
+            Name: "Custom Sensor",
+            Manufacturer: null,
+            DatasheetUrl: null,
             Description: null,
-            IsCustom: true,
-            Category: "other",
+            Protocol: CommunicationProtocolDto.Analog,
+            DefaultI2CAddress: null,
+            DefaultSdaPin: null,
+            DefaultSclPin: null,
+            DefaultOneWirePin: null,
+            DefaultAnalogPin: 34,
+            DefaultDigitalPin: null,
+            DefaultTriggerPin: null,
+            DefaultEchoPin: null,
+            DefaultIntervalSeconds: 60,
+            MinIntervalSeconds: 1,
+            WarmupTimeMs: 0,
+            DefaultOffsetCorrection: 0,
+            DefaultGainCorrection: 1.0,
+            Category: "custom",
             Icon: null,
             Color: null,
             IsGlobal: false,
-            CreatedAt: DateTime.UtcNow
+            IsActive: true,
+            Capabilities: Enumerable.Empty<SensorTypeCapabilityDto>(),
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: DateTime.UtcNow
         );
 
         // Assert
-        dto.TypeId.Should().Be("custom_sensor");
-        dto.MatterClusterName.Should().BeNull();
-        dto.IsCustom.Should().BeTrue();
+        dto.Code.Should().Be("custom_sensor");
+        dto.Manufacturer.Should().BeNull();
+        dto.Description.Should().BeNull();
         dto.IsGlobal.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SensorTypeCapabilityDto_ContainsMatterClusterInfo()
+    {
+        // Act - Capability contains Matter cluster info
+        var capability = new SensorTypeCapabilityDto(
+            Id: Guid.NewGuid(),
+            MeasurementType: "temperature",
+            DisplayName: "Temperature",
+            Unit: "°C",
+            MinValue: -40,
+            MaxValue: 80,
+            Resolution: 0.1,
+            Accuracy: 0.5,
+            MatterClusterId: 0x0402,
+            MatterClusterName: "TemperatureMeasurement",
+            SortOrder: 0,
+            IsActive: true
+        );
+
+        // Assert
+        capability.MatterClusterId.Should().Be(0x0402u);
+        capability.MatterClusterName.Should().Be("TemperatureMeasurement");
+        capability.Unit.Should().Be("°C");
+        capability.MinValue.Should().Be(-40);
+        capability.MaxValue.Should().Be(80);
     }
 }
 
@@ -833,57 +959,9 @@ public class AlertTypeDtoTests
     }
 }
 
-#endregion
-
-#region DefaultSensorTypes Tests
-
-public class DefaultSensorTypesTests
-{
-    [Fact]
-    public void DefaultSensorTypes_ShouldContainExpectedTypes()
-    {
-        // Assert - verify key sensor types exist
-        DefaultSensorTypes.GetAll().Should().Contain(st => st.TypeId == "temperature");
-        DefaultSensorTypes.GetAll().Should().Contain(st => st.TypeId == "humidity");
-        DefaultSensorTypes.GetAll().Should().Contain(st => st.TypeId == "pressure");
-        DefaultSensorTypes.GetAll().Should().Contain(st => st.TypeId == "co2");
-    }
-
-    [Fact]
-    public void DefaultSensorTypes_ShouldHaveValidMatterClusterIds()
-    {
-        // Temperature should have Matter Temperature Measurement cluster (0x0402)
-        var temperature = DefaultSensorTypes.GetAll().First(st => st.TypeId == "temperature");
-        temperature.ClusterId.Should().Be(0x0402u);
-
-        // Humidity should have Matter Relative Humidity cluster (0x0405)
-        var humidity = DefaultSensorTypes.GetAll().First(st => st.TypeId == "humidity");
-        humidity.ClusterId.Should().Be(0x0405u);
-    }
-
-    [Fact]
-    public void DefaultSensorTypes_AllShouldHaveUnits()
-    {
-        // Assert - all sensor types should have units defined
-        foreach (var sensorType in DefaultSensorTypes.GetAll())
-        {
-            sensorType.Unit.Should().NotBeNullOrWhiteSpace($"{sensorType.TypeId} should have a unit");
-        }
-    }
-
-    [Fact]
-    public void DefaultSensorTypes_GetByTypeId_ShouldWork()
-    {
-        // Arrange & Act
-        var temperature = DefaultSensorTypes.GetByTypeId("temperature");
-        var nonExistent = DefaultSensorTypes.GetByTypeId("nonexistent");
-
-        // Assert
-        temperature.Should().NotBeNull();
-        temperature!.TypeId.Should().Be("temperature");
-        nonExistent.Should().BeNull();
-    }
-}
+// Note: DefaultSensorTypes class was removed in the new 3-tier model.
+// SensorTypes are now seeded via SensorTypeService.SeedDefaultTypesAsync()
+// Tests for default sensor types are covered in SensorTypeServiceTests
 
 #endregion
 

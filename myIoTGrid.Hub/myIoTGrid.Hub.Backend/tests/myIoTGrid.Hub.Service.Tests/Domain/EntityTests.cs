@@ -192,8 +192,8 @@ public class EntityTests
         node.BatteryLevel.Should().BeNull();
         node.CreatedAt.Should().Be(default);
         node.Hub.Should().BeNull();
-        node.Sensors.Should().NotBeNull();
-        node.Sensors.Should().BeEmpty();
+        node.SensorAssignments.Should().NotBeNull();
+        node.SensorAssignments.Should().BeEmpty();
         node.Readings.Should().NotBeNull();
         node.Readings.Should().BeEmpty();
     }
@@ -241,17 +241,17 @@ public class EntityTests
     [Fact]
     public void Node_NavigationProperties_ShouldAllowAddingItems()
     {
-        // Arrange
+        // Arrange - New 3-tier model: Node has SensorAssignments, not Sensors
         var node = new Node();
-        var sensor = new Sensor { Id = Guid.NewGuid() };
+        var assignment = new NodeSensorAssignment { Id = Guid.NewGuid() };
         var reading = new Reading { Id = 1 };
 
         // Act
-        node.Sensors.Add(sensor);
+        node.SensorAssignments.Add(assignment);
         node.Readings.Add(reading);
 
         // Assert
-        node.Sensors.Should().HaveCount(1);
+        node.SensorAssignments.Should().HaveCount(1);
         node.Readings.Should().HaveCount(1);
     }
 
@@ -271,24 +271,35 @@ public class EntityTests
 
     #endregion
 
-    #region Sensor Entity Tests (Physical sensor chip = Matter Endpoint)
+    #region Sensor Entity Tests (Concrete sensor instance with calibration)
 
     [Fact]
     public void Sensor_DefaultValues_ShouldBeCorrect()
     {
-        // Arrange & Act
+        // Arrange & Act - New 3-tier model: Sensor is instance, no NodeId/EndpointId
         var sensor = new Sensor();
 
         // Assert
         sensor.Id.Should().Be(Guid.Empty);
-        sensor.NodeId.Should().Be(Guid.Empty);
-        sensor.SensorTypeId.Should().BeEmpty();
-        sensor.EndpointId.Should().Be(0);
-        sensor.Name.Should().BeNull();
+        sensor.TenantId.Should().Be(Guid.Empty);
+        sensor.SensorTypeId.Should().Be(Guid.Empty);
+        sensor.Name.Should().BeEmpty();
+        sensor.Description.Should().BeNull();
+        sensor.SerialNumber.Should().BeNull();
+        sensor.IntervalSecondsOverride.Should().BeNull();
+        sensor.OffsetCorrection.Should().Be(0);
+        sensor.GainCorrection.Should().Be(1.0);
+        sensor.LastCalibratedAt.Should().BeNull();
+        sensor.CalibrationNotes.Should().BeNull();
+        sensor.CalibrationDueAt.Should().BeNull();
+        sensor.ActiveCapabilityIdsJson.Should().BeNull();
         sensor.IsActive.Should().BeTrue();
         sensor.CreatedAt.Should().Be(default);
-        sensor.Node.Should().BeNull();
+        sensor.UpdatedAt.Should().Be(default);
+        sensor.Tenant.Should().BeNull();
         sensor.SensorType.Should().BeNull();
+        sensor.NodeAssignments.Should().NotBeNull();
+        sensor.NodeAssignments.Should().BeEmpty();
     }
 
     [Fact]
@@ -296,43 +307,66 @@ public class EntityTests
     {
         // Arrange
         var id = Guid.NewGuid();
-        var nodeId = Guid.NewGuid();
+        var tenantId = Guid.NewGuid();
+        var sensorTypeId = Guid.NewGuid();
         var createdAt = DateTime.UtcNow;
+        var updatedAt = DateTime.UtcNow;
+        var lastCalibratedAt = DateTime.UtcNow.AddMonths(-1);
+        var calibrationDueAt = DateTime.UtcNow.AddMonths(5);
 
-        // Act
+        // Act - New model: Sensor has calibration settings
         var sensor = new Sensor
         {
             Id = id,
-            NodeId = nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            Name = "Living Room Temperature",
+            TenantId = tenantId,
+            SensorTypeId = sensorTypeId,
+            Name = "Living Room DHT22",
+            Description = "Temperature and humidity sensor",
+            SerialNumber = "DHT22-001",
+            IntervalSecondsOverride = 30,
+            OffsetCorrection = 0.5,
+            GainCorrection = 1.02,
+            LastCalibratedAt = lastCalibratedAt,
+            CalibrationNotes = "Calibrated with reference",
+            CalibrationDueAt = calibrationDueAt,
             IsActive = true,
-            CreatedAt = createdAt
+            CreatedAt = createdAt,
+            UpdatedAt = updatedAt
         };
 
         // Assert
         sensor.Id.Should().Be(id);
-        sensor.NodeId.Should().Be(nodeId);
-        sensor.SensorTypeId.Should().Be("temperature");
-        sensor.EndpointId.Should().Be(1);
-        sensor.Name.Should().Be("Living Room Temperature");
+        sensor.TenantId.Should().Be(tenantId);
+        sensor.SensorTypeId.Should().Be(sensorTypeId);
+        sensor.Name.Should().Be("Living Room DHT22");
+        sensor.Description.Should().Be("Temperature and humidity sensor");
+        sensor.SerialNumber.Should().Be("DHT22-001");
+        sensor.IntervalSecondsOverride.Should().Be(30);
+        sensor.OffsetCorrection.Should().Be(0.5);
+        sensor.GainCorrection.Should().Be(1.02);
+        sensor.LastCalibratedAt.Should().Be(lastCalibratedAt);
+        sensor.CalibrationNotes.Should().Be("Calibrated with reference");
+        sensor.CalibrationDueAt.Should().Be(calibrationDueAt);
         sensor.IsActive.Should().BeTrue();
         sensor.CreatedAt.Should().Be(createdAt);
+        sensor.UpdatedAt.Should().Be(updatedAt);
     }
 
     [Fact]
-    public void Sensor_EndpointId_ShouldSupportMultipleEndpoints()
+    public void Sensor_Calibration_ShouldAllowDifferentValues()
     {
-        // Arrange & Act - Multiple sensors on same node with different EndpointIds
-        var sensor1 = new Sensor { EndpointId = 1, SensorTypeId = "temperature" };
-        var sensor2 = new Sensor { EndpointId = 2, SensorTypeId = "humidity" };
-        var sensor3 = new Sensor { EndpointId = 3, SensorTypeId = "pressure" };
+        // Arrange & Act - New model: Test different calibration settings
+        var sensor1 = new Sensor { OffsetCorrection = -0.5, GainCorrection = 0.98 };
+        var sensor2 = new Sensor { OffsetCorrection = 0, GainCorrection = 1.0 };
+        var sensor3 = new Sensor { OffsetCorrection = 2.0, GainCorrection = 1.05 };
 
         // Assert
-        sensor1.EndpointId.Should().Be(1);
-        sensor2.EndpointId.Should().Be(2);
-        sensor3.EndpointId.Should().Be(3);
+        sensor1.OffsetCorrection.Should().Be(-0.5);
+        sensor1.GainCorrection.Should().Be(0.98);
+        sensor2.OffsetCorrection.Should().Be(0);
+        sensor2.GainCorrection.Should().Be(1.0);
+        sensor3.OffsetCorrection.Should().Be(2.0);
+        sensor3.GainCorrection.Should().Be(1.05);
     }
 
     #endregion
@@ -342,19 +376,22 @@ public class EntityTests
     [Fact]
     public void Reading_DefaultValues_ShouldBeCorrect()
     {
-        // Arrange & Act
+        // Arrange & Act - New model: Reading has AssignmentId, MeasurementType, RawValue, Value, Unit
         var reading = new Reading();
 
         // Assert
         reading.Id.Should().Be(0);  // long type, default is 0
         reading.TenantId.Should().Be(Guid.Empty);
         reading.NodeId.Should().Be(Guid.Empty);
-        reading.SensorTypeId.Should().BeEmpty();
+        reading.AssignmentId.Should().Be(Guid.Empty);
+        reading.MeasurementType.Should().BeEmpty();
+        reading.RawValue.Should().Be(0);
         reading.Value.Should().Be(0);
+        reading.Unit.Should().BeEmpty();
         reading.Timestamp.Should().Be(default);
         reading.IsSyncedToCloud.Should().BeFalse();
         reading.Node.Should().BeNull();
-        reading.SensorType.Should().BeNull();
+        reading.Assignment.Should().BeNull();
     }
 
     [Fact]
@@ -363,16 +400,20 @@ public class EntityTests
         // Arrange
         var tenantId = Guid.NewGuid();
         var nodeId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
         var timestamp = DateTime.UtcNow;
 
-        // Act
+        // Act - New model: Reading stores both RawValue and calibrated Value
         var reading = new Reading
         {
             Id = 12345,
             TenantId = tenantId,
             NodeId = nodeId,
-            SensorTypeId = "temperature",
-            Value = 23.5,
+            AssignmentId = assignmentId,
+            MeasurementType = "temperature",
+            RawValue = 23.3,
+            Value = 23.5,  // Calibrated value
+            Unit = "°C",
             Timestamp = timestamp,
             IsSyncedToCloud = true
         };
@@ -381,30 +422,35 @@ public class EntityTests
         reading.Id.Should().Be(12345);
         reading.TenantId.Should().Be(tenantId);
         reading.NodeId.Should().Be(nodeId);
-        reading.SensorTypeId.Should().Be("temperature");
+        reading.AssignmentId.Should().Be(assignmentId);
+        reading.MeasurementType.Should().Be("temperature");
+        reading.RawValue.Should().Be(23.3);
         reading.Value.Should().Be(23.5);
+        reading.Unit.Should().Be("°C");
         reading.Timestamp.Should().Be(timestamp);
         reading.IsSyncedToCloud.Should().BeTrue();
     }
 
     [Fact]
-    public void Reading_Value_ShouldAcceptNegativeValues()
+    public void Reading_Values_ShouldAcceptNegativeValues()
     {
-        // Arrange & Act
-        var reading = new Reading { Value = -40.0 };
+        // Arrange & Act - New model: Both RawValue and Value can be negative
+        var reading = new Reading { RawValue = -40.0, Value = -39.5 };
 
         // Assert
-        reading.Value.Should().Be(-40.0);
+        reading.RawValue.Should().Be(-40.0);
+        reading.Value.Should().Be(-39.5);
     }
 
     [Fact]
-    public void Reading_Value_ShouldAcceptDecimalValues()
+    public void Reading_Values_ShouldAcceptDecimalValues()
     {
-        // Arrange & Act
-        var reading = new Reading { Value = 21.123456789 };
+        // Arrange & Act - New model: Test precision
+        var reading = new Reading { RawValue = 21.123456789, Value = 21.654321 };
 
         // Assert
-        reading.Value.Should().BeApproximately(21.123456789, 0.0000001);
+        reading.RawValue.Should().BeApproximately(21.123456789, 0.0000001);
+        reading.Value.Should().BeApproximately(21.654321, 0.0000001);
     }
 
     [Fact]
@@ -419,7 +465,7 @@ public class EntityTests
 
     #endregion
 
-    #region SensorType Entity Tests (with Matter Cluster IDs)
+    #region SensorType Entity Tests (New 3-tier Model)
 
     [Fact]
     public void SensorType_DefaultValues_ShouldBeCorrect()
@@ -427,66 +473,67 @@ public class EntityTests
         // Arrange & Act
         var sensorType = new SensorType();
 
-        // Assert
-        sensorType.TypeId.Should().BeEmpty();
-        sensorType.DisplayName.Should().BeEmpty();
-        sensorType.Unit.Should().BeEmpty();
-        sensorType.ClusterId.Should().Be(0);
-        sensorType.MatterClusterName.Should().BeNull();
-        sensorType.Resolution.Should().Be(0.1);
-        sensorType.MinValue.Should().BeNull();
-        sensorType.MaxValue.Should().BeNull();
+        // Assert - New model uses Guid Id, Code, Name instead of TypeId, DisplayName
+        sensorType.Id.Should().Be(Guid.Empty);
+        sensorType.Code.Should().BeEmpty();
+        sensorType.Name.Should().BeEmpty();
+        sensorType.Protocol.Should().Be(default);
+        sensorType.Category.Should().BeEmpty();
         sensorType.Description.Should().BeNull();
-        sensorType.IsCustom.Should().BeFalse();
-        sensorType.Category.Should().Be("other");
+        sensorType.DefaultIntervalSeconds.Should().Be(60);
+        sensorType.DefaultGainCorrection.Should().Be(1.0);
+        sensorType.DefaultOffsetCorrection.Should().Be(0);
+        sensorType.IsGlobal.Should().BeTrue();
+        sensorType.IsActive.Should().BeTrue();
         sensorType.Icon.Should().BeNull();
         sensorType.Color.Should().BeNull();
-        sensorType.IsGlobal.Should().BeFalse();
         sensorType.CreatedAt.Should().Be(default);
+        sensorType.Capabilities.Should().NotBeNull();
+        sensorType.Capabilities.Should().BeEmpty();
         sensorType.Sensors.Should().NotBeNull();
         sensorType.Sensors.Should().BeEmpty();
-        sensorType.Readings.Should().NotBeNull();
-        sensorType.Readings.Should().BeEmpty();
     }
 
     [Fact]
     public void SensorType_ShouldSetAllProperties()
     {
         // Arrange
+        var id = Guid.NewGuid();
         var createdAt = DateTime.UtcNow;
 
-        // Act
+        // Act - New model: SensorType defines hardware, Capabilities define measurements
         var sensorType = new SensorType
         {
-            TypeId = "temperature",
-            DisplayName = "Temperatur",
-            Unit = "°C",
-            ClusterId = 0x0402, // TemperatureMeasurement cluster
-            MatterClusterName = "TemperatureMeasurement",
-            Resolution = 0.1,
-            MinValue = -40,
-            MaxValue = 125,
-            Description = "Temperatur-Messung",
-            IsCustom = false,
-            Category = "weather",
+            Id = id,
+            Code = "dht22",
+            Name = "DHT22 Temperature & Humidity Sensor",
+            Manufacturer = "Aosong",
+            DatasheetUrl = "https://example.com/dht22.pdf",
+            Protocol = CommunicationProtocol.OneWire,
+            DefaultOneWirePin = 4,
+            DefaultIntervalSeconds = 30,
+            MinIntervalSeconds = 2,
+            WarmupTimeMs = 1000,
+            Category = "climate",
+            Description = "Digital temperature and humidity sensor",
             Icon = "thermostat",
             Color = "#FF5722",
             IsGlobal = true,
+            IsActive = true,
             CreatedAt = createdAt
         };
 
         // Assert
-        sensorType.TypeId.Should().Be("temperature");
-        sensorType.DisplayName.Should().Be("Temperatur");
-        sensorType.Unit.Should().Be("°C");
-        sensorType.ClusterId.Should().Be(0x0402);
-        sensorType.MatterClusterName.Should().Be("TemperatureMeasurement");
-        sensorType.Resolution.Should().Be(0.1);
-        sensorType.MinValue.Should().Be(-40);
-        sensorType.MaxValue.Should().Be(125);
-        sensorType.Description.Should().Be("Temperatur-Messung");
-        sensorType.IsCustom.Should().BeFalse();
-        sensorType.Category.Should().Be("weather");
+        sensorType.Id.Should().Be(id);
+        sensorType.Code.Should().Be("dht22");
+        sensorType.Name.Should().Be("DHT22 Temperature & Humidity Sensor");
+        sensorType.Manufacturer.Should().Be("Aosong");
+        sensorType.Protocol.Should().Be(CommunicationProtocol.OneWire);
+        sensorType.DefaultOneWirePin.Should().Be(4);
+        sensorType.DefaultIntervalSeconds.Should().Be(30);
+        sensorType.MinIntervalSeconds.Should().Be(2);
+        sensorType.Category.Should().Be("climate");
+        sensorType.Description.Should().Be("Digital temperature and humidity sensor");
         sensorType.Icon.Should().Be("thermostat");
         sensorType.Color.Should().Be("#FF5722");
         sensorType.IsGlobal.Should().BeTrue();
@@ -497,48 +544,94 @@ public class EntityTests
     public void SensorType_NavigationProperties_ShouldAllowAddingItems()
     {
         // Arrange
-        var sensorType = new SensorType();
-        var sensor = new Sensor { Id = Guid.NewGuid() };
-        var reading = new Reading { Id = 1 };
+        var sensorType = new SensorType { Id = Guid.NewGuid(), Code = "dht22" };
+        var sensor = new Sensor { Id = Guid.NewGuid(), SensorTypeId = sensorType.Id };
+        var capability = new SensorTypeCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorTypeId = sensorType.Id,
+            MeasurementType = "temperature",
+            Unit = "°C"
+        };
 
         // Act
         sensorType.Sensors.Add(sensor);
-        sensorType.Readings.Add(reading);
+        sensorType.Capabilities.Add(capability);
 
         // Assert
         sensorType.Sensors.Should().HaveCount(1);
-        sensorType.Readings.Should().HaveCount(1);
-    }
-
-    [Theory]
-    [InlineData("temperature", 0x0402u)]
-    [InlineData("humidity", 0x0405u)]
-    [InlineData("pressure", 0x0403u)]
-    [InlineData("occupancy", 0x0406u)]
-    public void SensorType_ClusterId_ShouldSupportKnownClusters(string typeId, uint clusterId)
-    {
-        // Arrange & Act
-        var sensorType = new SensorType
-        {
-            TypeId = typeId,
-            ClusterId = clusterId
-        };
-
-        // Assert
-        sensorType.ClusterId.Should().Be(clusterId);
+        sensorType.Capabilities.Should().HaveCount(1);
     }
 
     [Fact]
-    public void SensorType_TypeId_IsPrimaryKey()
+    public void SensorTypeCapability_ContainsMatterClusterInfo()
+    {
+        // Arrange & Act - New model: SensorTypeCapability has Resolution, Accuracy, no DefaultGain/DefaultOffset
+        var capability = new SensorTypeCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorTypeId = Guid.NewGuid(),
+            MeasurementType = "temperature",
+            DisplayName = "Temperature",
+            Unit = "°C",
+            MatterClusterId = 0x0402,
+            MatterClusterName = "TemperatureMeasurement",
+            MinValue = -40,
+            MaxValue = 80,
+            Resolution = 0.1,
+            Accuracy = 0.5,
+            SortOrder = 0,
+            IsActive = true
+        };
+
+        // Assert
+        capability.MatterClusterId.Should().Be(0x0402);
+        capability.MatterClusterName.Should().Be("TemperatureMeasurement");
+        capability.MeasurementType.Should().Be("temperature");
+        capability.DisplayName.Should().Be("Temperature");
+        capability.Unit.Should().Be("°C");
+        capability.MinValue.Should().Be(-40);
+        capability.MaxValue.Should().Be(80);
+        capability.Resolution.Should().Be(0.1);
+        capability.Accuracy.Should().Be(0.5);
+    }
+
+    [Fact]
+    public void SensorType_Id_IsPrimaryKey()
+    {
+        // Arrange & Act - New model uses Guid Id as primary key
+        var id = Guid.NewGuid();
+        var sensorType = new SensorType
+        {
+            Id = id,
+            Code = "dht22"
+        };
+
+        // Assert - Id is the primary key (Guid), Code is unique identifier string
+        sensorType.Id.Should().Be(id);
+        sensorType.Code.Should().Be("dht22");
+    }
+
+    [Theory]
+    [InlineData(CommunicationProtocol.I2C)]
+    [InlineData(CommunicationProtocol.SPI)]
+    [InlineData(CommunicationProtocol.OneWire)]
+    [InlineData(CommunicationProtocol.Analog)]
+    [InlineData(CommunicationProtocol.UART)]
+    [InlineData(CommunicationProtocol.Digital)]
+    [InlineData(CommunicationProtocol.UltraSonic)]
+    public void SensorType_Protocol_SupportsDifferentProtocols(CommunicationProtocol protocol)
     {
         // Arrange & Act
         var sensorType = new SensorType
         {
-            TypeId = "temperature"
+            Id = Guid.NewGuid(),
+            Code = "test",
+            Protocol = protocol
         };
 
-        // Assert - TypeId is the primary key, not a Guid Id
-        sensorType.TypeId.Should().Be("temperature");
+        // Assert
+        sensorType.Protocol.Should().Be(protocol);
     }
 
     #endregion
@@ -778,18 +871,31 @@ public class EntityTests
     }
 
     [Fact]
-    public void Node_Sensor_Relationship_ShouldWork()
+    public void Node_SensorAssignment_Relationship_ShouldWork()
     {
-        // Arrange
+        // Arrange - New 3-tier model: Node has SensorAssignments, not direct Sensors
         var node = new Node { Id = Guid.NewGuid(), NodeId = "test-node" };
-        var sensor = new Sensor { Id = Guid.NewGuid(), NodeId = node.Id, Node = node };
+        var sensorTypeId = Guid.NewGuid();
+        var sensor = new Sensor { Id = Guid.NewGuid(), SensorTypeId = sensorTypeId };
+        var assignment = new NodeSensorAssignment
+        {
+            Id = Guid.NewGuid(),
+            NodeId = node.Id,
+            Node = node,
+            SensorId = sensor.Id,
+            Sensor = sensor,
+            EndpointId = 1,
+            IsActive = true,
+            AssignedAt = DateTime.UtcNow
+        };
 
         // Act
-        node.Sensors.Add(sensor);
+        node.SensorAssignments.Add(assignment);
 
         // Assert
-        node.Sensors.Should().Contain(sensor);
-        sensor.Node.Should().Be(node);
+        node.SensorAssignments.Should().Contain(assignment);
+        assignment.Node.Should().Be(node);
+        assignment.Sensor.Should().Be(sensor);
     }
 
     [Fact]
@@ -810,9 +916,10 @@ public class EntityTests
     [Fact]
     public void SensorType_Sensor_Relationship_ShouldWork()
     {
-        // Arrange
-        var sensorType = new SensorType { TypeId = "temperature" };
-        var sensor = new Sensor { Id = Guid.NewGuid(), SensorTypeId = sensorType.TypeId, SensorType = sensorType };
+        // Arrange - New 3-tier model: SensorType has Guid Id, not string TypeId
+        var sensorTypeId = Guid.NewGuid();
+        var sensorType = new SensorType { Id = sensorTypeId, Code = "dht22", Name = "DHT22" };
+        var sensor = new Sensor { Id = Guid.NewGuid(), SensorTypeId = sensorTypeId, SensorType = sensorType };
 
         // Act
         sensorType.Sensors.Add(sensor);
@@ -823,18 +930,43 @@ public class EntityTests
     }
 
     [Fact]
-    public void SensorType_Reading_Relationship_ShouldWork()
+    public void Reading_Assignment_Relationship_ShouldWork()
     {
-        // Arrange
-        var sensorType = new SensorType { TypeId = "temperature" };
-        var reading = new Reading { Id = 1, SensorTypeId = sensorType.TypeId, SensorType = sensorType };
+        // Arrange - New 3-tier model: Reading links to NodeSensorAssignment, not SensorType
+        var nodeId = Guid.NewGuid();
+        var sensorId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
+
+        var assignment = new NodeSensorAssignment
+        {
+            Id = assignmentId,
+            NodeId = nodeId,
+            SensorId = sensorId,
+            EndpointId = 1,
+            IsActive = true,
+            AssignedAt = DateTime.UtcNow
+        };
+
+        var reading = new Reading
+        {
+            TenantId = Guid.NewGuid(),
+            NodeId = nodeId,
+            AssignmentId = assignmentId,
+            Assignment = assignment,
+            MeasurementType = "temperature",
+            RawValue = 21.5,
+            Value = 21.5,
+            Unit = "°C",
+            Timestamp = DateTime.UtcNow
+        };
 
         // Act
-        sensorType.Readings.Add(reading);
+        assignment.Readings.Add(reading);
 
         // Assert
-        sensorType.Readings.Should().Contain(reading);
-        reading.SensorType.Should().Be(sensorType);
+        assignment.Readings.Should().Contain(reading);
+        reading.Assignment.Should().Be(assignment);
+        reading.AssignmentId.Should().Be(assignmentId);
     }
 
     [Fact]

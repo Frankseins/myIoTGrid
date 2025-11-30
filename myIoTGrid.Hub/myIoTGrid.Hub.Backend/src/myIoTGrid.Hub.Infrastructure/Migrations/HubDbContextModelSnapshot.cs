@@ -242,24 +242,104 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.ToTable("Nodes", (string)null);
                 });
 
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.NodeSensorAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Alias")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("AnalogPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DigitalPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("EchoPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EndpointId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("I2CAddressOverride")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("IntervalSecondsOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("OneWirePinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SclPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SdaPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("SensorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("TriggerPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("LastSeenAt");
+
+                    b.HasIndex("NodeId");
+
+                    b.HasIndex("SensorId");
+
+                    b.HasIndex("NodeId", "EndpointId")
+                        .IsUnique();
+
+                    b.ToTable("NodeSensorAssignments", (string)null);
+                });
+
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.Reading", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsSyncedToCloud")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false);
 
-                    b.Property<Guid>("NodeId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SensorTypeId")
+                    b.Property<string>("MeasurementType")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("RawValue")
+                        .HasColumnType("REAL");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
@@ -267,26 +347,35 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<double>("Value")
                         .HasColumnType("REAL");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssignmentId");
+
                     b.HasIndex("IsSyncedToCloud");
 
-                    b.HasIndex("NodeId");
+                    b.HasIndex("MeasurementType");
 
-                    b.HasIndex("SensorTypeId");
+                    b.HasIndex("NodeId");
 
                     b.HasIndex("TenantId");
 
                     b.HasIndex("Timestamp");
 
+                    b.HasIndex("AssignmentId", "Timestamp");
+
                     b.HasIndex("NodeId", "Timestamp");
 
                     b.HasIndex("TenantId", "Timestamp");
 
-                    b.HasIndex("NodeId", "SensorTypeId", "Timestamp");
+                    b.HasIndex("AssignmentId", "MeasurementType", "Timestamp");
 
                     b.ToTable("Readings", (string)null);
                 });
@@ -297,10 +386,30 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ActiveCapabilityIdsJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CalibrationDueAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CalibrationNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("EndpointId")
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("GainCorrection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(1.0);
+
+                    b.Property<int?>("IntervalSecondsOverride")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsActive")
@@ -308,47 +417,62 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
 
+                    b.Property<DateTime?>("LastCalibratedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("NodeId")
+                    b.Property<double>("OffsetCorrection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(0.0);
+
+                    b.Property<Guid>("SensorTypeId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SensorTypeId")
-                        .IsRequired()
-                        .HasMaxLength(50)
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
                     b.HasIndex("IsActive");
 
-                    b.HasIndex("NodeId");
-
                     b.HasIndex("SensorTypeId");
 
-                    b.HasIndex("NodeId", "EndpointId")
-                        .IsUnique();
+                    b.HasIndex("SerialNumber");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "SensorTypeId");
 
                     b.ToTable("Sensors", (string)null);
                 });
 
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.SensorType", b =>
                 {
-                    b.Property<string>("TypeId")
-                        .HasMaxLength(50)
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Category")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .HasDefaultValue("other");
+                        .HasColumnType("TEXT");
 
-                    b.Property<uint>("ClusterId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Color")
                         .HasMaxLength(20)
@@ -357,28 +481,132 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Description")
+                    b.Property<string>("DatasheetUrl")
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(100)
+                    b.Property<int?>("DefaultAnalogPin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DefaultDigitalPin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DefaultEchoPin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("DefaultGainCorrection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(1.0);
+
+                    b.Property<string>("DefaultI2CAddress")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DefaultIntervalSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(60);
+
+                    b.Property<double>("DefaultOffsetCorrection")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(0.0);
+
+                    b.Property<int?>("DefaultOneWirePin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DefaultSclPin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DefaultSdaPin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DefaultTriggerPin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Icon")
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsCustom")
+                    b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsGlobal")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Manufacturer")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MinIntervalSeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Protocol")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("WarmupTimeMs")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("IsGlobal");
+
+                    b.HasIndex("Protocol");
+
+                    b.ToTable("SensorTypes", (string)null);
+                });
+
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.SensorTypeCapability", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("Accuracy")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(0.5);
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<uint?>("MatterClusterId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("MatterClusterName")
                         .HasMaxLength(100)
@@ -387,30 +615,44 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.Property<double?>("MaxValue")
                         .HasColumnType("REAL");
 
+                    b.Property<string>("MeasurementType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<double?>("MinValue")
                         .HasColumnType("REAL");
 
                     b.Property<double>("Resolution")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("REAL")
-                        .HasDefaultValue(0.10000000000000001);
+                        .HasDefaultValue(0.01);
+
+                    b.Property<Guid>("SensorTypeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Unit")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
 
-                    b.HasKey("TypeId");
+                    b.HasKey("Id");
 
-                    b.HasIndex("Category");
+                    b.HasIndex("MatterClusterId");
 
-                    b.HasIndex("ClusterId");
+                    b.HasIndex("MeasurementType");
 
-                    b.HasIndex("IsCustom");
+                    b.HasIndex("SensorTypeId");
 
-                    b.HasIndex("IsGlobal");
+                    b.HasIndex("SensorTypeId", "MeasurementType")
+                        .IsUnique();
 
-                    b.ToTable("SensorTypes", (string)null);
+                    b.ToTable("SensorTypeCapabilities", (string)null);
                 });
 
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.SyncedNode", b =>
@@ -627,40 +869,70 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.Navigation("Location");
                 });
 
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.NodeSensorAssignment", b =>
+                {
+                    b.HasOne("myIoTGrid.Hub.Domain.Entities.Node", "Node")
+                        .WithMany("SensorAssignments")
+                        .HasForeignKey("NodeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("myIoTGrid.Hub.Domain.Entities.Sensor", "Sensor")
+                        .WithMany("NodeAssignments")
+                        .HasForeignKey("SensorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Node");
+
+                    b.Navigation("Sensor");
+                });
+
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.Reading", b =>
                 {
+                    b.HasOne("myIoTGrid.Hub.Domain.Entities.NodeSensorAssignment", "Assignment")
+                        .WithMany("Readings")
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("myIoTGrid.Hub.Domain.Entities.Node", "Node")
                         .WithMany("Readings")
                         .HasForeignKey("NodeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("myIoTGrid.Hub.Domain.Entities.SensorType", "SensorType")
-                        .WithMany("Readings")
-                        .HasForeignKey("SensorTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.Navigation("Assignment");
 
                     b.Navigation("Node");
-
-                    b.Navigation("SensorType");
                 });
 
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.Sensor", b =>
                 {
-                    b.HasOne("myIoTGrid.Hub.Domain.Entities.Node", "Node")
-                        .WithMany("Sensors")
-                        .HasForeignKey("NodeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("myIoTGrid.Hub.Domain.Entities.SensorType", "SensorType")
                         .WithMany("Sensors")
                         .HasForeignKey("SensorTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Node");
+                    b.HasOne("myIoTGrid.Hub.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SensorType");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.SensorTypeCapability", b =>
+                {
+                    b.HasOne("myIoTGrid.Hub.Domain.Entities.SensorType", "SensorType")
+                        .WithMany("Capabilities")
+                        .HasForeignKey("SensorTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("SensorType");
                 });
@@ -698,19 +970,11 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
 
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.SyncedReading", b =>
                 {
-                    b.HasOne("myIoTGrid.Hub.Domain.Entities.SensorType", "SensorType")
-                        .WithMany("SyncedReadings")
-                        .HasForeignKey("SensorTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("myIoTGrid.Hub.Domain.Entities.SyncedNode", "SyncedNode")
                         .WithMany("SyncedReadings")
                         .HasForeignKey("SyncedNodeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("SensorType");
 
                     b.Navigation("SyncedNode");
                 });
@@ -733,16 +997,24 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
 
                     b.Navigation("Readings");
 
-                    b.Navigation("Sensors");
+                    b.Navigation("SensorAssignments");
+                });
+
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.NodeSensorAssignment", b =>
+                {
+                    b.Navigation("Readings");
+                });
+
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.Sensor", b =>
+                {
+                    b.Navigation("NodeAssignments");
                 });
 
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.SensorType", b =>
                 {
-                    b.Navigation("Readings");
+                    b.Navigation("Capabilities");
 
                     b.Navigation("Sensors");
-
-                    b.Navigation("SyncedReadings");
                 });
 
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.SyncedNode", b =>

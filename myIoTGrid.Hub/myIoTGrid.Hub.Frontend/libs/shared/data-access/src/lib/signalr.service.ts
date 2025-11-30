@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { API_CONFIG, defaultApiConfig } from './api.config';
-import { SensorData, Alert, Hub } from '@myiotgrid/shared/models';
+import { Reading, Alert, Hub, Node, Sensor } from '@myiotgrid/shared/models';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -71,49 +71,161 @@ export class SignalRService {
     });
   }
 
-  // Event Subscriptions
-  onNewSensorData(callback: (data: SensorData) => void): void {
-    this.hubConnection?.on('NewSensorData', callback);
+  // ==========================================
+  // Reading Events (RENAMED from SensorData)
+  // ==========================================
+
+  /**
+   * Subscribe to new readings
+   * Event: NewReading (RENAMED from NewSensorData)
+   */
+  onNewReading(callback: (reading: Reading) => void): void {
+    this.hubConnection?.on('NewReading', callback);
   }
 
-  onAlertReceived(callback: (alert: Alert) => void): void {
-    this.hubConnection?.on('AlertReceived', callback);
+  /**
+   * Subscribe to new synced readings
+   * Event: NewSyncedReading
+   */
+  onNewSyncedReading(callback: (reading: Reading) => void): void {
+    this.hubConnection?.on('NewSyncedReading', callback);
   }
 
-  onAlertAcknowledged(callback: (alertId: string) => void): void {
-    this.hubConnection?.on('AlertAcknowledged', callback);
+  // ==========================================
+  // Node Events (RENAMED from Sensor events)
+  // ==========================================
+
+  /**
+   * Subscribe to node status changes
+   * Event: NodeStatusChanged (RENAMED from SensorStatusChanged)
+   */
+  onNodeStatusChanged(callback: (node: Node) => void): void {
+    this.hubConnection?.on('NodeStatusChanged', callback);
   }
 
+  /**
+   * Subscribe to new node registrations
+   * Event: NodeRegistered (RENAMED from SensorRegistered)
+   */
+  onNodeRegistered(callback: (node: Node) => void): void {
+    this.hubConnection?.on('NodeRegistered', callback);
+  }
+
+  // ==========================================
+  // Sensor Events (NEW - physical sensor chips)
+  // ==========================================
+
+  /**
+   * Subscribe to sensor added events
+   * Event: SensorAdded
+   */
+  onSensorAdded(callback: (sensor: Sensor) => void): void {
+    this.hubConnection?.on('SensorAdded', callback);
+  }
+
+  /**
+   * Subscribe to sensor removed events
+   * Event: SensorRemoved
+   */
+  onSensorRemoved(callback: (sensorId: string) => void): void {
+    this.hubConnection?.on('SensorRemoved', callback);
+  }
+
+  // ==========================================
+  // Hub Events (unchanged)
+  // ==========================================
+
+  /**
+   * Subscribe to hub status changes
+   */
   onHubStatusChanged(callback: (hub: Hub) => void): void {
     this.hubConnection?.on('HubStatusChanged', callback);
   }
 
-  onSensorStatusChanged(callback: (sensorId: string, isOnline: boolean) => void): void {
-    this.hubConnection?.on('SensorStatusChanged', callback);
+  // ==========================================
+  // Alert Events (unchanged)
+  // ==========================================
+
+  /**
+   * Subscribe to new alerts
+   */
+  onAlertReceived(callback: (alert: Alert) => void): void {
+    this.hubConnection?.on('AlertReceived', callback);
   }
 
+  /**
+   * Subscribe to alert acknowledgements
+   */
+  onAlertAcknowledged(callback: (alertId: string) => void): void {
+    this.hubConnection?.on('AlertAcknowledged', callback);
+  }
+
+  // ==========================================
+  // Cloud Sync Events (unchanged)
+  // ==========================================
+
+  /**
+   * Subscribe to cloud sync status changes
+   */
   onCloudSyncStatus(callback: (isConnected: boolean) => void): void {
     this.hubConnection?.on('CloudSyncStatus', callback);
   }
 
-  // Hub Methods
+  // ==========================================
+  // Group Management (RENAMED)
+  // ==========================================
+
+  /**
+   * Join a hub group to receive hub-specific events
+   */
   async joinHubGroup(hubId: string): Promise<void> {
     await this.hubConnection?.invoke('JoinHubGroup', hubId);
   }
 
+  /**
+   * Leave a hub group
+   */
   async leaveHubGroup(hubId: string): Promise<void> {
     await this.hubConnection?.invoke('LeaveHubGroup', hubId);
   }
 
+  /**
+   * Join a node group to receive node-specific events
+   * (RENAMED from JoinSensorGroup)
+   */
+  async joinNodeGroup(nodeId: string): Promise<void> {
+    await this.hubConnection?.invoke('JoinNodeGroup', nodeId);
+  }
+
+  /**
+   * Leave a node group
+   * (RENAMED from LeaveSensorGroup)
+   */
+  async leaveNodeGroup(nodeId: string): Promise<void> {
+    await this.hubConnection?.invoke('LeaveNodeGroup', nodeId);
+  }
+
+  /**
+   * Join an alert level group
+   */
   async joinAlertGroup(alertLevel: string): Promise<void> {
     await this.hubConnection?.invoke('JoinAlertGroup', alertLevel);
   }
 
+  /**
+   * Leave an alert level group
+   */
   async leaveAlertGroup(alertLevel: string): Promise<void> {
     await this.hubConnection?.invoke('LeaveAlertGroup', alertLevel);
   }
 
-  // Remove event handlers
+  // ==========================================
+  // Utility Methods
+  // ==========================================
+
+  /**
+   * Remove event handler
+   */
   off(eventName: string): void {
     this.hubConnection?.off(eventName);
   }

@@ -1,0 +1,82 @@
+# =============================================================================
+# .dockerignore - Exclude files from Docker build context
+# =============================================================================
+# Reduces build context size and speeds up builds significantly
+
+# Git
+**/.git
+**/.gitignore
+**/.gitattributes
+
+# IDE and editor files
+**/.vs
+**/.vscode
+**/.idea
+**/.rider
+**/*.swp
+**/*.swo
+**/*.user
+**/*.suo
+
+# Build outputs
+**/bin
+**/obj
+**/out
+**/publish
+
+# Node modules (if any)
+**/node_modules
+
+# Documentation
+**/*.md
+**/docs
+**/documentation
+
+# Docker files (don't include in context)
+**/Dockerfile*
+**/docker-compose*
+**/.dockerignore
+
+# Test projects
+**/tests
+**/*.Tests
+**/*.Test
+**/TestResults
+
+# Coverage reports
+**/coverage
+**/coveragereport
+
+# Local development files
+**/.env
+**/.env.*
+**/appsettings.Development.json
+**/appsettings.Local.json
+
+# Data files (should be mounted as volumes)
+**/data
+**/logs
+
+# macOS
+**/.DS_Store
+
+# Windows
+**/Thumbs.db
+
+# Temporary files
+**/tmp
+**/temp
+**/*.tmp
+**/*.temp
+**/*.log
+
+# NuGet
+**/*.nupkg
+**/.nuget
+
+# Secrets (never include!)
+**/*.pfx
+**/*.p12
+**/*.key
+**/*.pem
+**/secrets

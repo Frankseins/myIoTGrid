@@ -87,7 +87,7 @@
   }
 }
 
-.sensors-section {
+.nodes-section {
   .section-title {
     font-size: 20px;
     font-weight: 500;
@@ -96,13 +96,13 @@
   }
 }
 
-.sensors-grid {
+.nodes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
 
-.sensor-card {
+.node-card {
   cursor: pointer;
   transition: all 0.2s ease;
 
@@ -121,10 +121,26 @@
     }
   }
 
-  .sensor-info {
+  .node-info {
     display: flex;
     justify-content: space-between;
     font-size: 12px;
     color: #757575;
+    margin-bottom: 8px;
+  }
+
+  .sensor-count {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #757575;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #757575;
+    }
   }
 }

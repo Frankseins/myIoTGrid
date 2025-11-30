@@ -64,9 +64,9 @@ public class NodeConfiguration : IEntityTypeConfiguration<Node>
             .HasForeignKey(n => n.HubId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasMany(n => n.Sensors)
-            .WithOne(s => s.Node)
-            .HasForeignKey(s => s.NodeId)
+        builder.HasMany(n => n.SensorAssignments)
+            .WithOne(a => a.Node)
+            .HasForeignKey(a => a.NodeId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(n => n.Readings)

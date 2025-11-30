@@ -7,7 +7,7 @@ export interface Alert {
   id: string;
   tenantId: string;
   hubId?: string;
-  sensorId?: string;
+  nodeId?: string;
   alertTypeId: string;
   alertTypeCode: string;
   alertTypeName: string;
@@ -23,7 +23,7 @@ export interface Alert {
 
 export interface CreateAlertDto {
   hubId?: string;
-  sensorId?: string;
+  nodeId?: string;
   alertTypeCode: string;
   level?: AlertLevel;
   message: string;
@@ -34,7 +34,7 @@ export interface CreateAlertDto {
 
 export interface AlertFilter {
   hubId?: string;
-  sensorId?: string;
+  nodeId?: string;
   level?: AlertLevel;
   isActive?: boolean;
   from?: string;

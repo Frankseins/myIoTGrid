@@ -6,8 +6,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTabsModule } from '@angular/material/tabs';
-import { HubApiService, SensorApiService } from '@myiotgrid/shared/data-access';
-import { Hub, Sensor } from '@myiotgrid/shared/models';
+import { HubApiService, NodeApiService } from '@myiotgrid/shared/data-access';
+import { Hub, Node } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent, EmptyStateComponent } from '@myiotgrid/shared/ui';
 import { RelativeTimePipe, ProtocolPipe } from '@myiotgrid/shared/utils';
 
@@ -32,14 +32,14 @@ import { RelativeTimePipe, ProtocolPipe } from '@myiotgrid/shared/utils';
 })
 export class HubDetailComponent implements OnInit {
   private readonly hubApiService = inject(HubApiService);
-  private readonly sensorApiService = inject(SensorApiService);
+  private readonly nodeApiService = inject(NodeApiService);
   readonly router = inject(Router);
 
   id = input.required<string>();
 
   readonly isLoading = signal(true);
   readonly hub = signal<Hub | null>(null);
-  readonly sensors = signal<Sensor[]>([]);
+  readonly nodes = signal<Node[]>([]);
 
   async ngOnInit(): Promise<void> {
     await this.loadHub();
@@ -48,12 +48,12 @@ export class HubDetailComponent implements OnInit {
   private async loadHub(): Promise<void> {
     this.isLoading.set(true);
     try {
-      const [hub, sensors] = await Promise.all([
+      const [hub, nodes] = await Promise.all([
         this.hubApiService.getById(this.id()).toPromise(),
-        this.sensorApiService.getByHubId(this.id()).toPromise()
+        this.nodeApiService.getByHubId(this.id()).toPromise()
       ]);
       this.hub.set(hub || null);
-      this.sensors.set(sensors || []);
+      this.nodes.set(nodes || []);
     } catch (error) {
       console.error('Error loading hub:', error);
     } finally {

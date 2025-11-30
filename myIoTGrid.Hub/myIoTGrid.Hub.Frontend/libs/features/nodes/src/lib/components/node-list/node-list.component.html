@@ -1,0 +1,93 @@
+<div class="node-list-page">
+  <header class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">Nodes</h1>
+      <p class="page-subtitle">ESP32/LoRa32 Sensor-Geräte verwalten</p>
+    </div>
+
+    <div class="header-filters">
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="filterStatus">
+          <mat-option value="all">Alle</mat-option>
+          <mat-option value="online">Online</mat-option>
+          <mat-option value="offline">Offline</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <myiotgrid-loading-spinner message="Nodes werden geladen..."></myiotgrid-loading-spinner>
+  } @else if (filteredNodes.length === 0) {
+    <myiotgrid-empty-state
+      icon="router"
+      title="Keine Nodes"
+      [message]="filterStatus === 'all' ? 'Es wurden noch keine Nodes registriert.' : 'Keine Nodes mit diesem Status gefunden.'">
+    </myiotgrid-empty-state>
+  } @else {
+    <div class="nodes-grid">
+      @for (node of filteredNodes; track node.id) {
+        <mat-card class="node-card" [class.offline]="!node.isOnline" [routerLink]="['/nodes', node.id]">
+          <mat-card-header>
+            <mat-icon mat-card-avatar class="node-icon" [class.offline]="!node.isOnline">
+              {{ getNodeIcon(node) }}
+            </mat-icon>
+            <mat-card-title>{{ node.location?.name || node.name }}</mat-card-title>
+            <mat-card-subtitle>{{ node.nodeId }}</mat-card-subtitle>
+          </mat-card-header>
+
+          <mat-card-content>
+            <!-- Sensor-Chips auf diesem Node -->
+            @if (node.sensors && node.sensors.length > 0) {
+              <div class="sensors-list">
+                <span class="sensors-label">Sensoren:</span>
+                @for (sensor of node.sensors; track sensor.id) {
+                  <span class="sensor-chip" [style.borderColor]="getSensorColor(sensor.sensorTypeId)">
+                    {{ sensor.name || sensor.sensorTypeId }}
+                  </span>
+                }
+              </div>
+            }
+
+            <!-- Latest Readings -->
+            @if (getLatestReadings(node.id).length > 0) {
+              <div class="readings-grid">
+                @for (reading of getLatestReadings(node.id).slice(0, 3); track reading.sensorTypeId) {
+                  <div class="reading-item">
+                    <mat-icon [style.color]="getSensorColor(reading.sensorTypeId)">
+                      {{ getSensorIcon(reading.sensorTypeId) }}
+                    </mat-icon>
+                    <span class="reading-value">{{ reading.value | sensorUnit:reading.unit }}</span>
+                  </div>
+                }
+              </div>
+              <div class="reading-meta">
+                <span class="timestamp">{{ getLatestReadings(node.id)[0].timestamp | relativeTime }}</span>
+              </div>
+            } @else {
+              <div class="no-readings">
+                <span class="no-data">Keine Messwerte</span>
+              </div>
+            }
+          </mat-card-content>
+
+          <mat-card-footer>
+            <div class="status-row">
+              <mat-chip [class.online]="node.isOnline" [class.offline]="!node.isOnline">
+                <mat-icon matChipAvatar>{{ node.isOnline ? 'check_circle' : 'cancel' }}</mat-icon>
+                {{ node.isOnline ? 'Online' : 'Offline' }}
+              </mat-chip>
+              @if (node.batteryLevel !== null && node.batteryLevel !== undefined) {
+                <span class="battery">
+                  <mat-icon>battery_{{ node.batteryLevel > 80 ? 'full' : node.batteryLevel > 20 ? 'std' : 'alert' }}</mat-icon>
+                  {{ node.batteryLevel }}%
+                </span>
+              }
+            </div>
+          </mat-card-footer>
+        </mat-card>
+      }
+    </div>
+  }
+</div>

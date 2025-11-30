@@ -9,12 +9,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   SignalRService,
   HubApiService,
-  SensorDataApiService,
-  AlertApiService
+  NodeApiService,
+  ReadingApiService,
+  AlertApiService,
+  SensorTypeApiService
 } from '@myiotgrid/shared/data-access';
-import { Hub, Sensor, SensorData, Alert, AlertLevel } from '@myiotgrid/shared/models';
+import { Hub, Node, Reading, Alert, AlertLevel } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent, ConnectionStatusComponent, EmptyStateComponent } from '@myiotgrid/shared/ui';
-import { SensorCardComponent } from '../sensor-card/sensor-card.component';
+import { NodeCardComponent } from '../node-card/node-card.component';
 import { AlertBannerComponent } from '../alert-banner/alert-banner.component';
 
 @Component({
@@ -31,7 +33,7 @@ import { AlertBannerComponent } from '../alert-banner/alert-banner.component';
     LoadingSpinnerComponent,
     ConnectionStatusComponent,
     EmptyStateComponent,
-    SensorCardComponent,
+    NodeCardComponent,
     AlertBannerComponent
   ],
   templateUrl: './dashboard.component.html',
@@ -40,13 +42,15 @@ import { AlertBannerComponent } from '../alert-banner/alert-banner.component';
 export class DashboardComponent implements OnInit, OnDestroy {
   private readonly signalRService = inject(SignalRService);
   private readonly hubApiService = inject(HubApiService);
-  private readonly sensorDataApiService = inject(SensorDataApiService);
+  private readonly nodeApiService = inject(NodeApiService);
+  private readonly readingApiService = inject(ReadingApiService);
   private readonly alertApiService = inject(AlertApiService);
+  private readonly sensorTypeApiService = inject(SensorTypeApiService);
 
   readonly isLoading = signal(true);
   readonly hubs = signal<Hub[]>([]);
-  readonly sensors = signal<Sensor[]>([]);
-  readonly latestSensorData = signal<Map<string, SensorData>>(new Map());
+  readonly nodes = signal<Node[]>([]);
+  readonly latestReadings = signal<Map<string, Reading[]>>(new Map());
   readonly activeAlerts = signal<Alert[]>([]);
 
   readonly criticalAlerts = computed(() =>
@@ -65,58 +69,52 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.hubs().filter(h => !h.isOnline)
   );
 
-  readonly onlineSensors = computed(() =>
-    this.sensors().filter(s => s.isOnline)
+  readonly onlineNodes = computed(() =>
+    this.nodes().filter(n => n.isOnline)
   );
 
-  readonly offlineSensors = computed(() =>
-    this.sensors().filter(s => !s.isOnline)
+  readonly offlineNodes = computed(() =>
+    this.nodes().filter(n => !n.isOnline)
   );
 
   async ngOnInit(): Promise<void> {
+    // Load SensorTypes for icons/colors
+    this.sensorTypeApiService.getAll().subscribe();
     await this.loadData();
     await this.setupSignalR();
   }
 
   ngOnDestroy(): void {
-    this.signalRService.off('NewSensorData');
+    this.signalRService.off('NewReading');
     this.signalRService.off('AlertReceived');
     this.signalRService.off('HubStatusChanged');
+    this.signalRService.off('NodeStatusChanged');
   }
 
   private async loadData(): Promise<void> {
     this.isLoading.set(true);
     try {
-      // Load hubs, alerts, and latest sensor data
-      const [hubs, alerts, latestData] = await Promise.all([
+      // Load hubs, nodes, alerts, and latest readings
+      const [hubs, nodes, alerts, latestReadings] = await Promise.all([
         this.hubApiService.getAll().toPromise(),
+        this.nodeApiService.getAll().toPromise(),
         this.alertApiService.getActive().toPromise(),
-        this.sensorDataApiService.getLatest().toPromise()
+        this.readingApiService.getLatest().toPromise()
       ]);
 
       this.hubs.set(hubs || []);
+      this.nodes.set(nodes || []);
       this.activeAlerts.set(alerts || []);
 
-      // Load sensors for each hub
-      if (hubs && hubs.length > 0) {
-        const sensorPromises = hubs.map(hub =>
-          this.hubApiService.getSensors(hub.id).toPromise()
-        );
-        const sensorArrays = await Promise.all(sensorPromises);
-        const allSensors = sensorArrays.flat().filter((s): s is Sensor => s !== undefined);
-        this.sensors.set(allSensors);
-      }
-
-      if (latestData) {
-        const dataMap = new Map<string, SensorData>();
-        latestData.forEach(data => {
-          const key = data.sensorId || data.hubId;
-          const existing = dataMap.get(key);
-          if (!existing || new Date(data.timestamp) > new Date(existing.timestamp)) {
-            dataMap.set(key, data);
-          }
+      if (latestReadings) {
+        const readingMap = new Map<string, Reading[]>();
+        latestReadings.forEach(reading => {
+          const nodeId = reading.nodeId;
+          const existing = readingMap.get(nodeId) || [];
+          existing.push(reading);
+          readingMap.set(nodeId, existing);
         });
-        this.latestSensorData.set(dataMap);
+        this.latestReadings.set(readingMap);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -129,11 +127,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     try {
       await this.signalRService.startConnection();
 
-      this.signalRService.onNewSensorData((data: SensorData) => {
-        this.latestSensorData.update(map => {
+      this.signalRService.onNewReading((reading: Reading) => {
+        this.latestReadings.update(map => {
           const newMap = new Map(map);
-          const key = data.sensorId || data.hubId;
-          newMap.set(key, data);
+          const nodeId = reading.nodeId;
+          const existing = newMap.get(nodeId) || [];
+          // Update or add the reading for this sensor type
+          const index = existing.findIndex(r => r.sensorTypeId === reading.sensorTypeId);
+          if (index >= 0) {
+            existing[index] = reading;
+          } else {
+            existing.push(reading);
+          }
+          newMap.set(nodeId, [...existing]);
           return newMap;
         });
       });
@@ -145,6 +151,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.signalRService.onHubStatusChanged((hub: Hub) => {
         this.hubs.update(hubs =>
           hubs.map(h => h.id === hub.id ? { ...h, ...hub } : h)
+        );
+      });
+
+      this.signalRService.onNodeStatusChanged((node: Node) => {
+        this.nodes.update(nodes =>
+          nodes.map(n => n.id === node.id ? { ...n, ...node } : n)
         );
       });
     } catch (error) {
@@ -163,7 +175,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  getLatestDataForSensor(sensorId: string): SensorData | undefined {
-    return this.latestSensorData().get(sensorId);
+  getLatestReadingsForNode(nodeId: string): Reading[] {
+    return this.latestReadings().get(nodeId) || [];
   }
 }

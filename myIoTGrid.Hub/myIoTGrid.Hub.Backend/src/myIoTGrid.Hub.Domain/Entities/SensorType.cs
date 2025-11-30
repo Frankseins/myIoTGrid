@@ -1,68 +1,117 @@
+using myIoTGrid.Hub.Domain.Enums;
 using myIoTGrid.Hub.Domain.Interfaces;
 
 namespace myIoTGrid.Hub.Domain.Entities;
 
 /// <summary>
-/// Type definition for measurements.
-/// Matter-konform: Entspricht einem Matter Cluster.
-/// Wird von Grid.Cloud synchronisiert.
+/// Hardware sensor type definition (e.g., DHT22, BME280, DS18B20).
+/// This is the "library" level - defines what a sensor CAN do.
+/// Matter-konform: Defines available clusters/capabilities.
 /// </summary>
-public class SensorType : ISyncableEntity
+public class SensorType : IEntity
 {
-    /// <summary>Primary Key (e.g., "temperature", "humidity")</summary>
-    public string TypeId { get; set; } = string.Empty;
+    /// <summary>Primary key</summary>
+    public Guid Id { get; set; }
 
-    /// <summary>Explicit IEntity.Id implementation for interface compliance</summary>
-    Guid IEntity.Id
-    {
-        get => Guid.Empty; // Not used - TypeId is the primary key
-        set { } // No-op
-    }
+    // === Identification ===
 
-    /// <summary>Display name (e.g., "Temperatur")</summary>
-    public string DisplayName { get; set; } = string.Empty;
+    /// <summary>Unique code (e.g., "dht22", "bme280", "ds18b20")</summary>
+    public string Code { get; set; } = string.Empty;
 
-    /// <summary>Matter Cluster ID (0x0402 = TemperatureMeasurement)</summary>
-    public uint ClusterId { get; set; }
+    /// <summary>Display name (e.g., "DHT22 (AM2302)")</summary>
+    public string Name { get; set; } = string.Empty;
 
-    /// <summary>Matter Cluster Name (e.g., "TemperatureMeasurement")</summary>
-    public string? MatterClusterName { get; set; }
+    /// <summary>Manufacturer (e.g., "Bosch", "Aosong")</summary>
+    public string? Manufacturer { get; set; }
 
-    /// <summary>Unit (e.g., "°C", "%", "hPa")</summary>
-    public string Unit { get; set; } = string.Empty;
+    /// <summary>Link to datasheet</summary>
+    public string? DatasheetUrl { get; set; }
 
-    /// <summary>Resolution (e.g., 0.1)</summary>
-    public double Resolution { get; set; } = 0.1;
-
-    /// <summary>Minimum value</summary>
-    public double? MinValue { get; set; }
-
-    /// <summary>Maximum value</summary>
-    public double? MaxValue { get; set; }
-
-    /// <summary>Description</summary>
+    /// <summary>Description of the sensor</summary>
     public string? Description { get; set; }
 
-    /// <summary>Is this a custom myIoTGrid type? (ClusterId >= 0xFC00)</summary>
-    public bool IsCustom { get; set; }
+    // === Communication Protocol ===
 
-    /// <summary>Category (weather, water, air, soil, other)</summary>
-    public string Category { get; set; } = "other";
+    /// <summary>How the sensor communicates (I2C, SPI, OneWire, etc.)</summary>
+    public CommunicationProtocol Protocol { get; set; }
 
-    /// <summary>Material Icon Name for UI</summary>
+    // === Default Pin Configuration ===
+
+    /// <summary>Default I2C address (e.g., "0x76")</summary>
+    public string? DefaultI2CAddress { get; set; }
+
+    /// <summary>Default SDA pin for I2C</summary>
+    public int? DefaultSdaPin { get; set; }
+
+    /// <summary>Default SCL pin for I2C</summary>
+    public int? DefaultSclPin { get; set; }
+
+    /// <summary>Default OneWire data pin</summary>
+    public int? DefaultOneWirePin { get; set; }
+
+    /// <summary>Default analog input pin</summary>
+    public int? DefaultAnalogPin { get; set; }
+
+    /// <summary>Default digital GPIO pin</summary>
+    public int? DefaultDigitalPin { get; set; }
+
+    /// <summary>Default trigger pin for ultrasonic sensors</summary>
+    public int? DefaultTriggerPin { get; set; }
+
+    /// <summary>Default echo pin for ultrasonic sensors</summary>
+    public int? DefaultEchoPin { get; set; }
+
+    // === Timing Configuration ===
+
+    /// <summary>Default measurement interval in seconds</summary>
+    public int DefaultIntervalSeconds { get; set; } = 60;
+
+    /// <summary>Minimum allowed interval in seconds</summary>
+    public int MinIntervalSeconds { get; set; } = 1;
+
+    /// <summary>Warmup time in milliseconds before first reading</summary>
+    public int WarmupTimeMs { get; set; }
+
+    // === Factory Calibration ===
+
+    /// <summary>Default offset correction from factory</summary>
+    public double DefaultOffsetCorrection { get; set; }
+
+    /// <summary>Default gain correction from factory</summary>
+    public double DefaultGainCorrection { get; set; } = 1.0;
+
+    // === Categorization ===
+
+    /// <summary>Category (climate, water, air, soil, location, custom)</summary>
+    public string Category { get; set; } = string.Empty;
+
+    /// <summary>Material icon name for UI</summary>
     public string? Icon { get; set; }
 
-    /// <summary>Hex Color for UI (e.g., "#FF5722")</summary>
+    /// <summary>Hex color for UI (e.g., "#FF5722")</summary>
     public string? Color { get; set; }
 
-    /// <summary>Whether this type is global (defined by Cloud)</summary>
-    public bool IsGlobal { get; set; }
+    // === Flags ===
+
+    /// <summary>Is this a global (cloud-synced) sensor type?</summary>
+    public bool IsGlobal { get; set; } = true;
+
+    /// <summary>Is this sensor type active?</summary>
+    public bool IsActive { get; set; } = true;
+
+    // === Timestamps ===
 
     /// <summary>Creation timestamp</summary>
     public DateTime CreatedAt { get; set; }
 
-    // Navigation Properties
+    /// <summary>Last update timestamp</summary>
+    public DateTime UpdatedAt { get; set; }
+
+    // === Navigation Properties ===
+
+    /// <summary>Capabilities (measurement types this sensor can provide)</summary>
+    public ICollection<SensorTypeCapability> Capabilities { get; set; } = new List<SensorTypeCapability>();
+
+    /// <summary>Sensor instances of this type</summary>
     public ICollection<Sensor> Sensors { get; set; } = new List<Sensor>();
-    public ICollection<Reading> Readings { get; set; } = new List<Reading>();
-    public ICollection<SyncedReading> SyncedReadings { get; set; } = new List<SyncedReading>();
 }

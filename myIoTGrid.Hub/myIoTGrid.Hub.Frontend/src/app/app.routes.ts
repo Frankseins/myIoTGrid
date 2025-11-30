@@ -11,6 +11,10 @@ export const appRoutes: Routes = [
     loadChildren: () => import('@myiotgrid/dashboard/feature').then(m => m.DASHBOARD_ROUTES)
   },
   {
+    path: 'nodes',
+    loadChildren: () => import('@myiotgrid/nodes/feature').then(m => m.NODES_ROUTES)
+  },
+  {
     path: 'sensors',
     loadChildren: () => import('@myiotgrid/sensors/feature').then(m => m.SENSORS_ROUTES)
   },

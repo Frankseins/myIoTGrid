@@ -105,10 +105,12 @@ public class MatterBridgeService : BackgroundService
 
         try
         {
-            // Get all nodes with their Hub and Sensors
+            // Get all nodes with their Hub and SensorAssignments
             var nodes = await context.Nodes
                 .Include(n => n.Hub)
-                .Include(n => n.Sensors)
+                .Include(n => n.SensorAssignments)
+                    .ThenInclude(a => a.Sensor)
+                        .ThenInclude(s => s.SensorType)
                 .AsNoTracking()
                 .ToListAsync(ct);
 
@@ -116,27 +118,29 @@ public class MatterBridgeService : BackgroundService
 
             foreach (var node in nodes)
             {
-                // Each sensor on the node represents a Matter Endpoint
-                foreach (var sensor in node.Sensors)
+                // Each assignment on the node represents a Matter Endpoint
+                foreach (var assignment in node.SensorAssignments)
                 {
-                    if (!MatterDeviceMapping.IsSupportedSensorType(sensor.SensorTypeId))
+                    var sensorTypeCode = assignment.Sensor?.SensorType?.Code ?? string.Empty;
+
+                    if (!MatterDeviceMapping.IsSupportedSensorType(sensorTypeCode))
                     {
                         continue;
                     }
 
-                    if (!_options.EnabledSensorTypes.Contains(sensor.SensorTypeId, StringComparer.OrdinalIgnoreCase))
+                    if (!_options.EnabledSensorTypes.Contains(sensorTypeCode, StringComparer.OrdinalIgnoreCase))
                     {
                         continue;
                     }
 
-                    var matterType = MatterDeviceMapping.GetMatterDeviceType(sensor.SensorTypeId);
+                    var matterType = MatterDeviceMapping.GetMatterDeviceType(sensorTypeCode);
                     if (matterType == null) continue;
 
-                    var deviceId = MatterDeviceMapping.GenerateMatterDeviceId(node.NodeId, sensor.SensorTypeId);
+                    var deviceId = MatterDeviceMapping.GenerateMatterDeviceId(node.NodeId, sensorTypeCode);
                     var displayName = MatterDeviceMapping.CreateDeviceDisplayName(
                         node.Name,
                         node.Location?.Name,
-                        sensor.SensorTypeId
+                        sensorTypeCode
                     );
 
                     await _matterBridgeClient.RegisterDeviceAsync(

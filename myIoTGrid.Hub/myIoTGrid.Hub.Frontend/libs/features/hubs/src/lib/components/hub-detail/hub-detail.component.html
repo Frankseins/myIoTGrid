@@ -55,31 +55,35 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- Sensors -->
-    <section class="sensors-section">
-      <h2 class="section-title">Verbundene Sensoren ({{ sensors().length }})</h2>
+    <!-- Nodes Section -->
+    <section class="nodes-section">
+      <h2 class="section-title">Verbundene Nodes ({{ nodes().length }})</h2>
 
-      @if (sensors().length === 0) {
+      @if (nodes().length === 0) {
         <myiotgrid-empty-state
-          icon="sensors"
-          title="Keine Sensoren"
-          message="Diesem Hub sind noch keine Sensoren zugeordnet.">
+          icon="router"
+          title="Keine Nodes"
+          message="Diesem Hub sind noch keine Nodes zugeordnet.">
         </myiotgrid-empty-state>
       } @else {
-        <div class="sensors-grid">
-          @for (sensor of sensors(); track sensor.id) {
-            <mat-card class="sensor-card" [routerLink]="['/sensors', sensor.id]">
+        <div class="nodes-grid">
+          @for (node of nodes(); track node.id) {
+            <mat-card class="node-card" [routerLink]="['/nodes', node.id]">
               <mat-card-header>
-                <mat-icon mat-card-avatar [class.online]="sensor.isOnline" [class.offline]="!sensor.isOnline">
-                  sensors
+                <mat-icon mat-card-avatar [class.online]="node.isOnline" [class.offline]="!node.isOnline">
+                  router
                 </mat-icon>
-                <mat-card-title>{{ sensor.name }}</mat-card-title>
-                <mat-card-subtitle>{{ sensor.sensorTypeName }}</mat-card-subtitle>
+                <mat-card-title>{{ node.name }}</mat-card-title>
+                <mat-card-subtitle>{{ node.nodeId }}</mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
-                <div class="sensor-info">
-                  <span class="location">{{ sensor.defaultLocation?.name || 'Unbekannt' }}</span>
-                  <span class="last-seen">{{ sensor.lastSeen | relativeTime }}</span>
+                <div class="node-info">
+                  <span class="location">{{ node.location?.name || 'Unbekannt' }}</span>
+                  <span class="last-seen">{{ node.lastSeen | relativeTime }}</span>
+                </div>
+                <div class="sensor-count">
+                  <mat-icon>memory</mat-icon>
+                  <span>{{ node.sensors?.length || 0 }} Sensoren</span>
                 </div>
               </mat-card-content>
             </mat-card>

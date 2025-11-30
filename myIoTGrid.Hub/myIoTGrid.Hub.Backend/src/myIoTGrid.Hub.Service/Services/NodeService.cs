@@ -38,8 +38,7 @@ public class NodeService : INodeService
     {
         var nodes = await _context.Nodes
             .AsNoTracking()
-            .Include(n => n.Sensors)
-                .ThenInclude(s => s.SensorType)
+            .Include(n => n.SensorAssignments)
             .Where(n => n.HubId == hubId)
             .OrderBy(n => n.Name)
             .ToListAsync(ct);
@@ -52,8 +51,7 @@ public class NodeService : INodeService
     {
         var node = await _context.Nodes
             .AsNoTracking()
-            .Include(n => n.Sensors)
-                .ThenInclude(s => s.SensorType)
+            .Include(n => n.SensorAssignments)
             .FirstOrDefaultAsync(n => n.Id == id, ct);
 
         return node?.ToDto();
@@ -64,8 +62,7 @@ public class NodeService : INodeService
     {
         var node = await _context.Nodes
             .AsNoTracking()
-            .Include(n => n.Sensors)
-                .ThenInclude(s => s.SensorType)
+            .Include(n => n.SensorAssignments)
             .FirstOrDefaultAsync(n => n.HubId == hubId && n.NodeId == nodeId, ct);
 
         return node?.ToDto();
@@ -75,8 +72,7 @@ public class NodeService : INodeService
     public async Task<NodeDto> GetOrCreateByNodeIdAsync(Guid hubId, string nodeId, CancellationToken ct = default)
     {
         var existingNode = await _context.Nodes
-            .Include(n => n.Sensors)
-                .ThenInclude(s => s.SensorType)
+            .Include(n => n.SensorAssignments)
             .FirstOrDefaultAsync(n => n.HubId == hubId && n.NodeId == nodeId, ct);
 
         if (existingNode != null)
@@ -140,8 +136,7 @@ public class NodeService : INodeService
     public async Task<NodeDto?> UpdateAsync(Guid id, UpdateNodeDto dto, CancellationToken ct = default)
     {
         var node = await _context.Nodes
-            .Include(n => n.Sensors)
-                .ThenInclude(s => s.SensorType)
+            .Include(n => n.SensorAssignments)
             .FirstOrDefaultAsync(n => n.Id == id, ct);
 
         if (node == null)
@@ -208,8 +203,7 @@ public class NodeService : INodeService
         var hubId = dto.HubId ?? throw new InvalidOperationException("HubId is required");
 
         var existingNode = await _context.Nodes
-            .Include(n => n.Sensors)
-                .ThenInclude(s => s.SensorType)
+            .Include(n => n.SensorAssignments)
             .FirstOrDefaultAsync(n => n.HubId == hubId && n.NodeId == dto.NodeId, ct);
 
         if (existingNode != null)

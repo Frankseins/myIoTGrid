@@ -330,7 +330,7 @@ public class MappingExtensionsTests
             FirmwareVersion = "1.2.3",
             BatteryLevel = 85,
             CreatedAt = DateTime.UtcNow.AddDays(-5),
-            Sensors = new List<Sensor>()
+            SensorAssignments = new List<NodeSensorAssignment>()
         };
 
         // Act
@@ -443,21 +443,41 @@ public class MappingExtensionsTests
 
     #endregion
 
-    #region SensorMappingExtensions Tests (Physical Sensor Chip)
+    #region SensorMappingExtensions Tests (Sensor Instance with Calibration)
 
     [Fact]
     public void Sensor_ToDto_MapsAllProperties()
     {
-        // Arrange
+        // Arrange - New model: Sensor is instance with calibration, no NodeId/EndpointId
         var sensor = new Sensor
         {
             Id = Guid.NewGuid(),
-            NodeId = Guid.NewGuid(),
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            Name = "Temperature Sensor",
+            TenantId = Guid.NewGuid(),
+            SensorTypeId = Guid.NewGuid(),
+            Name = "Living Room DHT22",
+            Description = "Temperature and humidity sensor",
+            SerialNumber = "DHT22-001",
+            IntervalSecondsOverride = 30,
+            OffsetCorrection = 0.5,
+            GainCorrection = 1.02,
+            LastCalibratedAt = DateTime.UtcNow.AddMonths(-1),
+            CalibrationNotes = "Calibrated with reference",
+            CalibrationDueAt = DateTime.UtcNow.AddMonths(5),
             IsActive = true,
-            CreatedAt = DateTime.UtcNow.AddDays(-5)
+            CreatedAt = DateTime.UtcNow.AddDays(-5),
+            UpdatedAt = DateTime.UtcNow,
+            SensorType = new SensorType
+            {
+                Id = Guid.NewGuid(),
+                Code = "dht22",
+                Name = "DHT22 Temperature & Humidity Sensor",
+                Category = "climate",
+                Protocol = CommunicationProtocol.OneWire,
+                IsActive = true,
+                IsGlobal = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            }
         };
 
         // Act
@@ -465,48 +485,63 @@ public class MappingExtensionsTests
 
         // Assert
         result.Id.Should().Be(sensor.Id);
-        result.NodeId.Should().Be(sensor.NodeId);
-        result.SensorTypeId.Should().Be("temperature");
-        result.EndpointId.Should().Be(1);
-        result.Name.Should().Be("Temperature Sensor");
+        result.TenantId.Should().Be(sensor.TenantId);
+        result.SensorTypeId.Should().Be(sensor.SensorTypeId);
+        result.SensorTypeCode.Should().Be("dht22");
+        result.SensorTypeName.Should().Be("DHT22 Temperature & Humidity Sensor");
+        result.Name.Should().Be("Living Room DHT22");
+        result.Description.Should().Be("Temperature and humidity sensor");
+        result.SerialNumber.Should().Be("DHT22-001");
+        result.IntervalSecondsOverride.Should().Be(30);
+        result.OffsetCorrection.Should().Be(0.5);
+        result.GainCorrection.Should().Be(1.02);
         result.IsActive.Should().BeTrue();
     }
 
     [Fact]
     public void CreateSensorDto_ToEntity_MapsAllProperties()
     {
-        // Arrange
-        var nodeId = Guid.NewGuid();
+        // Arrange - New model: CreateSensorDto has SensorTypeId (Guid), TenantId
+        var tenantId = Guid.NewGuid();
+        var sensorTypeId = Guid.NewGuid();
         var dto = new CreateSensorDto(
-            SensorTypeId: "humidity",
-            EndpointId: 2,
-            Name: "Humidity Sensor"
+            SensorTypeId: sensorTypeId,
+            Name: "Kitchen Sensor",
+            Description: "Sensor in kitchen",
+            SerialNumber: "BME280-042",
+            IntervalSecondsOverride: 60
         );
 
         // Act
-        var result = dto.ToEntity(nodeId);
+        var result = dto.ToEntity(tenantId);
 
         // Assert
         result.Id.Should().NotBeEmpty();
-        result.NodeId.Should().Be(nodeId);
-        result.SensorTypeId.Should().Be("humidity");
-        result.EndpointId.Should().Be(2);
-        result.Name.Should().Be("Humidity Sensor");
+        result.TenantId.Should().Be(tenantId);
+        result.SensorTypeId.Should().Be(sensorTypeId);
+        result.Name.Should().Be("Kitchen Sensor");
+        result.Description.Should().Be("Sensor in kitchen");
+        result.SerialNumber.Should().Be("BME280-042");
+        result.IntervalSecondsOverride.Should().Be(60);
+        result.OffsetCorrection.Should().Be(0);
+        result.GainCorrection.Should().Be(1.0);
         result.IsActive.Should().BeTrue();
     }
 
     [Fact]
     public void Sensor_ApplyUpdate_UpdatesProvidedProperties()
     {
-        // Arrange
+        // Arrange - New model: UpdateSensorDto can update name, description, etc.
         var sensor = new Sensor
         {
             Name = "Old Name",
+            Description = "Old description",
             IsActive = true
         };
 
         var dto = new UpdateSensorDto(
             Name: "New Name",
+            Description: "New description",
             IsActive: false
         );
 
@@ -515,17 +550,68 @@ public class MappingExtensionsTests
 
         // Assert
         sensor.Name.Should().Be("New Name");
+        sensor.Description.Should().Be("New description");
         sensor.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Sensor_ApplyCalibration_UpdatesCalibrationProperties()
+    {
+        // Arrange - New model: CalibrateSensorDto for calibration
+        var sensor = new Sensor
+        {
+            OffsetCorrection = 0,
+            GainCorrection = 1.0,
+            LastCalibratedAt = null,
+            CalibrationNotes = null
+        };
+
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.5,
+            GainCorrection: 1.02,
+            CalibrationNotes: "Calibrated with reference",
+            CalibrationDueAt: DateTime.UtcNow.AddMonths(6)
+        );
+
+        // Act
+        sensor.ApplyCalibration(dto);
+
+        // Assert
+        sensor.OffsetCorrection.Should().Be(0.5);
+        sensor.GainCorrection.Should().Be(1.02);
+        sensor.CalibrationNotes.Should().Be("Calibrated with reference");
+        sensor.LastCalibratedAt.Should().NotBeNull();
+        sensor.LastCalibratedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
     }
 
     [Fact]
     public void Sensor_ToDtos_ConvertsCollection()
     {
-        // Arrange
+        // Arrange - New model: Sensor with SensorType navigation
         var sensors = new List<Sensor>
         {
-            new() { Id = Guid.NewGuid(), NodeId = Guid.NewGuid(), SensorTypeId = "temperature", EndpointId = 1, CreatedAt = DateTime.UtcNow },
-            new() { Id = Guid.NewGuid(), NodeId = Guid.NewGuid(), SensorTypeId = "humidity", EndpointId = 2, CreatedAt = DateTime.UtcNow }
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.NewGuid(),
+                SensorTypeId = Guid.NewGuid(),
+                Name = "Sensor 1",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                SensorType = new SensorType { Id = Guid.NewGuid(), Code = "dht22", Name = "DHT22", Category = "climate", Protocol = CommunicationProtocol.OneWire, IsActive = true, IsGlobal = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.NewGuid(),
+                SensorTypeId = Guid.NewGuid(),
+                Name = "Sensor 2",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                SensorType = new SensorType { Id = Guid.NewGuid(), Code = "bme280", Name = "BME280", Category = "climate", Protocol = CommunicationProtocol.I2C, IsActive = true, IsGlobal = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+            }
         };
 
         // Act
@@ -533,6 +619,8 @@ public class MappingExtensionsTests
 
         // Assert
         result.Should().HaveCount(2);
+        result[0].SensorTypeCode.Should().Be("dht22");
+        result[1].SensorTypeCode.Should().Be("bme280");
     }
 
     #endregion

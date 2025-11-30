@@ -1,24 +1,19 @@
-import { Component, OnInit, OnDestroy, inject, signal, input, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatTabsModule } from '@angular/material/tabs';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { FormsModule } from '@angular/forms';
-import {
-  SensorApiService,
-  SensorDataApiService,
-  SignalRService
-} from '@myiotgrid/shared/data-access';
-import { Sensor, SensorData, SensorDataFilter } from '@myiotgrid/shared/models';
+import { SensorApiService, NodeApiService, SensorTypeApiService } from '@myiotgrid/shared/data-access';
+import { Sensor, Node } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent, EmptyStateComponent } from '@myiotgrid/shared/ui';
-import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
+import { RelativeTimePipe } from '@myiotgrid/shared/utils';
 
+/**
+ * SensorDetailComponent - Shows details of a physical sensor chip
+ * Matter-konform: Corresponds to a Matter Endpoint
+ */
 @Component({
   selector: 'myiotgrid-sensor-detail',
   standalone: true,
@@ -29,61 +24,39 @@ import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
     MatIconModule,
     MatButtonModule,
     MatChipsModule,
-    MatTabsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    FormsModule,
     LoadingSpinnerComponent,
     EmptyStateComponent,
-    RelativeTimePipe,
-    SensorUnitPipe
+    RelativeTimePipe
   ],
   templateUrl: './sensor-detail.component.html',
   styleUrl: './sensor-detail.component.scss'
 })
-export class SensorDetailComponent implements OnInit, OnDestroy {
+export class SensorDetailComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly sensorApiService = inject(SensorApiService);
-  private readonly sensorDataApiService = inject(SensorDataApiService);
-  private readonly signalRService = inject(SignalRService);
+  private readonly nodeApiService = inject(NodeApiService);
+  private readonly sensorTypeApiService = inject(SensorTypeApiService);
 
   id = input.required<string>();
 
   readonly isLoading = signal(true);
   readonly sensor = signal<Sensor | null>(null);
-  readonly sensorData = signal<SensorData[]>([]);
-  readonly latestValue = signal<SensorData | null>(null);
-
-  timeRange: '24h' | '7d' | '30d' = '24h';
+  readonly node = signal<Node | null>(null);
 
   readonly sensorIcon = computed(() => {
-    const code = this.sensor()?.sensorTypeCode?.toLowerCase();
-    switch (code) {
-      case 'temperature':
-        return 'thermostat';
-      case 'humidity':
-        return 'water_drop';
-      case 'co2':
-        return 'air';
-      case 'pressure':
-        return 'speed';
-      case 'light':
-        return 'light_mode';
-      case 'soil_moisture':
-        return 'grass';
-      default:
-        return 'sensors';
-    }
+    const typeId = this.sensor()?.sensorTypeId;
+    return typeId ? this.sensorTypeApiService.getIcon(typeId) : 'memory';
+  });
+
+  readonly sensorColor = computed(() => {
+    const typeId = this.sensor()?.sensorTypeId;
+    return typeId ? this.sensorTypeApiService.getColor(typeId) : '#666666';
   });
 
   async ngOnInit(): Promise<void> {
+    // Load SensorTypes for icons/colors
+    this.sensorTypeApiService.getAll().subscribe();
     await this.loadSensor();
-    this.setupSignalR();
-  }
-
-  ngOnDestroy(): void {
-    this.signalRService.off('NewSensorData');
   }
 
   private async loadSensor(): Promise<void> {
@@ -93,7 +66,8 @@ export class SensorDetailComponent implements OnInit, OnDestroy {
       this.sensor.set(sensor || null);
 
       if (sensor) {
-        await this.loadSensorData();
+        const node = await this.nodeApiService.getById(sensor.nodeId).toPromise();
+        this.node.set(node || null);
       }
     } catch (error) {
       console.error('Error loading sensor:', error);
@@ -102,54 +76,18 @@ export class SensorDetailComponent implements OnInit, OnDestroy {
     }
   }
 
-  async loadSensorData(): Promise<void> {
-    const now = new Date();
-    let from: Date;
-
-    switch (this.timeRange) {
-      case '7d':
-        from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case '30d':
-        from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    }
-
-    const filter: SensorDataFilter = {
-      sensorId: this.id(),
-      from: from.toISOString(),
-      to: now.toISOString()
-    };
-
-    try {
-      const result = await this.sensorDataApiService.getFiltered(filter).toPromise();
-      const data = result?.items || [];
-      this.sensorData.set(data);
-
-      if (data.length > 0) {
-        this.latestValue.set(data[0]);
-      }
-    } catch (error) {
-      console.error('Error loading sensor data:', error);
-    }
-  }
-
-  private setupSignalR(): void {
-    this.signalRService.onNewSensorData((data: SensorData) => {
-      if (data.sensorId === this.id()) {
-        this.latestValue.set(data);
-        this.sensorData.update(existing => [data, ...existing]);
-      }
-    });
-  }
-
-  onTimeRangeChange(): void {
-    this.loadSensorData();
+  getSensorDisplayName(typeId: string): string {
+    return this.sensorTypeApiService.getDisplayName(typeId);
   }
 
   goBack(): void {
     this.router.navigate(['/sensors']);
+  }
+
+  goToNode(): void {
+    const nodeId = this.sensor()?.nodeId;
+    if (nodeId) {
+      this.router.navigate(['/nodes', nodeId]);
+    }
   }
 }

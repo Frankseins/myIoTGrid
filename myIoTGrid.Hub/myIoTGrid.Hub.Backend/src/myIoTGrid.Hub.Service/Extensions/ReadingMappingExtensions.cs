@@ -12,33 +12,44 @@ public static class ReadingMappingExtensions
     /// <summary>
     /// Converts a Reading entity to a ReadingDto
     /// </summary>
-    public static ReadingDto ToDto(this Reading reading, LocationDto? location = null)
+    public static ReadingDto ToDto(this Reading reading)
     {
         return new ReadingDto(
             Id: reading.Id,
             TenantId: reading.TenantId,
             NodeId: reading.NodeId,
-            SensorTypeId: reading.SensorTypeId,
-            SensorTypeName: reading.SensorType?.DisplayName ?? reading.SensorTypeId,
+            NodeName: reading.Node?.Name ?? string.Empty,
+            AssignmentId: reading.AssignmentId,
+            MeasurementType: reading.MeasurementType,
+            RawValue: reading.RawValue,
             Value: reading.Value,
-            Unit: reading.SensorType?.Unit ?? string.Empty,
+            Unit: reading.Unit,
             Timestamp: reading.Timestamp,
-            Location: location ?? reading.Node?.Location?.ToDto(),
+            Location: reading.Node?.Location?.ToDto(),
             IsSyncedToCloud: reading.IsSyncedToCloud
         );
     }
 
     /// <summary>
-    /// Converts a CreateReadingDto to a Reading entity
+    /// Converts a CreateReadingDto to a Reading entity with calibration applied
     /// </summary>
-    public static Reading ToEntity(this CreateReadingDto dto, Guid tenantId, Guid nodeId)
+    public static Reading ToEntity(
+        this CreateReadingDto dto,
+        Guid tenantId,
+        Guid nodeId,
+        Guid assignmentId,
+        string unit,
+        double calibratedValue)
     {
         return new Reading
         {
             TenantId = tenantId,
             NodeId = nodeId,
-            SensorTypeId = dto.Type.ToLowerInvariant(),
-            Value = dto.Value,
+            AssignmentId = assignmentId,
+            MeasurementType = dto.MeasurementType.ToLowerInvariant(),
+            RawValue = dto.RawValue,
+            Value = calibratedValue,
+            Unit = unit,
             Timestamp = dto.Timestamp ?? DateTime.UtcNow,
             IsSyncedToCloud = false
         };

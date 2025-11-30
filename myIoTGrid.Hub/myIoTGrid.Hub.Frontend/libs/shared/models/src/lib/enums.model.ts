@@ -1,5 +1,5 @@
 /**
- * Enums - corresponds to Backend Enums in myIoTGrid.Hub.Domain
+ * Enums - corresponds to Backend Enums in myIoTGrid.Hub.Shared
  */
 
 export enum Protocol {
@@ -18,4 +18,11 @@ export enum AlertLevel {
 export enum AlertSource {
   Local = 0,
   Cloud = 1
+}
+
+export enum NodeTransport {
+  Unknown = 0,
+  WLAN = 1,
+  LoRaWAN = 2,
+  Matter = 3
 }

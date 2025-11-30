@@ -8,11 +8,14 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
-import { HubApiService, SensorDataApiService } from '@myiotgrid/shared/data-access';
-import { Hub, Sensor, SensorData } from '@myiotgrid/shared/models';
+import { SensorApiService, NodeApiService, SensorTypeApiService } from '@myiotgrid/shared/data-access';
+import { Sensor, Node } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent, EmptyStateComponent } from '@myiotgrid/shared/ui';
-import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
 
+/**
+ * SensorListComponent - Lists physical sensor chips (DHT22, BME280, etc.)
+ * Matter-konform: Corresponds to Matter Endpoints
+ */
 @Component({
   selector: 'myiotgrid-sensor-list',
   standalone: true,
@@ -27,70 +30,58 @@ import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
     MatSelectModule,
     FormsModule,
     LoadingSpinnerComponent,
-    EmptyStateComponent,
-    RelativeTimePipe,
-    SensorUnitPipe
+    EmptyStateComponent
   ],
   templateUrl: './sensor-list.component.html',
   styleUrl: './sensor-list.component.scss'
 })
 export class SensorListComponent implements OnInit {
-  private readonly hubApiService = inject(HubApiService);
-  private readonly sensorDataApiService = inject(SensorDataApiService);
+  private readonly sensorApiService = inject(SensorApiService);
+  private readonly nodeApiService = inject(NodeApiService);
+  private readonly sensorTypeApiService = inject(SensorTypeApiService);
 
   readonly isLoading = signal(true);
-  readonly hubs = signal<Hub[]>([]);
   readonly sensors = signal<Sensor[]>([]);
-  readonly latestData = signal<Map<string, SensorData>>(new Map());
+  readonly nodes = signal<Node[]>([]);
 
-  filterStatus: 'all' | 'online' | 'offline' = 'all';
+  filterStatus: 'all' | 'active' | 'inactive' = 'all';
+  filterNode: string = '';
 
   get filteredSensors(): Sensor[] {
-    const all = this.sensors();
+    let result = this.sensors();
+
     switch (this.filterStatus) {
-      case 'online':
-        return all.filter(s => s.isOnline);
-      case 'offline':
-        return all.filter(s => !s.isOnline);
-      default:
-        return all;
+      case 'active':
+        result = result.filter(s => s.isActive);
+        break;
+      case 'inactive':
+        result = result.filter(s => !s.isActive);
+        break;
     }
+
+    if (this.filterNode) {
+      result = result.filter(s => s.nodeId === this.filterNode);
+    }
+
+    return result;
   }
 
   async ngOnInit(): Promise<void> {
+    // Load SensorTypes for icons/colors
+    this.sensorTypeApiService.getAll().subscribe();
     await this.loadSensors();
   }
 
   private async loadSensors(): Promise<void> {
     this.isLoading.set(true);
     try {
-      // First load all hubs
-      const hubs = await this.hubApiService.getAll().toPromise();
-      this.hubs.set(hubs || []);
+      // Load all nodes for the filter dropdown
+      const nodes = await this.nodeApiService.getAll().toPromise();
+      this.nodes.set(nodes || []);
 
-      // Then load sensors for each hub
-      if (hubs && hubs.length > 0) {
-        const sensorPromises = hubs.map(hub =>
-          this.hubApiService.getSensors(hub.id).toPromise()
-        );
-        const sensorArrays = await Promise.all(sensorPromises);
-        const allSensors = sensorArrays.flat().filter((s): s is Sensor => s !== undefined);
-        this.sensors.set(allSensors);
-      }
-
-      // Load latest sensor data
-      const data = await this.sensorDataApiService.getLatest().toPromise();
-      if (data) {
-        const dataMap = new Map<string, SensorData>();
-        data.forEach(d => {
-          const key = d.sensorId || d.hubId;
-          const existing = dataMap.get(key);
-          if (!existing || new Date(d.timestamp) > new Date(existing.timestamp)) {
-            dataMap.set(key, d);
-          }
-        });
-        this.latestData.set(dataMap);
-      }
+      // Load all sensors
+      const sensors = await this.sensorApiService.getAll().toPromise();
+      this.sensors.set(sensors || []);
     } catch (error) {
       console.error('Error loading sensors:', error);
     } finally {
@@ -98,31 +89,20 @@ export class SensorListComponent implements OnInit {
     }
   }
 
-  getLatestData(sensorId: string): SensorData | undefined {
-    return this.latestData().get(sensorId);
+  getNodeName(nodeId: string): string {
+    const node = this.nodes().find(n => n.id === nodeId);
+    return node?.name || node?.nodeId || 'Unbekannt';
   }
 
-  getHubName(hubId: string): string {
-    const hub = this.hubs().find(h => h.id === hubId);
-    return hub?.name || 'Unbekannt';
+  getSensorIcon(typeId: string): string {
+    return this.sensorTypeApiService.getIcon(typeId);
   }
 
-  getSensorIcon(typeCode: string): string {
-    switch (typeCode?.toLowerCase()) {
-      case 'temperature':
-        return 'thermostat';
-      case 'humidity':
-        return 'water_drop';
-      case 'co2':
-        return 'air';
-      case 'pressure':
-        return 'speed';
-      case 'light':
-        return 'light_mode';
-      case 'soil_moisture':
-        return 'grass';
-      default:
-        return 'sensors';
-    }
+  getSensorColor(typeId: string): string {
+    return this.sensorTypeApiService.getColor(typeId);
+  }
+
+  getSensorDisplayName(typeId: string): string {
+    return this.sensorTypeApiService.getDisplayName(typeId);
   }
 }

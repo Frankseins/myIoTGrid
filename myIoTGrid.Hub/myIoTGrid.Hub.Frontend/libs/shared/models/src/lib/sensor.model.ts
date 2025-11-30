@@ -1,38 +1,27 @@
-import { Location } from './location.model';
+import { SensorType } from './sensor-type.model';
 
 /**
- * Sensor models - corresponds to Backend SensorDto
+ * Sensor model - corresponds to Backend SensorDto
+ * Matter-konform: Entspricht einem Matter Endpoint (physischer Sensor-Chip: DHT22, BME280, etc.)
  */
 export interface Sensor {
   id: string;
-  tenantId: string;
-  hubId: string;
-  sensorId: string;
+  nodeId: string;
   sensorTypeId: string;
-  sensorTypeCode: string;
-  sensorTypeName: string;
-  unit: string;
-  name: string;
-  description?: string;
-  defaultLocation?: Location;
+  endpointId: number;
+  name?: string;
   isActive: boolean;
-  lastSeen?: string;
-  isOnline: boolean;
+  sensorType?: SensorType;
   createdAt: string;
 }
 
 export interface CreateSensorDto {
-  hubId: string;
-  sensorId: string;
-  sensorTypeCode: string;
-  name: string;
-  description?: string;
-  defaultLocation?: Location;
+  sensorTypeId: string;
+  endpointId: number;
+  name?: string;
 }
 
 export interface UpdateSensorDto {
   name?: string;
-  description?: string;
-  defaultLocation?: Location;
   isActive?: boolean;
 }

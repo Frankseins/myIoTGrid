@@ -3,34 +3,76 @@ using myIoTGrid.Hub.Domain.Interfaces;
 namespace myIoTGrid.Hub.Domain.Entities;
 
 /// <summary>
-/// Represents a physical sensor chip on a Node (DHT22, BME280, SCD40).
-/// Matter-konform: Entspricht einem Matter Endpoint.
-/// One Node can have multiple Sensors.
+/// Concrete sensor instance with calibration settings.
+/// This is the "instance" level - a specific physical sensor with its configuration.
+/// Can override SensorType defaults (interval, calibration).
 /// </summary>
-public class Sensor : IEntity
+public class Sensor : ITenantEntity
 {
-    /// <summary>Primary key (internal)</summary>
+    /// <summary>Primary key</summary>
     public Guid Id { get; set; }
 
-    /// <summary>FK to the Node this sensor belongs to</summary>
-    public Guid NodeId { get; set; }
+    /// <summary>Tenant ID for multi-tenant support</summary>
+    public Guid TenantId { get; set; }
 
-    /// <summary>FK to the SensorType (e.g., "temperature")</summary>
-    public string SensorTypeId { get; set; } = string.Empty;
+    /// <summary>FK to the SensorType (hardware definition)</summary>
+    public Guid SensorTypeId { get; set; }
 
-    /// <summary>Matter Endpoint ID (1, 2, 3...)</summary>
-    public int EndpointId { get; set; }
+    /// <summary>Display name (e.g., "Temperatursensor Wohnzimmer")</summary>
+    public string Name { get; set; } = string.Empty;
 
-    /// <summary>Optional display name for this sensor</summary>
-    public string? Name { get; set; }
+    /// <summary>Optional description</summary>
+    public string? Description { get; set; }
+
+    /// <summary>Serial number of this physical sensor</summary>
+    public string? SerialNumber { get; set; }
+
+    // === Interval Override ===
+
+    /// <summary>Override measurement interval (null = use SensorType default)</summary>
+    public int? IntervalSecondsOverride { get; set; }
+
+    // === Calibration ===
+
+    /// <summary>Offset correction applied to raw values</summary>
+    public double OffsetCorrection { get; set; }
+
+    /// <summary>Gain/multiplier correction applied to raw values</summary>
+    public double GainCorrection { get; set; } = 1.0;
+
+    /// <summary>When this sensor was last calibrated</summary>
+    public DateTime? LastCalibratedAt { get; set; }
+
+    /// <summary>Notes about the calibration process</summary>
+    public string? CalibrationNotes { get; set; }
+
+    /// <summary>When the next calibration is due</summary>
+    public DateTime? CalibrationDueAt { get; set; }
+
+    // === Active Capabilities ===
+
+    /// <summary>JSON array of active capability IDs (null = all capabilities active)</summary>
+    public string? ActiveCapabilityIdsJson { get; set; }
+
+    // === Status ===
 
     /// <summary>Is this sensor active?</summary>
     public bool IsActive { get; set; } = true;
 
-    /// <summary>When the sensor was registered</summary>
+    /// <summary>Creation timestamp</summary>
     public DateTime CreatedAt { get; set; }
 
-    // Navigation Properties
-    public Node? Node { get; set; }
-    public SensorType? SensorType { get; set; }
+    /// <summary>Last update timestamp</summary>
+    public DateTime UpdatedAt { get; set; }
+
+    // === Navigation Properties ===
+
+    /// <summary>Tenant this sensor belongs to</summary>
+    public Tenant Tenant { get; set; } = null!;
+
+    /// <summary>Hardware type definition</summary>
+    public SensorType SensorType { get; set; } = null!;
+
+    /// <summary>Node assignments (where this sensor is installed)</summary>
+    public ICollection<NodeSensorAssignment> NodeAssignments { get; set; } = new List<NodeSensorAssignment>();
 }

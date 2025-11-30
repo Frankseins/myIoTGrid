@@ -38,8 +38,8 @@ public class SignalRNotificationService : ISignalRNotificationService
             .SendAsync("NewReading", reading, ct);
 
         _logger.LogDebug(
-            "SignalR NewReading gesendet: {SensorTypeId}={Value} (Tenant: {TenantId}, Node: {NodeId})",
-            reading.SensorTypeId,
+            "SignalR NewReading gesendet: {MeasurementType}={Value} (Tenant: {TenantId}, Node: {NodeId})",
+            reading.MeasurementType,
             reading.Value,
             reading.TenantId,
             reading.NodeId);

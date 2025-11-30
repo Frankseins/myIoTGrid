@@ -70,9 +70,15 @@ public partial class ReadingMqttHandler : IMqttMessageHandler
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(dto.Type))
+            if (string.IsNullOrWhiteSpace(dto.MeasurementType))
             {
-                _logger.LogWarning("Type (SensorType) fehlt im Payload");
+                _logger.LogWarning("MeasurementType fehlt im Payload");
+                return false;
+            }
+
+            if (dto.EndpointId <= 0)
+            {
+                _logger.LogWarning("EndpointId fehlt oder ungültig im Payload");
                 return false;
             }
 
@@ -88,9 +94,10 @@ public partial class ReadingMqttHandler : IMqttMessageHandler
             var reading = await readingService.CreateAsync(dto, ct);
 
             _logger.LogDebug(
-                "MQTT Reading verarbeitet: {Type}={Value} von Node {NodeId} (Tenant: {TenantId})",
-                dto.Type,
-                dto.Value,
+                "MQTT Reading verarbeitet: Endpoint={EndpointId} {MeasurementType}={RawValue} von Node {NodeId} (Tenant: {TenantId})",
+                dto.EndpointId,
+                dto.MeasurementType,
+                dto.RawValue,
                 dto.NodeId,
                 tenantId);
 

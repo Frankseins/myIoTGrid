@@ -20,7 +20,7 @@ public static class NodeMappingExtensions
             Name: node.Name,
             Protocol: node.Protocol.ToDto(),
             Location: node.Location?.ToDto(),
-            Sensors: node.Sensors.Select(s => s.ToDto()),
+            AssignmentCount: node.SensorAssignments.Count,
             LastSeen: node.LastSeen,
             IsOnline: node.IsOnline,
             FirmwareVersion: node.FirmwareVersion,

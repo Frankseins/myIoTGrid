@@ -2,94 +2,94 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using myIoTGrid.Hub.Domain.Entities;
+using myIoTGrid.Hub.Domain.Enums;
 using myIoTGrid.Hub.Infrastructure.Repositories;
+using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Service.Services;
 using myIoTGrid.Hub.Shared.DTOs;
 
 namespace myIoTGrid.Hub.Service.Tests.Services;
 
 /// <summary>
-/// Tests for SensorService (Physical sensor chips = Matter Endpoints).
-/// The new Sensor entity represents physical sensor chips (DHT22, BME280, etc.)
-/// mounted on a Node (ESP32/LoRa32 device).
+/// Tests for SensorService (Concrete sensor instances with calibration).
+/// The new Sensor entity represents a concrete sensor instance that can be assigned to nodes.
+/// Three-tier model: SensorType (Library) → Sensor (Instance) → NodeSensorAssignment (Binding)
 /// </summary>
 public class SensorServiceTests : IDisposable
 {
     private readonly Infrastructure.Data.HubDbContext _context;
     private readonly SensorService _sut;
+    private readonly Mock<ITenantService> _tenantServiceMock;
     private readonly Mock<ILogger<SensorService>> _loggerMock;
     private readonly Guid _tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-    private readonly Guid _hubId;
-    private readonly Guid _nodeId;
+    private readonly Guid _sensorTypeId;
 
     public SensorServiceTests()
     {
         _context = TestDbContextFactory.Create();
+        _tenantServiceMock = new Mock<ITenantService>();
         _loggerMock = new Mock<ILogger<SensorService>>();
         var unitOfWork = new UnitOfWork(_context);
 
-        // Create a Hub
-        _hubId = Guid.NewGuid();
-        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
-        {
-            Id = _hubId,
-            TenantId = _tenantId,
-            HubId = "test-hub",
-            Name = "Test Hub",
-            CreatedAt = DateTime.UtcNow
-        });
+        _tenantServiceMock.Setup(x => x.GetCurrentTenantId()).Returns(_tenantId);
 
-        // Create a Node
-        _nodeId = Guid.NewGuid();
-        _context.Nodes.Add(new Node
+        // Create a SensorType (DHT22 with temperature + humidity capabilities)
+        _sensorTypeId = Guid.NewGuid();
+        var sensorType = new SensorType
         {
-            Id = _nodeId,
-            HubId = _hubId,
-            NodeId = "test-node",
-            Name = "Test Node",
+            Id = _sensorTypeId,
+            Code = "dht22",
+            Name = "DHT22 Temperature & Humidity Sensor",
+            Protocol = CommunicationProtocol.OneWire,
+            Category = "climate",
+            Description = "Digital temperature and humidity sensor",
+            DefaultIntervalSeconds = 60,
+            IsActive = true,
+            IsGlobal = true,
             CreatedAt = DateTime.UtcNow
-        });
+        };
 
-        // Create SensorTypes (TypeId is primary key, not Id)
-        _context.SensorTypes.Add(new SensorType
+        var tempCapability = new SensorTypeCapability
         {
-            TypeId = "temperature",
-            DisplayName = "Temperatur",
+            Id = Guid.NewGuid(),
+            SensorTypeId = _sensorTypeId,
+            MeasurementType = "temperature",
+            DisplayName = "Temperature",
             Unit = "°C",
-            ClusterId = 0x0402,  // TemperatureMeasurement
+            MinValue = -40,
+            MaxValue = 80,
+            Resolution = 0.1,
+            Accuracy = 0.5,
+            MatterClusterId = 0x0402,
             MatterClusterName = "TemperatureMeasurement",
-            Category = "weather",
-            IsGlobal = true,
-            CreatedAt = DateTime.UtcNow
-        });
+            SortOrder = 0,
+            IsActive = true
+        };
 
-        _context.SensorTypes.Add(new SensorType
+        var humCapability = new SensorTypeCapability
         {
-            TypeId = "humidity",
-            DisplayName = "Luftfeuchtigkeit",
+            Id = Guid.NewGuid(),
+            SensorTypeId = _sensorTypeId,
+            MeasurementType = "humidity",
+            DisplayName = "Humidity",
             Unit = "%",
-            ClusterId = 0x0405,  // RelativeHumidityMeasurement
+            MinValue = 0,
+            MaxValue = 100,
+            Resolution = 0.1,
+            Accuracy = 2.0,
+            MatterClusterId = 0x0405,
             MatterClusterName = "RelativeHumidityMeasurement",
-            Category = "weather",
-            IsGlobal = true,
-            CreatedAt = DateTime.UtcNow
-        });
+            SortOrder = 1,
+            IsActive = true
+        };
 
-        _context.SensorTypes.Add(new SensorType
-        {
-            TypeId = "pressure",
-            DisplayName = "Luftdruck",
-            Unit = "hPa",
-            ClusterId = 0x0403,  // PressureMeasurement
-            MatterClusterName = "PressureMeasurement",
-            Category = "weather",
-            IsGlobal = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        sensorType.Capabilities.Add(tempCapability);
+        sensorType.Capabilities.Add(humCapability);
 
+        _context.SensorTypes.Add(sensorType);
         _context.SaveChanges();
 
-        _sut = new SensorService(_context, unitOfWork, _loggerMock.Object);
+        _sut = new SensorService(_context, unitOfWork, _tenantServiceMock.Object, _loggerMock.Object);
     }
 
     public void Dispose()
@@ -97,115 +97,90 @@ public class SensorServiceTests : IDisposable
         _context.Dispose();
     }
 
+    #region GetAllAsync Tests
+
     [Fact]
-    public async Task GetByNodeAsync_WhenNoSensors_ReturnsEmptyList()
+    public async Task GetAllAsync_WhenNoSensors_ReturnsEmptyList()
     {
         // Act
-        var result = await _sut.GetByNodeAsync(_nodeId);
+        var result = await _sut.GetAllAsync();
 
         // Assert
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetByNodeAsync_ReturnsOnlyNodesSensors()
+    public async Task GetAllAsync_ReturnsSensorsForCurrentTenant()
     {
         // Arrange
-        var otherNodeId = Guid.NewGuid();
-        _context.Nodes.Add(new Node
-        {
-            Id = otherNodeId,
-            HubId = _hubId,
-            NodeId = "other-node",
-            Name = "Other Node",
-            CreatedAt = DateTime.UtcNow
-        });
-
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = otherNodeId, // Different Node
-            SensorTypeId = "humidity",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.GetByNodeAsync(_nodeId);
+        var result = await _sut.GetAllAsync();
 
         // Assert
         result.Should().ContainSingle();
-        result.First().SensorTypeId.Should().Be("temperature");
+        result.First().Name.Should().Be("Test Sensor");
     }
 
     [Fact]
-    public async Task GetByNodeAsync_OrdersByEndpointId()
+    public async Task GetAllAsync_DoesNotReturnOtherTenantSensors()
     {
         // Arrange
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "humidity",
-            EndpointId = 2,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        var otherTenantId = Guid.NewGuid();
+        var sensor = CreateTestSensor();
+        sensor.TenantId = otherTenantId;
+        _context.Sensors.Add(sensor);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = (await _sut.GetByNodeAsync(_nodeId)).ToList();
+        var result = await _sut.GetAllAsync();
 
         // Assert
-        result.Should().HaveCount(2);
-        result[0].EndpointId.Should().Be(1);
-        result[1].EndpointId.Should().Be(2);
+        result.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task GetAllAsync_OrdersByName()
+    {
+        // Arrange
+        _context.Sensors.Add(CreateTestSensor(name: "Zebra Sensor"));
+        _context.Sensors.Add(CreateTestSensor(name: "Alpha Sensor"));
+        _context.Sensors.Add(CreateTestSensor(name: "Beta Sensor"));
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = (await _sut.GetAllAsync()).ToList();
+
+        // Assert
+        result.Should().HaveCount(3);
+        result[0].Name.Should().Be("Alpha Sensor");
+        result[1].Name.Should().Be("Beta Sensor");
+        result[2].Name.Should().Be("Zebra Sensor");
+    }
+
+    #endregion
+
+    #region GetByIdAsync Tests
 
     [Fact]
     public async Task GetByIdAsync_WithExistingSensor_ReturnsSensor()
     {
         // Arrange
-        var sensorId = Guid.NewGuid();
-        _context.Sensors.Add(new Sensor
-        {
-            Id = sensorId,
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            Name = "Living Room Temp",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        var sensor = CreateTestSensor(name: "Living Room DHT22");
+        _context.Sensors.Add(sensor);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.GetByIdAsync(sensorId);
+        var result = await _sut.GetByIdAsync(sensor.Id);
 
         // Assert
         result.Should().NotBeNull();
-        result!.Name.Should().Be("Living Room Temp");
-        result.SensorTypeId.Should().Be("temperature");
+        result!.Name.Should().Be("Living Room DHT22");
+        result.SensorTypeCode.Should().Be("dht22");
+        result.SensorTypeName.Should().Be("DHT22 Temperature & Humidity Sensor");
     }
 
     [Fact]
@@ -218,321 +193,401 @@ public class SensorServiceTests : IDisposable
         result.Should().BeNull();
     }
 
+    #endregion
+
+    #region GetBySensorTypeAsync Tests
+
     [Fact]
-    public async Task GetBySensorTypeAsync_WithExistingSensor_ReturnsSensor()
+    public async Task GetBySensorTypeAsync_ReturnsSensorsOfType()
     {
         // Arrange
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        _context.Sensors.Add(CreateTestSensor(name: "Sensor 1"));
+        _context.Sensors.Add(CreateTestSensor(name: "Sensor 2"));
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.GetBySensorTypeAsync(_nodeId, "temperature");
+        var result = await _sut.GetBySensorTypeAsync(_sensorTypeId);
 
         // Assert
-        result.Should().NotBeNull();
-        result!.SensorTypeId.Should().Be("temperature");
+        result.Should().HaveCount(2);
     }
 
     [Fact]
-    public async Task GetBySensorTypeAsync_WithNonExistingSensorType_ReturnsNull()
-    {
-        // Act
-        var result = await _sut.GetBySensorTypeAsync(_nodeId, "nonexistent");
-
-        // Assert
-        result.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task GetBySensorTypeAsync_CaseInsensitive()
+    public async Task GetBySensorTypeAsync_DoesNotReturnOtherTypeSensors()
     {
         // Arrange
-        _context.Sensors.Add(new Sensor
+        var otherSensorTypeId = Guid.NewGuid();
+        var otherSensorType = new SensorType
         {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
+            Id = otherSensorTypeId,
+            Code = "bme280",
+            Name = "BME280 Sensor",
+            Protocol = CommunicationProtocol.I2C,
+            Category = "climate",
             IsActive = true,
+            IsGlobal = true,
             CreatedAt = DateTime.UtcNow
-        });
+        };
+        _context.SensorTypes.Add(otherSensorType);
+
+        var sensor1 = CreateTestSensor(name: "DHT22 Sensor");
+        var sensor2 = CreateTestSensor(name: "BME280 Sensor");
+        sensor2.SensorTypeId = otherSensorTypeId;
+
+        _context.Sensors.Add(sensor1);
+        _context.Sensors.Add(sensor2);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.GetBySensorTypeAsync(_nodeId, "TEMPERATURE");
+        var result = await _sut.GetBySensorTypeAsync(_sensorTypeId);
 
         // Assert
-        result.Should().NotBeNull();
+        result.Should().ContainSingle();
+        result.First().Name.Should().Be("DHT22 Sensor");
     }
+
+    #endregion
+
+    #region CreateAsync Tests
 
     [Fact]
     public async Task CreateAsync_WithValidDto_CreatesSensor()
     {
         // Arrange
         var dto = new CreateSensorDto(
-            SensorTypeId: "temperature",
-            EndpointId: 1,
-            Name: "Kitchen Temperature"
+            SensorTypeId: _sensorTypeId,
+            Name: "Kitchen Temperature Sensor",
+            Description: "Measures temperature in the kitchen",
+            SerialNumber: "DHT22-001",
+            IntervalSecondsOverride: 30
         );
 
         // Act
-        var result = await _sut.CreateAsync(_nodeId, dto);
+        var result = await _sut.CreateAsync(dto);
 
         // Assert
         result.Should().NotBeNull();
-        result.SensorTypeId.Should().Be("temperature");
-        result.EndpointId.Should().Be(1);
-        result.Name.Should().Be("Kitchen Temperature");
+        result.Name.Should().Be("Kitchen Temperature Sensor");
+        result.Description.Should().Be("Measures temperature in the kitchen");
+        result.SerialNumber.Should().Be("DHT22-001");
+        result.IntervalSecondsOverride.Should().Be(30);
+        result.SensorTypeCode.Should().Be("dht22");
+        result.SensorTypeName.Should().Be("DHT22 Temperature & Humidity Sensor");
+        result.IsActive.Should().BeTrue();
+        result.OffsetCorrection.Should().Be(0);
+        result.GainCorrection.Should().Be(1.0);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithMinimalDto_CreatesSensorWithDefaults()
+    {
+        // Arrange
+        var dto = new CreateSensorDto(
+            SensorTypeId: _sensorTypeId,
+            Name: "Simple Sensor"
+        );
+
+        // Act
+        var result = await _sut.CreateAsync(dto);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Name.Should().Be("Simple Sensor");
+        result.Description.Should().BeNull();
+        result.SerialNumber.Should().BeNull();
+        result.IntervalSecondsOverride.Should().BeNull();
         result.IsActive.Should().BeTrue();
     }
 
     [Fact]
-    public async Task CreateAsync_WithDuplicateEndpointId_ThrowsException()
+    public async Task CreateAsync_WithNonExistingSensorType_ThrowsException()
     {
         // Arrange
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
         var dto = new CreateSensorDto(
-            SensorTypeId: "humidity",
-            EndpointId: 1, // Duplicate EndpointId!
-            Name: "Humidity"
+            SensorTypeId: Guid.NewGuid(),
+            Name: "Invalid Sensor"
         );
 
         // Act & Assert
-        var act = () => _sut.CreateAsync(_nodeId, dto);
+        var act = () => _sut.CreateAsync(dto);
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*already exists*");
+            .WithMessage("*not found*");
     }
+
+    [Fact]
+    public async Task CreateAsync_SetsCorrectTenantId()
+    {
+        // Arrange
+        var dto = new CreateSensorDto(
+            SensorTypeId: _sensorTypeId,
+            Name: "Tenant Sensor"
+        );
+
+        // Act
+        var result = await _sut.CreateAsync(dto);
+
+        // Assert
+        result.TenantId.Should().Be(_tenantId);
+    }
+
+    #endregion
+
+    #region UpdateAsync Tests
 
     [Fact]
     public async Task UpdateAsync_WithExistingSensor_UpdatesSensor()
     {
         // Arrange
-        var sensorId = Guid.NewGuid();
-        _context.Sensors.Add(new Sensor
-        {
-            Id = sensorId,
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            Name = "Original Name",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        var sensor = CreateTestSensor(name: "Original Name");
+        _context.Sensors.Add(sensor);
         await _context.SaveChangesAsync();
 
         var dto = new UpdateSensorDto(
             Name: "Updated Name",
+            Description: "New description",
+            SerialNumber: "NEW-001",
             IsActive: false
         );
 
         // Act
-        var result = await _sut.UpdateAsync(sensorId, dto);
+        var result = await _sut.UpdateAsync(sensor.Id, dto);
 
         // Assert
         result.Should().NotBeNull();
-        result!.Name.Should().Be("Updated Name");
+        result.Name.Should().Be("Updated Name");
+        result.Description.Should().Be("New description");
+        result.SerialNumber.Should().Be("NEW-001");
         result.IsActive.Should().BeFalse();
     }
 
     [Fact]
-    public async Task UpdateAsync_WithNonExistingSensor_ReturnsNull()
+    public async Task UpdateAsync_WithPartialDto_OnlyUpdatesProvidedFields()
+    {
+        // Arrange
+        var sensor = CreateTestSensor(name: "Original Name");
+        sensor.Description = "Original description";
+        sensor.SerialNumber = "ORIG-001";
+        _context.Sensors.Add(sensor);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdateSensorDto(Name: "Updated Name");
+
+        // Act
+        var result = await _sut.UpdateAsync(sensor.Id, dto);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Name.Should().Be("Updated Name");
+        result.Description.Should().Be("Original description"); // Unchanged
+        result.SerialNumber.Should().Be("ORIG-001"); // Unchanged
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithNonExistingSensor_ThrowsException()
     {
         // Arrange
         var dto = new UpdateSensorDto(Name: "Test");
 
-        // Act
-        var result = await _sut.UpdateAsync(Guid.NewGuid(), dto);
-
-        // Assert
-        result.Should().BeNull();
+        // Act & Assert
+        var act = () => _sut.UpdateAsync(Guid.NewGuid(), dto);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
     }
 
     [Fact]
-    public async Task DeleteAsync_WithExistingSensor_DeletesAndReturnsTrue()
+    public async Task UpdateAsync_WithIntervalOverride_UpdatesInterval()
     {
         // Arrange
-        var sensorId = Guid.NewGuid();
-        _context.Sensors.Add(new Sensor
-        {
-            Id = sensorId,
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdateSensorDto(IntervalSecondsOverride: 120);
+
+        // Act
+        var result = await _sut.UpdateAsync(sensor.Id, dto);
+
+        // Assert
+        result.IntervalSecondsOverride.Should().Be(120);
+    }
+
+    #endregion
+
+    #region CalibrateAsync Tests
+
+    [Fact]
+    public async Task CalibrateAsync_WithValidDto_CalibratesSensor()
+    {
+        // Arrange
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
+        await _context.SaveChangesAsync();
+
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0.5,
+            GainCorrection: 1.02,
+            CalibrationNotes: "Calibrated with reference thermometer"
+        );
+
+        // Act
+        var result = await _sut.CalibrateAsync(sensor.Id, dto);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.OffsetCorrection.Should().Be(0.5);
+        result.GainCorrection.Should().Be(1.02);
+        result.CalibrationNotes.Should().Be("Calibrated with reference thermometer");
+        result.LastCalibratedAt.Should().NotBeNull();
+        result.LastCalibratedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public async Task CalibrateAsync_WithCalibrationDueDate_SetsDueDate()
+    {
+        // Arrange
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
+        await _context.SaveChangesAsync();
+
+        var dueDate = DateTime.UtcNow.AddMonths(6);
+        var dto = new CalibrateSensorDto(
+            OffsetCorrection: 0,
+            GainCorrection: 1.0,
+            CalibrationDueAt: dueDate
+        );
+
+        // Act
+        var result = await _sut.CalibrateAsync(sensor.Id, dto);
+
+        // Assert
+        result.CalibrationDueAt.Should().BeCloseTo(dueDate, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task CalibrateAsync_WithNonExistingSensor_ThrowsException()
+    {
+        // Arrange
+        var dto = new CalibrateSensorDto(OffsetCorrection: 0, GainCorrection: 1.0);
+
+        // Act & Assert
+        var act = () => _sut.CalibrateAsync(Guid.NewGuid(), dto);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
+    }
+
+    [Fact]
+    public async Task CalibrateAsync_UpdatesLastCalibratedAt()
+    {
+        // Arrange
+        var sensor = CreateTestSensor();
+        sensor.LastCalibratedAt = DateTime.UtcNow.AddYears(-1);
+        _context.Sensors.Add(sensor);
+        await _context.SaveChangesAsync();
+
+        var dto = new CalibrateSensorDto(OffsetCorrection: 0.1, GainCorrection: 1.0);
+
+        // Act
+        var result = await _sut.CalibrateAsync(sensor.Id, dto);
+
+        // Assert
+        result.LastCalibratedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
+    #endregion
+
+    #region DeleteAsync Tests
+
+    [Fact]
+    public async Task DeleteAsync_WithExistingSensor_DeletesSensor()
+    {
+        // Arrange
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.DeleteAsync(sensorId);
+        await _sut.DeleteAsync(sensor.Id);
 
         // Assert
-        result.Should().BeTrue();
-        var sensor = await _sut.GetByIdAsync(sensorId);
-        sensor.Should().BeNull();
+        var deleted = await _sut.GetByIdAsync(sensor.Id);
+        deleted.Should().BeNull();
     }
 
     [Fact]
-    public async Task DeleteAsync_WithNonExistingSensor_ReturnsFalse()
+    public async Task DeleteAsync_WithNonExistingSensor_ThrowsException()
     {
-        // Act
-        var result = await _sut.DeleteAsync(Guid.NewGuid());
-
-        // Assert
-        result.Should().BeFalse();
+        // Act & Assert
+        var act = () => _sut.DeleteAsync(Guid.NewGuid());
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
     }
 
     [Fact]
-    public async Task SyncSensorsAsync_WithNewSensorTypes_CreatesSensors()
+    public async Task DeleteAsync_WithActiveAssignments_ThrowsException()
     {
         // Arrange
-        var sensorTypeIds = new[] { "temperature", "humidity" };
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
 
-        // Act
-        var result = await _sut.SyncSensorsAsync(_nodeId, sensorTypeIds);
+        // Create a Hub and Node
+        var hubId = Guid.NewGuid();
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = hubId,
+            TenantId = _tenantId,
+            HubId = "test-hub",
+            Name = "Test Hub",
+            CreatedAt = DateTime.UtcNow
+        });
 
-        // Assert
-        result.Should().HaveCount(2);
-        result.Select(s => s.SensorTypeId).Should().Contain("temperature");
-        result.Select(s => s.SensorTypeId).Should().Contain("humidity");
-    }
+        var nodeId = Guid.NewGuid();
+        _context.Nodes.Add(new Node
+        {
+            Id = nodeId,
+            HubId = hubId,
+            NodeId = "test-node",
+            Name = "Test Node",
+            CreatedAt = DateTime.UtcNow
+        });
 
-    [Fact]
-    public async Task SyncSensorsAsync_WithExistingSensorType_DoesNotDuplicate()
-    {
-        // Arrange
-        _context.Sensors.Add(new Sensor
+        // Create an assignment
+        _context.NodeSensorAssignments.Add(new NodeSensorAssignment
         {
             Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
+            NodeId = nodeId,
+            SensorId = sensor.Id,
             EndpointId = 1,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            AssignedAt = DateTime.UtcNow
         });
+
         await _context.SaveChangesAsync();
 
-        var sensorTypeIds = new[] { "temperature", "humidity" };
-
-        // Act
-        var result = await _sut.SyncSensorsAsync(_nodeId, sensorTypeIds);
-
-        // Assert
-        result.Should().HaveCount(2);
-        result.Where(s => s.SensorTypeId == "temperature").Should().ContainSingle();
+        // Act & Assert
+        var act = () => _sut.DeleteAsync(sensor.Id);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*assignments*");
     }
 
-    [Fact]
-    public async Task SyncSensorsAsync_AssignsIncrementalEndpointIds()
+    #endregion
+
+    #region Helper Methods
+
+    private Sensor CreateTestSensor(string name = "Test Sensor")
     {
-        // Arrange
-        _context.Sensors.Add(new Sensor
+        return new Sensor
         {
             Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 3, // Start at 3
+            TenantId = _tenantId,
+            SensorTypeId = _sensorTypeId,
+            Name = name,
+            OffsetCorrection = 0,
+            GainCorrection = 1.0,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
-        var sensorTypeIds = new[] { "humidity", "pressure" };
-
-        // Act
-        var result = (await _sut.SyncSensorsAsync(_nodeId, sensorTypeIds)).ToList();
-
-        // Assert
-        result.Should().HaveCount(3);
-        var humiditySensor = result.First(s => s.SensorTypeId == "humidity");
-        var pressureSensor = result.First(s => s.SensorTypeId == "pressure");
-        humiditySensor.EndpointId.Should().Be(4);
-        pressureSensor.EndpointId.Should().Be(5);
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
     }
 
-    [Fact]
-    public async Task SyncSensorsAsync_WithEmptyList_ReturnsExistingSensors()
-    {
-        // Arrange
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
-        // Act
-        var result = await _sut.SyncSensorsAsync(_nodeId, Array.Empty<string>());
-
-        // Assert
-        result.Should().ContainSingle();
-    }
-
-    [Fact]
-    public async Task SyncSensorsAsync_CaseInsensitiveSensorTypeIds()
-    {
-        // Arrange - Create sensor with lowercase TypeId
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
-        // Act - Sync with uppercase TypeId
-        var result = await _sut.SyncSensorsAsync(_nodeId, new[] { "TEMPERATURE" });
-
-        // Assert - Should not create duplicate
-        result.Should().ContainSingle();
-    }
-
-    [Fact]
-    public async Task GetByNodeAsync_IncludesSensorTypeInformation()
-    {
-        // Arrange
-        _context.Sensors.Add(new Sensor
-        {
-            Id = Guid.NewGuid(),
-            NodeId = _nodeId,
-            SensorTypeId = "temperature",
-            EndpointId = 1,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
-        // Act
-        var result = (await _sut.GetByNodeAsync(_nodeId)).First();
-
-        // Assert - SensorType information is included via the SensorType property
-        result.SensorType.Should().NotBeNull();
-        result.SensorType!.DisplayName.Should().Be("Temperatur");
-        result.SensorType.Unit.Should().Be("°C");
-    }
+    #endregion
 }

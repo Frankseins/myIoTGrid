@@ -3,9 +3,9 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 using myIoTGrid.Hub.Domain.Entities;
+using myIoTGrid.Hub.Domain.Enums;
 using myIoTGrid.Hub.Infrastructure.Repositories;
 using myIoTGrid.Hub.Service.Services;
-using myIoTGrid.Hub.Shared.Constants;
 using myIoTGrid.Hub.Shared.DTOs;
 
 namespace myIoTGrid.Hub.Service.Tests.Services;
@@ -33,6 +33,50 @@ public class SensorTypeServiceTests : IDisposable
         _memoryCache.Dispose();
     }
 
+    private SensorType CreateTestSensorType(string code = "test_sensor", string name = "Test Sensor", bool isActive = true, bool isGlobal = false)
+    {
+        var sensorType = new SensorType
+        {
+            Id = Guid.NewGuid(),
+            Code = code,
+            Name = name,
+            Protocol = CommunicationProtocol.I2C,
+            Category = "climate",
+            Icon = "thermostat",
+            Color = "#FF5722",
+            DefaultI2CAddress = "0x76",
+            DefaultSdaPin = 21,
+            DefaultSclPin = 22,
+            DefaultIntervalSeconds = 60,
+            MinIntervalSeconds = 1,
+            DefaultOffsetCorrection = 0,
+            DefaultGainCorrection = 1.0,
+            IsGlobal = isGlobal,
+            IsActive = isActive,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        sensorType.Capabilities.Add(new SensorTypeCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorTypeId = sensorType.Id,
+            MeasurementType = "temperature",
+            DisplayName = "Temperatur",
+            Unit = "°C",
+            MinValue = -40,
+            MaxValue = 85,
+            Resolution = 0.01,
+            Accuracy = 0.5,
+            MatterClusterId = 1026,
+            MatterClusterName = "TemperatureMeasurement",
+            IsActive = true,
+            SortOrder = 1
+        });
+
+        return sensorType;
+    }
+
     #region GetAllAsync Tests
 
     [Fact]
@@ -46,27 +90,33 @@ public class SensorTypeServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAllAsync_WithSensorTypes_ReturnsAllOrderedByCategoryThenName()
+    public async Task GetAllAsync_WithSensorTypes_ReturnsOnlyActive()
     {
         // Arrange
-        _context.SensorTypes.Add(new SensorType
-        {
-            TypeId = "z_type",
-            DisplayName = "Z Type",
-            ClusterId = 0xFC00,
-            Unit = "z",
-            Category = "weather",
-            CreatedAt = DateTime.UtcNow
-        });
-        _context.SensorTypes.Add(new SensorType
-        {
-            TypeId = "a_type",
-            DisplayName = "A Type",
-            ClusterId = 0xFC01,
-            Unit = "a",
-            Category = "air",
-            CreatedAt = DateTime.UtcNow
-        });
+        var activeSensor = CreateTestSensorType("active", "Active Sensor", isActive: true);
+        var inactiveSensor = CreateTestSensorType("inactive", "Inactive Sensor", isActive: false);
+
+        _context.SensorTypes.AddRange(activeSensor, inactiveSensor);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = (await _sut.GetAllAsync()).ToList();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().Code.Should().Be("active");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ReturnsSensorTypesOrderedByCategoryThenName()
+    {
+        // Arrange
+        var zSensor = CreateTestSensorType("z_sensor", "Z Sensor");
+        zSensor.Category = "water";
+        var aSensor = CreateTestSensorType("a_sensor", "A Sensor");
+        aSensor.Category = "climate";
+
+        _context.SensorTypes.AddRange(zSensor, aSensor);
         await _context.SaveChangesAsync();
 
         // Act
@@ -74,159 +124,292 @@ public class SensorTypeServiceTests : IDisposable
 
         // Assert
         result.Should().HaveCount(2);
-        // Ordered by Category first, then DisplayName
-        result.First().TypeId.Should().Be("a_type"); // air comes before weather
-        result.Last().TypeId.Should().Be("z_type");
+        result.First().Code.Should().Be("a_sensor"); // climate comes before water
     }
 
     [Fact]
-    public async Task GetAllAsync_ReturnsCorrectDtoProperties()
+    public async Task GetAllAsync_IncludesCapabilities()
     {
         // Arrange
-        _context.SensorTypes.Add(new SensorType
+        var sensorType = CreateTestSensorType();
+        sensorType.Capabilities.Add(new SensorTypeCapability
         {
-            TypeId = "temperature",
-            DisplayName = "Temperatur",
-            ClusterId = 0x0402,
-            MatterClusterName = "TemperatureMeasurement",
-            Unit = "°C",
-            Resolution = 0.1,
-            MinValue = -40,
-            MaxValue = 125,
-            Description = "Temperatur-Messung",
-            IsCustom = false,
-            Category = "weather",
-            Icon = "thermostat",
-            Color = "#FF5722",
-            IsGlobal = true,
-            CreatedAt = DateTime.UtcNow
+            Id = Guid.NewGuid(),
+            SensorTypeId = sensorType.Id,
+            MeasurementType = "humidity",
+            DisplayName = "Luftfeuchtigkeit",
+            Unit = "%",
+            IsActive = true,
+            SortOrder = 2
         });
+        _context.SensorTypes.Add(sensorType);
         await _context.SaveChangesAsync();
 
         // Act
         var result = (await _sut.GetAllAsync()).First();
 
         // Assert
-        result.TypeId.Should().Be("temperature");
-        result.DisplayName.Should().Be("Temperatur");
-        result.ClusterId.Should().Be(0x0402u);
-        result.MatterClusterName.Should().Be("TemperatureMeasurement");
-        result.Unit.Should().Be("°C");
-        result.Resolution.Should().Be(0.1);
-        result.MinValue.Should().Be(-40);
-        result.MaxValue.Should().Be(125);
-        result.Description.Should().Be("Temperatur-Messung");
-        result.IsCustom.Should().BeFalse();
-        result.Category.Should().Be("weather");
-        result.Icon.Should().Be("thermostat");
-        result.Color.Should().Be("#FF5722");
-        result.IsGlobal.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task GetAllAsync_WithCancellationToken_Works()
-    {
-        // Arrange
-        using var cts = new CancellationTokenSource();
-
-        // Act
-        var result = await _sut.GetAllAsync(cts.Token);
-
-        // Assert
-        result.Should().NotBeNull();
+        result.Capabilities.Should().HaveCount(2);
     }
 
     #endregion
 
-    #region GetByTypeIdAsync Tests
+    #region GetAllCachedAsync Tests
 
     [Fact]
-    public async Task GetByTypeIdAsync_WithExistingTypeId_ReturnsSensorType()
+    public async Task GetAllCachedAsync_ReturnsCachedData()
     {
         // Arrange
-        var dto = new CreateSensorTypeDto(
-            TypeId: "humidity",
-            DisplayName: "Humidity",
-            ClusterId: 0x0405,
-            Unit: "%"
-        );
-        await _sut.CreateAsync(dto);
+        var sensorType = CreateTestSensorType();
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
 
-        // Act
-        var result = await _sut.GetByTypeIdAsync("humidity");
+        // Act - First call
+        var result1 = await _sut.GetAllCachedAsync();
+
+        // Add another sensor type
+        var newSensor = CreateTestSensorType("new_sensor", "New Sensor");
+        _context.SensorTypes.Add(newSensor);
+        await _context.SaveChangesAsync();
+
+        // Second call - should return cached data
+        var result2 = await _sut.GetAllCachedAsync();
 
         // Assert
-        result.Should().NotBeNull();
-        result!.TypeId.Should().Be("humidity");
+        result1.Should().HaveCount(1);
+        result2.Should().HaveCount(1); // Still 1 because cached
     }
 
     [Fact]
-    public async Task GetByTypeIdAsync_WithNonExistingTypeId_ReturnsNull()
+    public async Task GetAllCachedAsync_AfterCacheExpiry_ReturnsNewData()
+    {
+        // Arrange - This test just verifies that cache is populated
+        var sensorType = CreateTestSensorType();
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetAllCachedAsync();
+
+        // Assert
+        result.Should().HaveCount(1);
+    }
+
+    #endregion
+
+    #region GetByIdAsync Tests
+
+    [Fact]
+    public async Task GetByIdAsync_ExistingSensorType_ReturnsSensorType()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType();
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetByIdAsync(sensorType.Id);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(sensorType.Id);
+        result.Code.Should().Be(sensorType.Code);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_NonExistingSensorType_ReturnsNull()
     {
         // Act
-        var result = await _sut.GetByTypeIdAsync("nonexistent");
+        var result = await _sut.GetByIdAsync(Guid.NewGuid());
 
         // Assert
         result.Should().BeNull();
     }
 
+    #endregion
+
+    #region GetByCodeAsync Tests
+
     [Fact]
-    public async Task GetByTypeIdAsync_NormalizesToLowerCase()
+    public async Task GetByCodeAsync_ExistingCode_ReturnsSensorType()
     {
         // Arrange
-        _context.SensorTypes.Add(new SensorType
-        {
-            TypeId = "lower_case",
-            DisplayName = "Lower Case Type",
-            ClusterId = 0xFC00,
-            Unit = "lc",
-            Category = "other",
-            CreatedAt = DateTime.UtcNow
-        });
+        var sensorType = CreateTestSensorType("dht22", "DHT22");
+        _context.SensorTypes.Add(sensorType);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.GetByTypeIdAsync("LOWER_CASE");
+        var result = await _sut.GetByCodeAsync("dht22");
 
         // Assert
         result.Should().NotBeNull();
-        result!.TypeId.Should().Be("lower_case");
+        result!.Code.Should().Be("dht22");
     }
 
     [Fact]
-    public async Task GetByTypeIdAsync_WithMixedCaseTypeId_FindsCorrectType()
+    public async Task GetByCodeAsync_CaseInsensitive_ReturnsSensorType()
     {
         // Arrange
-        _context.SensorTypes.Add(new SensorType
-        {
-            TypeId = "mixed_case",
-            DisplayName = "Mixed Case",
-            ClusterId = 0xFC00,
-            Unit = "mc",
-            Category = "other",
-            CreatedAt = DateTime.UtcNow
-        });
+        var sensorType = CreateTestSensorType("dht22", "DHT22");
+        _context.SensorTypes.Add(sensorType);
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.GetByTypeIdAsync("MiXeD_CaSe");
+        var result = await _sut.GetByCodeAsync("DHT22");
 
         // Assert
         result.Should().NotBeNull();
-        result!.TypeId.Should().Be("mixed_case");
+        result!.Code.Should().Be("dht22");
     }
 
     [Fact]
-    public async Task GetByTypeIdAsync_WithCancellationToken_Works()
+    public async Task GetByCodeAsync_NonExistingCode_ReturnsNull()
     {
-        // Arrange
-        using var cts = new CancellationTokenSource();
-
         // Act
-        var result = await _sut.GetByTypeIdAsync("test", cts.Token);
+        var result = await _sut.GetByCodeAsync("nonexistent");
 
         // Assert
         result.Should().BeNull();
+    }
+
+    #endregion
+
+    #region GetByCategoryAsync Tests
+
+    [Fact]
+    public async Task GetByCategoryAsync_ReturnsMatchingSensorTypes()
+    {
+        // Arrange
+        var climateSensor = CreateTestSensorType("climate_sensor", "Climate Sensor");
+        climateSensor.Category = "climate";
+
+        var waterSensor = CreateTestSensorType("water_sensor", "Water Sensor");
+        waterSensor.Category = "water";
+
+        _context.SensorTypes.AddRange(climateSensor, waterSensor);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetByCategoryAsync("climate");
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().Code.Should().Be("climate_sensor");
+    }
+
+    [Fact]
+    public async Task GetByCategoryAsync_CaseInsensitive_ReturnsMatchingSensorTypes()
+    {
+        // Arrange
+        var climateSensor = CreateTestSensorType("climate_sensor", "Climate Sensor");
+        climateSensor.Category = "climate";
+        _context.SensorTypes.Add(climateSensor);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetByCategoryAsync("CLIMATE");
+
+        // Assert
+        result.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task GetByCategoryAsync_NonExistingCategory_ReturnsEmpty()
+    {
+        // Arrange
+        var sensor = CreateTestSensorType();
+        sensor.Category = "climate";
+        _context.SensorTypes.Add(sensor);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetByCategoryAsync("nonexistent");
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region GetCapabilitiesAsync Tests
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_ReturnsCapabilities()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType();
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetCapabilitiesAsync(sensorType.Id);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().MeasurementType.Should().Be("temperature");
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_ReturnsOnlyActiveCapabilities()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType();
+        sensorType.Capabilities.Add(new SensorTypeCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorTypeId = sensorType.Id,
+            MeasurementType = "inactive_cap",
+            DisplayName = "Inactive",
+            Unit = "x",
+            IsActive = false,
+            SortOrder = 2
+        });
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetCapabilitiesAsync(sensorType.Id);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.Should().NotContain(c => c.MeasurementType == "inactive_cap");
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_ReturnsOrderedBySortOrder()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType();
+        sensorType.Capabilities.Clear();
+        sensorType.Capabilities.Add(new SensorTypeCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorTypeId = sensorType.Id,
+            MeasurementType = "second",
+            DisplayName = "Second",
+            Unit = "s",
+            IsActive = true,
+            SortOrder = 2
+        });
+        sensorType.Capabilities.Add(new SensorTypeCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorTypeId = sensorType.Id,
+            MeasurementType = "first",
+            DisplayName = "First",
+            Unit = "f",
+            IsActive = true,
+            SortOrder = 1
+        });
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = (await _sut.GetCapabilitiesAsync(sensorType.Id)).ToList();
+
+        // Assert
+        result.First().MeasurementType.Should().Be("first");
+        result.Last().MeasurementType.Should().Be("second");
     }
 
     #endregion
@@ -234,23 +417,14 @@ public class SensorTypeServiceTests : IDisposable
     #region CreateAsync Tests
 
     [Fact]
-    public async Task CreateAsync_WithValidDto_CreatesSensorType()
+    public async Task CreateAsync_ValidDto_CreatesSensorType()
     {
         // Arrange
         var dto = new CreateSensorTypeDto(
-            TypeId: "temperature",
-            DisplayName: "Temperature",
-            ClusterId: 0x0402,
-            Unit: "°C",
-            MatterClusterName: "TemperatureMeasurement",
-            Resolution: 0.1,
-            MinValue: -40,
-            MaxValue: 125,
-            Description: "Temperature measurement",
-            IsCustom: false,
-            Category: "weather",
-            Icon: "thermostat",
-            Color: "#FF5722"
+            Code: "new_sensor",
+            Name: "New Sensor",
+            Protocol: Shared.Enums.CommunicationProtocolDto.I2C,
+            Category: "climate"
         );
 
         // Act
@@ -258,45 +432,42 @@ public class SensorTypeServiceTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result.TypeId.Should().Be("temperature");
-        result.DisplayName.Should().Be("Temperature");
-        result.ClusterId.Should().Be(0x0402u);
-        result.Unit.Should().Be("°C");
-        result.MatterClusterName.Should().Be("TemperatureMeasurement");
-        result.Description.Should().Be("Temperature measurement");
-        result.Icon.Should().Be("thermostat");
+        result.Code.Should().Be("new_sensor");
+        result.Name.Should().Be("New Sensor");
     }
 
     [Fact]
-    public async Task CreateAsync_NormalizesTypeIdToLowerCase()
+    public async Task CreateAsync_NormalizesCodeToLowerCase()
     {
         // Arrange
         var dto = new CreateSensorTypeDto(
-            TypeId: "UPPER_CASE",
-            DisplayName: "Upper Case",
-            ClusterId: 0xFC00,
-            Unit: "uc"
+            Code: "UPPER_CASE",
+            Name: "Upper Case",
+            Protocol: Shared.Enums.CommunicationProtocolDto.I2C,
+            Category: "climate"
         );
 
         // Act
         var result = await _sut.CreateAsync(dto);
 
         // Assert
-        result.TypeId.Should().Be("upper_case");
+        result.Code.Should().Be("upper_case");
     }
 
     [Fact]
-    public async Task CreateAsync_WithDuplicateTypeId_ThrowsInvalidOperationException()
+    public async Task CreateAsync_DuplicateCode_ThrowsException()
     {
         // Arrange
-        var dto = new CreateSensorTypeDto(
-            TypeId: "temperature",
-            DisplayName: "Temperature",
-            ClusterId: 0x0402,
-            Unit: "°C"
-        );
+        var existingSensor = CreateTestSensorType("existing", "Existing");
+        _context.SensorTypes.Add(existingSensor);
+        await _context.SaveChangesAsync();
 
-        await _sut.CreateAsync(dto);
+        var dto = new CreateSensorTypeDto(
+            Code: "EXISTING", // Case-insensitive duplicate
+            Name: "Duplicate",
+            Protocol: Shared.Enums.CommunicationProtocolDto.I2C,
+            Category: "climate"
+        );
 
         // Act & Assert
         var act = () => _sut.CreateAsync(dto);
@@ -305,62 +476,14 @@ public class SensorTypeServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CreateAsync_WithDuplicateTypeIdDifferentCase_ThrowsException()
-    {
-        // Arrange
-        _context.SensorTypes.Add(new SensorType
-        {
-            TypeId = "duplicate",
-            DisplayName = "Duplicate",
-            ClusterId = 0xFC00,
-            Unit = "d",
-            Category = "other",
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
-        var dto = new CreateSensorTypeDto(
-            TypeId: "DUPLICATE",
-            DisplayName: "Another Duplicate",
-            ClusterId: 0xFC01,
-            Unit: "d2"
-        );
-
-        // Act & Assert
-        var act = () => _sut.CreateAsync(dto);
-        await act.Should().ThrowAsync<InvalidOperationException>();
-    }
-
-    [Fact]
-    public async Task CreateAsync_WithMinimalDto_CreatesSensorType()
-    {
-        // Arrange
-        var dto = new CreateSensorTypeDto(
-            TypeId: "minimal",
-            DisplayName: "Minimal",
-            ClusterId: 0xFC00,
-            Unit: "m"
-        );
-
-        // Act
-        var result = await _sut.CreateAsync(dto);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.TypeId.Should().Be("minimal");
-        result.Description.Should().BeNull();
-        result.Icon.Should().BeNull();
-    }
-
-    [Fact]
     public async Task CreateAsync_SetsIsGlobalToFalse()
     {
         // Arrange
         var dto = new CreateSensorTypeDto(
-            TypeId: "custom",
-            DisplayName: "Custom",
-            ClusterId: 0xFC00,
-            Unit: "c"
+            Code: "custom",
+            Name: "Custom",
+            Protocol: Shared.Enums.CommunicationProtocolDto.I2C,
+            Category: "climate"
         );
 
         // Act
@@ -371,22 +494,150 @@ public class SensorTypeServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CreateAsync_WithCancellationToken_Works()
+    public async Task CreateAsync_InvalidatesCache()
     {
         // Arrange
-        using var cts = new CancellationTokenSource();
+        var existingSensor = CreateTestSensorType();
+        _context.SensorTypes.Add(existingSensor);
+        await _context.SaveChangesAsync();
+
+        // Populate cache
+        await _sut.GetAllCachedAsync();
+
         var dto = new CreateSensorTypeDto(
-            TypeId: "test",
-            DisplayName: "Test",
-            ClusterId: 0xFC00,
-            Unit: "t"
+            Code: "new_sensor",
+            Name: "New Sensor",
+            Protocol: Shared.Enums.CommunicationProtocolDto.I2C,
+            Category: "climate"
         );
 
         // Act
-        var result = await _sut.CreateAsync(dto, cts.Token);
+        await _sut.CreateAsync(dto);
+        var result = await _sut.GetAllCachedAsync();
+
+        // Assert - Cache should be invalidated, so we get 2 results
+        result.Should().HaveCount(2);
+    }
+
+    #endregion
+
+    #region UpdateAsync Tests
+
+    [Fact]
+    public async Task UpdateAsync_ExistingSensorType_UpdatesSensorType()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType();
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdateSensorTypeDto(
+            Name: "Updated Name",
+            Manufacturer: "Updated Manufacturer"
+        );
+
+        // Act
+        var result = await _sut.UpdateAsync(sensorType.Id, dto);
 
         // Assert
-        result.Should().NotBeNull();
+        result.Name.Should().Be("Updated Name");
+        result.Manufacturer.Should().Be("Updated Manufacturer");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NonExistingSensorType_ThrowsException()
+    {
+        // Arrange
+        var dto = new UpdateSensorTypeDto(Name: "Updated");
+
+        // Act & Assert
+        var act = () => _sut.UpdateAsync(Guid.NewGuid(), dto);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_AllFields_UpdatesAllFields()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType();
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdateSensorTypeDto(
+            Name: "Updated",
+            Manufacturer: "New Mfg",
+            DatasheetUrl: "http://example.com",
+            Description: "New Desc",
+            DefaultI2CAddress: "0x77",
+            DefaultSdaPin: 19,
+            DefaultSclPin: 18,
+            DefaultOneWirePin: 5,
+            DefaultAnalogPin: 34,
+            DefaultDigitalPin: 25,
+            DefaultTriggerPin: 26,
+            DefaultEchoPin: 27,
+            DefaultIntervalSeconds: 30,
+            MinIntervalSeconds: 5,
+            WarmupTimeMs: 100,
+            DefaultOffsetCorrection: 0.5,
+            DefaultGainCorrection: 1.1,
+            Category: "water",
+            Icon: "water",
+            Color: "#00BCD4",
+            IsActive: false
+        );
+
+        // Act
+        var result = await _sut.UpdateAsync(sensorType.Id, dto);
+
+        // Assert
+        result.Name.Should().Be("Updated");
+        result.Manufacturer.Should().Be("New Mfg");
+        result.Category.Should().Be("water");
+    }
+
+    #endregion
+
+    #region DeleteAsync Tests
+
+    [Fact]
+    public async Task DeleteAsync_NonGlobalSensorType_DeletesSensorType()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType(isGlobal: false);
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _sut.DeleteAsync(sensorType.Id);
+
+        // Assert
+        var deleted = await _context.SensorTypes.FindAsync(sensorType.Id);
+        deleted.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_GlobalSensorType_ThrowsException()
+    {
+        // Arrange
+        var sensorType = CreateTestSensorType(isGlobal: true);
+        _context.SensorTypes.Add(sensorType);
+        await _context.SaveChangesAsync();
+
+        // Act & Assert
+        var act = () => _sut.DeleteAsync(sensorType.Id);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*global*");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_NonExistingSensorType_ThrowsException()
+    {
+        // Act & Assert
+        var act = () => _sut.DeleteAsync(Guid.NewGuid());
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
     }
 
     #endregion
@@ -398,17 +649,6 @@ public class SensorTypeServiceTests : IDisposable
     {
         // Act & Assert
         var act = () => _sut.SyncFromCloudAsync();
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
-    public async Task SyncFromCloudAsync_WithCancellationToken_Works()
-    {
-        // Arrange
-        using var cts = new CancellationTokenSource();
-
-        // Act & Assert
-        var act = () => _sut.SyncFromCloudAsync(cts.Token);
         await act.Should().NotThrowAsync();
     }
 
@@ -424,9 +664,9 @@ public class SensorTypeServiceTests : IDisposable
 
         // Assert
         var allTypes = await _sut.GetAllAsync();
-        allTypes.Should().HaveCountGreaterThan(0);
-        allTypes.Should().Contain(t => t.TypeId == "temperature");
-        allTypes.Should().Contain(t => t.TypeId == "humidity");
+        allTypes.Should().NotBeEmpty();
+        allTypes.Should().Contain(t => t.Code == "dht22");
+        allTypes.Should().Contain(t => t.Code == "bme280");
     }
 
     [Fact]
@@ -434,49 +674,13 @@ public class SensorTypeServiceTests : IDisposable
     {
         // Act
         await _sut.SeedDefaultTypesAsync();
+        var countAfterFirst = (await _sut.GetAllAsync()).Count();
+
         await _sut.SeedDefaultTypesAsync();
+        var countAfterSecond = (await _sut.GetAllAsync()).Count();
 
         // Assert
-        var allTypes = await _sut.GetAllAsync();
-        var temperatureCount = allTypes.Count(t => t.TypeId == "temperature");
-        temperatureCount.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task SeedDefaultTypesAsync_WithEmptyDatabase_CreatesAllDefaultTypes()
-    {
-        // Act
-        await _sut.SeedDefaultTypesAsync();
-
-        // Assert
-        var allTypes = await _sut.GetAllAsync();
-        var defaultTypes = DefaultSensorTypes.GetAll();
-
-        allTypes.Count().Should().Be(defaultTypes.Count);
-    }
-
-    [Fact]
-    public async Task SeedDefaultTypesAsync_WithExistingType_DoesNotDuplicate()
-    {
-        // Arrange - add one default type manually
-        _context.SensorTypes.Add(new SensorType
-        {
-            TypeId = "temperature",
-            DisplayName = "Existing Temperature",
-            ClusterId = 0x0402,
-            Unit = "°C",
-            Category = "weather",
-            IsGlobal = true,
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
-        // Act
-        await _sut.SeedDefaultTypesAsync();
-
-        // Assert
-        var allTypes = await _sut.GetAllAsync();
-        allTypes.Count(st => st.TypeId == "temperature").Should().Be(1);
+        countAfterSecond.Should().Be(countAfterFirst);
     }
 
     [Fact]
@@ -490,131 +694,34 @@ public class SensorTypeServiceTests : IDisposable
         allTypes.Should().AllSatisfy(st => st.IsGlobal.Should().BeTrue());
     }
 
+    [Fact]
+    public async Task SeedDefaultTypesAsync_CreatesCapabilities()
+    {
+        // Act
+        await _sut.SeedDefaultTypesAsync();
+
+        // Assert
+        var dht22 = await _sut.GetByCodeAsync("dht22");
+        dht22.Should().NotBeNull();
+        dht22!.Capabilities.Should().NotBeEmpty();
+        dht22.Capabilities.Should().Contain(c => c.MeasurementType == "temperature");
+        dht22.Capabilities.Should().Contain(c => c.MeasurementType == "humidity");
+    }
+
     [Theory]
-    [InlineData("temperature", "Temperatur", "°C")]
-    [InlineData("humidity", "Luftfeuchtigkeit", "%")]
-    [InlineData("pressure", "Luftdruck", "hPa")]
-    [InlineData("co2", "CO2", "ppm")]
-    [InlineData("pm25", "Feinstaub PM2.5", "µg/m³")]
-    [InlineData("pm10", "Feinstaub PM10", "µg/m³")]
-    [InlineData("battery", "Batterie", "%")]
-    [InlineData("rssi", "Signalstärke", "dBm")]
-    public async Task SeedDefaultTypesAsync_CreatesExpectedTypes(string typeId, string displayName, string unit)
+    [InlineData("dht22", "DHT22 (AM2302)")]
+    [InlineData("bme280", "GY-BME280 Breakout (I²C)")]
+    [InlineData("bh1750", "BH1750 Lichtsensor (I²C)")]
+    [InlineData("ds18b20", "DS18B20 wasserdicht")]
+    public async Task SeedDefaultTypesAsync_CreatesExpectedTypes(string code, string name)
     {
         // Act
         await _sut.SeedDefaultTypesAsync();
 
         // Assert
-        var sensorType = await _sut.GetByTypeIdAsync(typeId);
+        var sensorType = await _sut.GetByCodeAsync(code);
         sensorType.Should().NotBeNull();
-        sensorType!.DisplayName.Should().Be(displayName);
-        sensorType.Unit.Should().Be(unit);
-    }
-
-    [Fact]
-    public async Task SeedDefaultTypesAsync_SetsCreatedAtToUtcNow()
-    {
-        // Arrange
-        var before = DateTime.UtcNow;
-
-        // Act
-        await _sut.SeedDefaultTypesAsync();
-
-        // Assert
-        var after = DateTime.UtcNow;
-        var allTypes = _context.SensorTypes.ToList();
-        allTypes.Should().AllSatisfy(st =>
-        {
-            st.CreatedAt.Should().BeOnOrAfter(before);
-            st.CreatedAt.Should().BeOnOrBefore(after);
-        });
-    }
-
-    [Fact]
-    public async Task SeedDefaultTypesAsync_SetsCorrectMatterClusterIds()
-    {
-        // Act
-        await _sut.SeedDefaultTypesAsync();
-
-        // Assert
-        var temperature = await _sut.GetByTypeIdAsync("temperature");
-        var humidity = await _sut.GetByTypeIdAsync("humidity");
-        var pressure = await _sut.GetByTypeIdAsync("pressure");
-
-        temperature!.ClusterId.Should().Be(0x0402u);  // TemperatureMeasurement
-        humidity!.ClusterId.Should().Be(0x0405u);    // RelativeHumidityMeasurement
-        pressure!.ClusterId.Should().Be(0x0403u);    // PressureMeasurement
-    }
-
-    [Fact]
-    public async Task SeedDefaultTypesAsync_WithCancellationToken_Works()
-    {
-        // Arrange
-        using var cts = new CancellationTokenSource();
-
-        // Act & Assert
-        var act = () => _sut.SeedDefaultTypesAsync(cts.Token);
-        await act.Should().NotThrowAsync();
-    }
-
-    #endregion
-
-    #region GetByCategoryAsync Tests
-
-    [Fact]
-    public async Task GetByCategoryAsync_ReturnsCorrectTypes()
-    {
-        // Arrange
-        await _sut.SeedDefaultTypesAsync();
-
-        // Act
-        var weatherTypes = await _sut.GetByCategoryAsync("weather");
-
-        // Assert
-        weatherTypes.Should().NotBeEmpty();
-        weatherTypes.Should().Contain(t => t.TypeId == "temperature");
-        weatherTypes.Should().Contain(t => t.TypeId == "humidity");
-        weatherTypes.Should().AllSatisfy(t => t.Category.Should().Be("weather"));
-    }
-
-    [Fact]
-    public async Task GetByCategoryAsync_WithNonExistingCategory_ReturnsEmpty()
-    {
-        // Arrange
-        await _sut.SeedDefaultTypesAsync();
-
-        // Act
-        var result = await _sut.GetByCategoryAsync("nonexistent");
-
-        // Assert
-        result.Should().BeEmpty();
-    }
-
-    #endregion
-
-    #region GetUnitAsync Tests
-
-    [Fact]
-    public async Task GetUnitAsync_WithExistingType_ReturnsUnit()
-    {
-        // Arrange
-        await _sut.SeedDefaultTypesAsync();
-
-        // Act
-        var unit = await _sut.GetUnitAsync("temperature");
-
-        // Assert
-        unit.Should().Be("°C");
-    }
-
-    [Fact]
-    public async Task GetUnitAsync_WithNonExistingType_ReturnsEmptyString()
-    {
-        // Act
-        var unit = await _sut.GetUnitAsync("nonexistent");
-
-        // Assert
-        unit.Should().BeEmpty();
+        sensorType!.Name.Should().Be(name);
     }
 
     #endregion

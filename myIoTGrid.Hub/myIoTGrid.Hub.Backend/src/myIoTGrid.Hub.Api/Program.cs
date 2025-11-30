@@ -71,6 +71,8 @@ try
     builder.Services.AddScoped<IHubService, HubService>();
     builder.Services.AddScoped<INodeService, NodeService>();
     builder.Services.AddScoped<ISensorService, SensorService>();
+    builder.Services.AddScoped<INodeSensorAssignmentService, NodeSensorAssignmentService>();
+    builder.Services.AddScoped<IEffectiveConfigService, EffectiveConfigService>();
     builder.Services.AddScoped<IReadingService, ReadingService>();
     builder.Services.AddScoped<IAlertService, AlertService>();
     builder.Services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
@@ -172,17 +174,14 @@ try
     // Exception Middleware
     app.UseExceptionMiddleware();
 
-    // Swagger (nur in Development)
-    if (app.Environment.IsDevelopment())
+    // Swagger (in Development und Production für lokale Tests)
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
     {
-        app.UseSwagger();
-        app.UseSwaggerUI(options =>
-        {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json", "myIoTGrid Hub API v1");
-            options.RoutePrefix = "swagger";
-            options.DocumentTitle = "myIoTGrid Hub API";
-        });
-    }
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "myIoTGrid Hub API v1");
+        options.RoutePrefix = "swagger";
+        options.DocumentTitle = "myIoTGrid Hub API";
+    });
 
     app.UseCors();
 

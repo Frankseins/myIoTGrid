@@ -9,9 +9,11 @@ export * from './signalr.service';
 
 // API Services
 export * from './hub-api.service';
+export * from './node-api.service';
 export * from './sensor-api.service';
-export * from './sensor-data-api.service';
+export * from './reading-api.service';
 export * from './sensor-type-api.service';
+export * from './unified-node-api.service';
 export * from './alert-api.service';
 export * from './alert-type-api.service';
 export * from './health-api.service';

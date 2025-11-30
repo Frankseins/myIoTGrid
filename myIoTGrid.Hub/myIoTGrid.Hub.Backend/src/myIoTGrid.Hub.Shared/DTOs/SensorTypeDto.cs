@@ -1,70 +1,129 @@
+using myIoTGrid.Hub.Shared.Enums;
+
 namespace myIoTGrid.Hub.Shared.DTOs;
 
 /// <summary>
-/// DTO for SensorType information.
-/// Matter-konform: Entspricht einem Matter Cluster.
+/// DTO for SensorType (hardware library) information.
+/// Defines what a sensor CAN do.
 /// </summary>
-/// <param name="TypeId">Primary key (e.g., "temperature")</param>
-/// <param name="DisplayName">Display name (e.g., "Temperatur")</param>
-/// <param name="ClusterId">Matter Cluster ID (0x0402 = TemperatureMeasurement)</param>
-/// <param name="MatterClusterName">Matter Cluster Name (e.g., "TemperatureMeasurement")</param>
-/// <param name="Unit">Unit (e.g., "°C")</param>
-/// <param name="Resolution">Resolution (e.g., 0.1)</param>
-/// <param name="MinValue">Minimum value</param>
-/// <param name="MaxValue">Maximum value</param>
-/// <param name="Description">Description</param>
-/// <param name="IsCustom">Is this a custom myIoTGrid type?</param>
-/// <param name="Category">Category (weather, water, air, soil, other)</param>
-/// <param name="Icon">Material Icon Name</param>
-/// <param name="Color">Hex Color for UI</param>
-/// <param name="IsGlobal">Whether this type is global (defined by Cloud)</param>
-/// <param name="CreatedAt">Creation timestamp</param>
 public record SensorTypeDto(
-    string TypeId,
-    string DisplayName,
-    uint ClusterId,
-    string? MatterClusterName,
-    string Unit,
-    double Resolution,
-    double? MinValue,
-    double? MaxValue,
+    Guid Id,
+    string Code,
+    string Name,
+    string? Manufacturer,
+    string? DatasheetUrl,
     string? Description,
-    bool IsCustom,
+    CommunicationProtocolDto Protocol,
+    string? DefaultI2CAddress,
+    int? DefaultSdaPin,
+    int? DefaultSclPin,
+    int? DefaultOneWirePin,
+    int? DefaultAnalogPin,
+    int? DefaultDigitalPin,
+    int? DefaultTriggerPin,
+    int? DefaultEchoPin,
+    int DefaultIntervalSeconds,
+    int MinIntervalSeconds,
+    int WarmupTimeMs,
+    double DefaultOffsetCorrection,
+    double DefaultGainCorrection,
     string Category,
     string? Icon,
     string? Color,
     bool IsGlobal,
-    DateTime CreatedAt
+    bool IsActive,
+    IEnumerable<SensorTypeCapabilityDto> Capabilities,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);
+
+/// <summary>
+/// DTO for SensorTypeCapability (measurement type).
+/// Defines a single measurement capability of a sensor.
+/// </summary>
+public record SensorTypeCapabilityDto(
+    Guid Id,
+    string MeasurementType,
+    string DisplayName,
+    string Unit,
+    double? MinValue,
+    double? MaxValue,
+    double Resolution,
+    double Accuracy,
+    uint? MatterClusterId,
+    string? MatterClusterName,
+    int SortOrder,
+    bool IsActive
 );
 
 /// <summary>
 /// DTO for creating a SensorType
 /// </summary>
-/// <param name="TypeId">Primary key (e.g., "temperature")</param>
-/// <param name="DisplayName">Display name (e.g., "Temperatur")</param>
-/// <param name="ClusterId">Matter Cluster ID</param>
-/// <param name="Unit">Unit (e.g., "°C")</param>
-/// <param name="MatterClusterName">Matter Cluster Name</param>
-/// <param name="Resolution">Resolution</param>
-/// <param name="MinValue">Minimum value</param>
-/// <param name="MaxValue">Maximum value</param>
-/// <param name="Description">Description</param>
-/// <param name="IsCustom">Is this a custom type?</param>
-/// <param name="Category">Category</param>
-/// <param name="Icon">Material Icon Name</param>
-/// <param name="Color">Hex Color</param>
 public record CreateSensorTypeDto(
-    string TypeId,
+    string Code,
+    string Name,
+    CommunicationProtocolDto Protocol,
+    string? Manufacturer = null,
+    string? DatasheetUrl = null,
+    string? Description = null,
+    string? DefaultI2CAddress = null,
+    int? DefaultSdaPin = null,
+    int? DefaultSclPin = null,
+    int? DefaultOneWirePin = null,
+    int? DefaultAnalogPin = null,
+    int? DefaultDigitalPin = null,
+    int? DefaultTriggerPin = null,
+    int? DefaultEchoPin = null,
+    int DefaultIntervalSeconds = 60,
+    int MinIntervalSeconds = 1,
+    int WarmupTimeMs = 0,
+    double DefaultOffsetCorrection = 0,
+    double DefaultGainCorrection = 1.0,
+    string Category = "custom",
+    string? Icon = null,
+    string? Color = null,
+    IEnumerable<CreateSensorTypeCapabilityDto>? Capabilities = null
+);
+
+/// <summary>
+/// DTO for creating a SensorTypeCapability
+/// </summary>
+public record CreateSensorTypeCapabilityDto(
+    string MeasurementType,
     string DisplayName,
-    uint ClusterId,
     string Unit,
-    string? MatterClusterName = null,
-    double Resolution = 0.1,
     double? MinValue = null,
     double? MaxValue = null,
+    double Resolution = 0.01,
+    double Accuracy = 0.5,
+    uint? MatterClusterId = null,
+    string? MatterClusterName = null,
+    int SortOrder = 0
+);
+
+/// <summary>
+/// DTO for updating a SensorType
+/// </summary>
+public record UpdateSensorTypeDto(
+    string? Name = null,
+    string? Manufacturer = null,
+    string? DatasheetUrl = null,
     string? Description = null,
-    bool IsCustom = false,
-    string Category = "other",
+    string? DefaultI2CAddress = null,
+    int? DefaultSdaPin = null,
+    int? DefaultSclPin = null,
+    int? DefaultOneWirePin = null,
+    int? DefaultAnalogPin = null,
+    int? DefaultDigitalPin = null,
+    int? DefaultTriggerPin = null,
+    int? DefaultEchoPin = null,
+    int? DefaultIntervalSeconds = null,
+    int? MinIntervalSeconds = null,
+    int? WarmupTimeMs = null,
+    double? DefaultOffsetCorrection = null,
+    double? DefaultGainCorrection = null,
+    string? Category = null,
     string? Icon = null,
-    string? Color = null
+    string? Color = null,
+    bool? IsActive = null
 );

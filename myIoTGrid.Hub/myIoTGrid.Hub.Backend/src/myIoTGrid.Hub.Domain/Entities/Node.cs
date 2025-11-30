@@ -6,7 +6,7 @@ namespace myIoTGrid.Hub.Domain.Entities;
 
 /// <summary>
 /// Represents a physical IoT device (ESP32, LoRa32).
-/// Matter-konform: Entspricht einem Matter Node.
+/// Matter-konform: Corresponds to a Matter Node.
 /// One Hub can manage multiple Nodes.
 /// </summary>
 public class Node : IEntity
@@ -44,9 +44,17 @@ public class Node : IEntity
     /// <summary>When the node was first registered</summary>
     public DateTime CreatedAt { get; set; }
 
-    // Navigation Properties
+    // === Navigation Properties ===
+
+    /// <summary>Hub managing this node</summary>
     public Hub? Hub { get; set; }
-    public ICollection<Sensor> Sensors { get; set; } = new List<Sensor>();
+
+    /// <summary>Sensor assignments on this node</summary>
+    public ICollection<NodeSensorAssignment> SensorAssignments { get; set; } = new List<NodeSensorAssignment>();
+
+    /// <summary>Readings from this node</summary>
     public ICollection<Reading> Readings { get; set; } = new List<Reading>();
+
+    /// <summary>Alerts for this node</summary>
     public ICollection<Alert> Alerts { get; set; } = new List<Alert>();
 }

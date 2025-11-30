@@ -12,6 +12,7 @@ namespace myIoTGrid.Hub.Service.Services;
 /// <summary>
 /// Service for Reading (Measurement) management.
 /// Matter-konform: Entspricht Attribute Reports.
+/// New model: Uses EndpointId + MeasurementType to find Assignment, applies calibration.
 /// </summary>
 public class ReadingService : IReadingService
 {
@@ -20,6 +21,7 @@ public class ReadingService : IReadingService
     private readonly INodeService _nodeService;
     private readonly ITenantService _tenantService;
     private readonly IHubService _hubService;
+    private readonly IEffectiveConfigService _effectiveConfigService;
     private readonly ISignalRNotificationService _signalRNotificationService;
     private readonly ILogger<ReadingService> _logger;
 
@@ -29,6 +31,7 @@ public class ReadingService : IReadingService
         INodeService nodeService,
         ITenantService tenantService,
         IHubService hubService,
+        IEffectiveConfigService effectiveConfigService,
         ISignalRNotificationService signalRNotificationService,
         ILogger<ReadingService> logger)
     {
@@ -37,6 +40,7 @@ public class ReadingService : IReadingService
         _nodeService = nodeService;
         _tenantService = tenantService;
         _hubService = hubService;
+        _effectiveConfigService = effectiveConfigService;
         _signalRNotificationService = signalRNotificationService;
         _logger = logger;
     }
@@ -52,25 +56,68 @@ public class ReadingService : IReadingService
         // Find or create Node (auto-registration)
         var node = await _nodeService.GetOrCreateByNodeIdAsync(hub.Id, dto.NodeId, ct);
 
-        // Get SensorType for unit
-        var sensorType = await _context.SensorTypes
-            .AsNoTracking()
-            .FirstOrDefaultAsync(st => st.TypeId == dto.Type.ToLowerInvariant(), ct);
+        // Find Assignment by EndpointId on this Node
+        var assignment = await _context.NodeSensorAssignments
+            .Include(a => a.Sensor)
+                .ThenInclude(s => s.SensorType)
+                    .ThenInclude(st => st.Capabilities)
+            .FirstOrDefaultAsync(a => a.NodeId == node.Id && a.EndpointId == dto.EndpointId, ct);
 
-        if (sensorType == null)
+        if (assignment == null)
         {
-            _logger.LogWarning("Unknown SensorType: {SensorType}. Using raw type.", dto.Type);
+            _logger.LogWarning(
+                "No assignment found for Node {NodeId} EndpointId {EndpointId}. Creating reading with unknown assignment.",
+                dto.NodeId, dto.EndpointId);
+
+            // Create a reading without assignment (will need manual assignment later)
+            var unknownReading = new Reading
+            {
+                TenantId = tenantId,
+                NodeId = node.Id,
+                AssignmentId = Guid.Empty, // No assignment
+                MeasurementType = dto.MeasurementType.ToLowerInvariant(),
+                RawValue = dto.RawValue,
+                Value = dto.RawValue, // No calibration without assignment
+                Unit = string.Empty,
+                Timestamp = dto.Timestamp ?? DateTime.UtcNow,
+                IsSyncedToCloud = false
+            };
+
+            _context.Readings.Add(unknownReading);
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            // Update Node LastSeen
+            await _nodeService.UpdateLastSeenAsync(node.Id, ct);
+
+            // Reload with navigation properties
+            unknownReading = await _context.Readings
+                .Include(r => r.Node)
+                    .ThenInclude(n => n!.Location)
+                .FirstAsync(r => r.Id == unknownReading.Id, ct);
+
+            return unknownReading.ToDto();
         }
 
-        var reading = new Reading
-        {
-            TenantId = tenantId,
-            NodeId = node.Id,
-            SensorTypeId = dto.Type.ToLowerInvariant(),
-            Value = dto.Value,
-            Timestamp = dto.Timestamp ?? DateTime.UtcNow,
-            IsSyncedToCloud = false
-        };
+        // Get Sensor and SensorType from assignment
+        var sensor = assignment.Sensor!;
+        var sensorType = sensor.SensorType!;
+
+        // Apply calibration: CalibratedValue = (RawValue * Gain) + Offset
+        var calibratedValue = _effectiveConfigService.ApplyCalibration(dto.RawValue, sensor, sensorType);
+
+        // Get unit from capability (MeasurementType)
+        var capability = sensorType.Capabilities
+            .FirstOrDefault(c => c.MeasurementType.Equals(dto.MeasurementType, StringComparison.OrdinalIgnoreCase));
+        var unit = capability?.Unit ?? string.Empty;
+
+        // Create reading with calibration applied
+        var reading = dto.ToEntity(
+            tenantId: tenantId,
+            nodeId: node.Id,
+            assignmentId: assignment.Id,
+            unit: unit,
+            calibratedValue: calibratedValue
+        );
 
         _context.Readings.Add(reading);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -81,16 +128,17 @@ public class ReadingService : IReadingService
         // Reload with navigation properties
         reading = await _context.Readings
             .Include(r => r.Node)
-            .Include(r => r.SensorType)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
             .FirstAsync(r => r.Id == reading.Id, ct);
 
-        var readingDto = reading.ToDto(node.Location);
+        var readingDto = reading.ToDto();
 
         // SignalR Notification
         await _signalRNotificationService.NotifyNewReadingAsync(readingDto, ct);
 
-        _logger.LogDebug("Reading created: {NodeId} {Type}={Value}",
-            dto.NodeId, dto.Type, dto.Value);
+        _logger.LogDebug("Reading created: {NodeId} Endpoint={EndpointId} {Type}={RawValue} -> {CalibratedValue} {Unit}",
+            dto.NodeId, dto.EndpointId, dto.MeasurementType, dto.RawValue, calibratedValue, unit);
 
         return readingDto;
     }
@@ -101,7 +149,8 @@ public class ReadingService : IReadingService
         var reading = await _context.Readings
             .AsNoTracking()
             .Include(r => r.Node)
-            .Include(r => r.SensorType)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
         return reading?.ToDto();
@@ -113,13 +162,17 @@ public class ReadingService : IReadingService
         var query = _context.Readings
             .AsNoTracking()
             .Include(r => r.Node)
-            .Include(r => r.SensorType)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
             .Where(r => r.NodeId == nodeId);
 
         if (filter != null)
         {
-            if (!string.IsNullOrEmpty(filter.SensorTypeId))
-                query = query.Where(r => r.SensorTypeId == filter.SensorTypeId.ToLowerInvariant());
+            if (!string.IsNullOrEmpty(filter.MeasurementType))
+                query = query.Where(r => r.MeasurementType == filter.MeasurementType.ToLowerInvariant());
+
+            if (filter.AssignmentId.HasValue)
+                query = query.Where(r => r.AssignmentId == filter.AssignmentId.Value);
 
             if (filter.From.HasValue)
                 query = query.Where(r => r.Timestamp >= filter.From.Value);
@@ -144,7 +197,8 @@ public class ReadingService : IReadingService
         var query = _context.Readings
             .AsNoTracking()
             .Include(r => r.Node)
-            .Include(r => r.SensorType)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
             .Where(r => r.TenantId == tenantId);
 
         // Apply filters
@@ -157,8 +211,11 @@ public class ReadingService : IReadingService
         if (filter.HubId.HasValue)
             query = query.Where(r => r.Node != null && r.Node.HubId == filter.HubId.Value);
 
-        if (!string.IsNullOrEmpty(filter.SensorTypeId))
-            query = query.Where(r => r.SensorTypeId == filter.SensorTypeId.ToLowerInvariant());
+        if (filter.AssignmentId.HasValue)
+            query = query.Where(r => r.AssignmentId == filter.AssignmentId.Value);
+
+        if (!string.IsNullOrEmpty(filter.MeasurementType))
+            query = query.Where(r => r.MeasurementType == filter.MeasurementType.ToLowerInvariant());
 
         if (filter.From.HasValue)
             query = query.Where(r => r.Timestamp >= filter.From.Value);
@@ -190,13 +247,14 @@ public class ReadingService : IReadingService
     /// <inheritdoc />
     public async Task<IEnumerable<ReadingDto>> GetLatestByNodeAsync(Guid nodeId, CancellationToken ct = default)
     {
-        // Get the latest reading for each SensorType
+        // Get the latest reading for each MeasurementType
         var latestReadings = await _context.Readings
             .AsNoTracking()
             .Include(r => r.Node)
-            .Include(r => r.SensorType)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
             .Where(r => r.NodeId == nodeId)
-            .GroupBy(r => r.SensorTypeId)
+            .GroupBy(r => r.MeasurementType)
             .Select(g => g.OrderByDescending(r => r.Timestamp).First())
             .ToListAsync(ct);
 
@@ -208,13 +266,14 @@ public class ReadingService : IReadingService
     {
         var tenantId = _tenantService.GetCurrentTenantId();
 
-        // Get the latest reading for each Node+SensorType combination
+        // Get the latest reading for each Node+MeasurementType combination
         var latestReadings = await _context.Readings
             .AsNoTracking()
             .Include(r => r.Node)
-            .Include(r => r.SensorType)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
             .Where(r => r.TenantId == tenantId)
-            .GroupBy(r => new { r.NodeId, r.SensorTypeId })
+            .GroupBy(r => new { r.NodeId, r.MeasurementType })
             .Select(g => g.OrderByDescending(r => r.Timestamp).First())
             .ToListAsync(ct);
 
@@ -227,7 +286,8 @@ public class ReadingService : IReadingService
         var readings = await _context.Readings
             .AsNoTracking()
             .Include(r => r.Node)
-            .Include(r => r.SensorType)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
             .Where(r => !r.IsSyncedToCloud)
             .OrderBy(r => r.Timestamp)
             .Take(limit)

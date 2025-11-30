@@ -51,12 +51,26 @@
     "serve": {
       "continuous": true,
       "executor": "@angular/build:dev-server",
+      "options": {
+        "port": 4200,
+        "open": true
+      },
       "configurations": {
         "production": {
           "buildTarget": "myIoTGrid.Hub.Frontend:build:production"
         },
         "development": {
           "buildTarget": "myIoTGrid.Hub.Frontend:build:development"
+        },
+        "local": {
+          "buildTarget": "myIoTGrid.Hub.Frontend:build:development",
+          "proxyConfig": "proxy.conf.json"
+        },
+        "local-https": {
+          "buildTarget": "myIoTGrid.Hub.Frontend:build:development",
+          "proxyConfig": "proxy.conf.https.json",
+          "ssl": true,
+          "port": 4200
         }
       },
       "defaultConfiguration": "development"

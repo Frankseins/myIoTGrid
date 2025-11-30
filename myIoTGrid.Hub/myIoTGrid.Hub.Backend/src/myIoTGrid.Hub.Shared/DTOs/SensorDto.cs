@@ -1,46 +1,60 @@
 namespace myIoTGrid.Hub.Shared.DTOs;
 
 /// <summary>
-/// DTO for Sensor (physical sensor chip: DHT22, BME280, SCD40) information.
-/// Matter-konform: Entspricht einem Matter Endpoint.
+/// DTO for Sensor instance information.
+/// A concrete sensor with calibration settings.
 /// </summary>
-/// <param name="Id">Primary key</param>
-/// <param name="NodeId">Node ID (FK)</param>
-/// <param name="SensorTypeId">Sensor type ID (e.g., "temperature")</param>
-/// <param name="EndpointId">Matter Endpoint ID (1, 2, 3...)</param>
-/// <param name="Name">Optional display name for this sensor</param>
-/// <param name="IsActive">Whether this sensor is active</param>
-/// <param name="SensorType">Sensor type details</param>
-/// <param name="CreatedAt">Creation timestamp</param>
 public record SensorDto(
     Guid Id,
-    Guid NodeId,
-    string SensorTypeId,
-    int EndpointId,
-    string? Name,
+    Guid TenantId,
+    Guid SensorTypeId,
+    string SensorTypeCode,
+    string SensorTypeName,
+    string Name,
+    string? Description,
+    string? SerialNumber,
+    int? IntervalSecondsOverride,
+    double OffsetCorrection,
+    double GainCorrection,
+    DateTime? LastCalibratedAt,
+    string? CalibrationNotes,
+    DateTime? CalibrationDueAt,
+    IEnumerable<Guid> ActiveCapabilityIds,
     bool IsActive,
-    SensorTypeDto? SensorType,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    DateTime UpdatedAt
 );
 
 /// <summary>
-/// DTO for creating a Sensor on a Node
+/// DTO for creating a Sensor instance
 /// </summary>
-/// <param name="SensorTypeId">Sensor type ID (e.g., "temperature")</param>
-/// <param name="EndpointId">Matter Endpoint ID (1, 2, 3...)</param>
-/// <param name="Name">Optional display name</param>
 public record CreateSensorDto(
-    string SensorTypeId,
-    int EndpointId,
-    string? Name = null
+    Guid SensorTypeId,
+    string Name,
+    string? Description = null,
+    string? SerialNumber = null,
+    int? IntervalSecondsOverride = null,
+    IEnumerable<Guid>? ActiveCapabilityIds = null
 );
 
 /// <summary>
-/// DTO for updating a Sensor
+/// DTO for updating a Sensor instance
 /// </summary>
-/// <param name="Name">New display name</param>
-/// <param name="IsActive">Whether this sensor is active</param>
 public record UpdateSensorDto(
     string? Name = null,
+    string? Description = null,
+    string? SerialNumber = null,
+    int? IntervalSecondsOverride = null,
+    IEnumerable<Guid>? ActiveCapabilityIds = null,
     bool? IsActive = null
+);
+
+/// <summary>
+/// DTO for calibrating a Sensor
+/// </summary>
+public record CalibrateSensorDto(
+    double OffsetCorrection,
+    double GainCorrection = 1.0,
+    string? CalibrationNotes = null,
+    DateTime? CalibrationDueAt = null
 );

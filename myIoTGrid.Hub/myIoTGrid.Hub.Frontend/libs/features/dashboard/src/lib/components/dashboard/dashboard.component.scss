@@ -52,6 +52,10 @@
     width: 40px;
     height: 40px;
 
+    &.hubs {
+      color: #1976d2;
+    }
+
     &.online {
       color: #2e7d32;
     }
@@ -84,8 +88,8 @@
   }
 }
 
-// Sensors Section
-.sensors-section {
+// Nodes Section
+.nodes-section {
   .section-title {
     font-size: 20px;
     font-weight: 500;
@@ -94,9 +98,9 @@
   }
 }
 
-.sensors-grid {
+.nodes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
@@ -112,7 +116,7 @@
     grid-template-columns: 1fr;
   }
 
-  .sensors-grid {
+  .nodes-grid {
     grid-template-columns: 1fr;
   }
 }
