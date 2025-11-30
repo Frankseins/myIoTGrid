@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://myiotgrid.cloud">🌐 Website</a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
-  <a href="https://myiotgrid.atlassian.net/wiki/external/ZTU5YmYxMjI2MWY0NGI5NDlmMjA0YmQ4N2ZmYzI4Yjk">📖 Dokumentation</a>
+  <a href="https://myiotgrid.atlassian.net/wiki/spaces/myIoTGrid/overview">📖 Dokumentation</a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
   <a href="#-schnellstart">🚀 Schnellstart</a>
 </p>
