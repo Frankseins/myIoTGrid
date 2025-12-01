@@ -1,0 +1,577 @@
+<div class="sensor-form-container">
+  @if (isLoading()) {
+    <myiotgrid-loading-spinner message="Lade Sensor..."></myiotgrid-loading-spinner>
+  } @else {
+    <div class="card outlook">
+      <!-- Toolbar -->
+      <div class="toolbar outlook-toolbar">
+        <button mat-icon-button class="tbar-icon" matTooltip="Zurück zur Liste" (click)="onBack()">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+
+        <span class="toolbar-title">{{ pageTitle() }}</span>
+        <span class="spacer"></span>
+
+        <!-- Lock/Unlock Button (nur bei vorhandenen Datensätzen, nicht bei Create) -->
+        @if (!isCreateMode()) {
+          <button mat-icon-button class="tbar-icon"
+                  [class.warn]="!isViewMode()"
+                  [matTooltip]="isViewMode() ? 'Bearbeiten aktivieren' : 'Bearbeitung aktiv'"
+                  (click)="toggleEditMode()">
+            <mat-icon>{{ isViewMode() ? 'lock' : 'lock_open' }}</mat-icon>
+          </button>
+        }
+      </div>
+
+      <!-- Content -->
+      <div class="content">
+        <form [formGroup]="form" (ngSubmit)="onSave()">
+
+          <!-- Basic Information -->
+          <section class="form-section">
+            <h3>Allgemein</h3>
+
+            <div class="form-row">
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Sensortyp</mat-label>
+                @if (isViewMode()) {
+                  <input matInput [value]="getSensorTypeName(form.get('sensorTypeId')?.value)" readonly>
+                } @else {
+                  <mat-select formControlName="sensorTypeId" [disabled]="!isCreateMode()">
+                    @for (type of sensorTypes(); track type.id) {
+                      <mat-option [value]="type.id">
+                        <div class="sensor-type-option">
+                          <mat-icon [style.color]="type.color">{{ type.icon || 'sensors' }}</mat-icon>
+                          <span>{{ type.name }}</span>
+                          <span class="type-code">({{ type.code }})</span>
+                        </div>
+                      </mat-option>
+                    }
+                  </mat-select>
+                }
+                @if (form.get('sensorTypeId')?.hasError('required')) {
+                  <mat-error>Sensortyp ist erforderlich</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Name</mat-label>
+                <input matInput formControlName="name" [readonly]="isViewMode()" placeholder="z.B. Wohnzimmer Temperatur">
+                @if (form.get('name')?.hasError('required')) {
+                  <mat-error>Name ist erforderlich</mat-error>
+                }
+                @if (form.get('name')?.hasError('minlength')) {
+                  <mat-error>Name muss mindestens 2 Zeichen haben</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Seriennummer</mat-label>
+                <input matInput formControlName="serialNumber" [readonly]="isViewMode()" placeholder="z.B. SN-001234">
+              </mat-form-field>
+
+              <!-- Protokoll (readonly, vom SensorType) -->
+              <mat-form-field class="full" appearance="fill" floatLabel="always">
+                <mat-label>Protokoll</mat-label>
+                <input matInput [value]="protocolLabel()" readonly>
+                <mat-hint>Wird vom Sensortyp vererbt</mat-hint>
+              </mat-form-field>
+            </div>
+
+            <mat-form-field class="full-width"
+                            [appearance]="isViewMode() ? 'fill' : 'outline'"
+                            [floatLabel]="isViewMode() ? 'always' : 'auto'">
+              <mat-label>Beschreibung</mat-label>
+              <textarea matInput formControlName="description" [readonly]="isViewMode()" rows="3"
+                        placeholder="Optionale Beschreibung des Sensors"></textarea>
+            </mat-form-field>
+          </section>
+
+          <mat-divider></mat-divider>
+
+          <!-- Timing (Vererbung vom SensorType) -->
+          <section class="form-section">
+            <h3>Messintervall</h3>
+
+            <div class="form-row">
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Abfrageintervall (Sekunden)</mat-label>
+                <input matInput type="number" formControlName="intervalSecondsOverride" [readonly]="isViewMode()"
+                       [placeholder]="getIntervalPlaceholder()">
+                @if (!isViewMode()) {
+                  <mat-hint>
+                    @if (isIntervalOverridden()) {
+                      <span class="override-hint">Überschrieben</span>
+                      <button mat-icon-button type="button" class="reset-btn" (click)="resetInterval()" matTooltip="Auf Standard zurücksetzen">
+                        <mat-icon>refresh</mat-icon>
+                      </button>
+                    } @else {
+                      Leer lassen für Standard vom Sensortyp ({{ selectedSensorType()?.defaultIntervalSeconds }}s)
+                    }
+                  </mat-hint>
+                }
+              </mat-form-field>
+
+              <!-- Effektiver Wert Anzeige -->
+              <div class="effective-value-display">
+                <span class="label">Effektiver Wert:</span>
+                <span class="value">{{ getEffectiveInterval() }} Sekunden</span>
+                @if (isIntervalOverridden()) {
+                  <mat-icon class="override-icon" matTooltip="Wert wurde überschrieben">edit</mat-icon>
+                } @else {
+                  <mat-icon class="inherited-icon" matTooltip="Vom Sensortyp geerbt">link</mat-icon>
+                }
+              </div>
+            </div>
+          </section>
+
+          <mat-divider></mat-divider>
+
+          <!-- Pin Configuration (nur wenn ein SensorType ausgewählt ist) -->
+          @if (showPinConfiguration()) {
+            <section class="form-section">
+              <h3>Pin-Konfiguration</h3>
+              <p class="section-hint">
+                Pin-Belegung kann überschrieben werden, z.B. wenn mehrere Sensoren des gleichen Typs verwendet werden
+              </p>
+
+              <!-- Hinweis wenn keine Pin-Felder für das Protokoll verfügbar sind -->
+              @if (!hasPinFields()) {
+                <div class="no-pins-info">
+                  <mat-icon>info</mat-icon>
+                  <span>Für das Protokoll <strong>{{ protocolLabel() }}</strong> sind keine Pin-Overrides konfigurierbar.</span>
+                </div>
+              }
+
+              <!-- I2C Pins -->
+              @if (showI2CPins()) {
+                <div class="pin-group">
+                  <h4 class="pin-group-title">
+                    <mat-icon>memory</mat-icon>
+                    I²C Konfiguration
+                  </h4>
+
+                  <div class="form-row">
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>I²C Adresse</mat-label>
+                      <input matInput formControlName="i2cAddressOverride" [readonly]="isViewMode()"
+                             [placeholder]="getI2CAddressPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isI2CAddressOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetI2CAddress()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            z.B. 0x76 oder 0x77 für BME280
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+
+                    <div class="effective-value-display">
+                      <span class="label">Effektiv:</span>
+                      <code class="value">{{ getEffectiveI2CAddress() }}</code>
+                      @if (isI2CAddressOverridden()) {
+                        <mat-icon class="override-icon" matTooltip="Wert wurde überschrieben">edit</mat-icon>
+                      } @else {
+                        <mat-icon class="inherited-icon" matTooltip="Vom Sensortyp geerbt">link</mat-icon>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>SDA Pin (GPIO)</mat-label>
+                      <input matInput type="number" formControlName="sdaPinOverride" [readonly]="isViewMode()"
+                             [placeholder]="getSdaPinPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isSdaPinOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetSdaPin()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            I²C Datenleitung
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>SCL Pin (GPIO)</mat-label>
+                      <input matInput type="number" formControlName="sclPinOverride" [readonly]="isViewMode()"
+                             [placeholder]="getSclPinPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isSclPinOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetSclPin()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            I²C Taktleitung
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+                  </div>
+
+                  <!-- Effektive Werte Zusammenfassung -->
+                  <div class="effective-pins-summary">
+                    <mat-icon>developer_board</mat-icon>
+                    <span>Effektive I²C Konfiguration: <code>{{ getEffectiveI2CAddress() }}</code> auf SDA={{ getEffectiveSdaPin() }}, SCL={{ getEffectiveSclPin() }}</span>
+                  </div>
+                </div>
+              }
+
+              <!-- OneWire Pin -->
+              @if (showOneWirePin()) {
+                <div class="pin-group">
+                  <h4 class="pin-group-title">
+                    <mat-icon>cable</mat-icon>
+                    1-Wire Konfiguration
+                  </h4>
+
+                  <div class="form-row">
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>OneWire Pin (GPIO)</mat-label>
+                      <input matInput type="number" formControlName="oneWirePinOverride" [readonly]="isViewMode()"
+                             [placeholder]="getOneWirePinPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isOneWirePinOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetOneWirePin()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            1-Wire Datenleitung (z.B. DS18B20)
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+
+                    <div class="effective-value-display">
+                      <span class="label">Effektiv:</span>
+                      <span class="value">GPIO {{ getEffectiveOneWirePin() }}</span>
+                      @if (isOneWirePinOverridden()) {
+                        <mat-icon class="override-icon" matTooltip="Wert wurde überschrieben">edit</mat-icon>
+                      } @else {
+                        <mat-icon class="inherited-icon" matTooltip="Vom Sensortyp geerbt">link</mat-icon>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- Analog Pin -->
+              @if (showAnalogPin()) {
+                <div class="pin-group">
+                  <h4 class="pin-group-title">
+                    <mat-icon>show_chart</mat-icon>
+                    Analog Konfiguration
+                  </h4>
+
+                  <div class="form-row">
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>Analog Pin (GPIO)</mat-label>
+                      <input matInput type="number" formControlName="analogPinOverride" [readonly]="isViewMode()"
+                             [placeholder]="getAnalogPinPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isAnalogPinOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetAnalogPin()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            ADC-fähiger GPIO Pin (32-39 auf ESP32)
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+
+                    <div class="effective-value-display">
+                      <span class="label">Effektiv:</span>
+                      <span class="value">GPIO {{ getEffectiveAnalogPin() }}</span>
+                      @if (isAnalogPinOverridden()) {
+                        <mat-icon class="override-icon" matTooltip="Wert wurde überschrieben">edit</mat-icon>
+                      } @else {
+                        <mat-icon class="inherited-icon" matTooltip="Vom Sensortyp geerbt">link</mat-icon>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- Digital Pin -->
+              @if (showDigitalPin()) {
+                <div class="pin-group">
+                  <h4 class="pin-group-title">
+                    <mat-icon>toggle_on</mat-icon>
+                    Digital Konfiguration
+                  </h4>
+
+                  <div class="form-row">
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>Digital Pin (GPIO)</mat-label>
+                      <input matInput type="number" formControlName="digitalPinOverride" [readonly]="isViewMode()"
+                             [placeholder]="getDigitalPinPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isDigitalPinOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetDigitalPin()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            Digitaler GPIO Pin
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+
+                    <div class="effective-value-display">
+                      <span class="label">Effektiv:</span>
+                      <span class="value">GPIO {{ getEffectiveDigitalPin() }}</span>
+                      @if (isDigitalPinOverridden()) {
+                        <mat-icon class="override-icon" matTooltip="Wert wurde überschrieben">edit</mat-icon>
+                      } @else {
+                        <mat-icon class="inherited-icon" matTooltip="Vom Sensortyp geerbt">link</mat-icon>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- UltraSonic Pins -->
+              @if (showUltraSonicPins()) {
+                <div class="pin-group">
+                  <h4 class="pin-group-title">
+                    <mat-icon>radar</mat-icon>
+                    Ultraschall Konfiguration
+                  </h4>
+
+                  <div class="form-row">
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>Trigger Pin (GPIO)</mat-label>
+                      <input matInput type="number" formControlName="triggerPinOverride" [readonly]="isViewMode()"
+                             [placeholder]="getTriggerPinPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isTriggerPinOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetTriggerPin()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            Auslöser-Pin (HC-SR04)
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+
+                    <mat-form-field class="full"
+                                    [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                    [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                      <mat-label>Echo Pin (GPIO)</mat-label>
+                      <input matInput type="number" formControlName="echoPinOverride" [readonly]="isViewMode()"
+                             [placeholder]="getEchoPinPlaceholder()">
+                      @if (!isViewMode()) {
+                        <mat-hint>
+                          @if (isEchoPinOverridden()) {
+                            <span class="override-hint">Überschrieben</span>
+                            <button mat-icon-button type="button" class="reset-btn" (click)="resetEchoPin()" matTooltip="Auf Standard zurücksetzen">
+                              <mat-icon>refresh</mat-icon>
+                            </button>
+                          } @else {
+                            Echo-Empfänger-Pin
+                          }
+                        </mat-hint>
+                      }
+                    </mat-form-field>
+                  </div>
+
+                  <!-- Effektive Werte Zusammenfassung -->
+                  <div class="effective-pins-summary">
+                    <mat-icon>developer_board</mat-icon>
+                    <span>Effektive Ultraschall-Pins: Trigger={{ getEffectiveTriggerPin() }}, Echo={{ getEffectiveEchoPin() }}</span>
+                  </div>
+                </div>
+              }
+            </section>
+
+            <mat-divider></mat-divider>
+          }
+
+          <!-- Capabilities (Messwerte aktivieren/deaktivieren) -->
+          @if (availableCapabilities().length > 0) {
+            <section class="form-section">
+              <h3>Aktive Messwerte</h3>
+              <p class="section-hint">Wähle welche Messwerte dieser Sensor liefern soll</p>
+
+              <div class="capability-chips">
+                @for (cap of availableCapabilities(); track cap.id) {
+                  <mat-chip-option
+                    [selected]="isCapabilitySelected(cap.id)"
+                    [disabled]="isViewMode()"
+                    (click)="toggleCapability(cap.id)">
+                    {{ cap.displayName }} ({{ cap.unit }})
+                  </mat-chip-option>
+                }
+              </div>
+
+              @if (!isViewMode() && selectedCapabilityIds.length === 0) {
+                <p class="warning-text">Mindestens ein Messwert sollte aktiviert sein!</p>
+              }
+            </section>
+
+            <mat-divider></mat-divider>
+          }
+
+          <!-- Calibration -->
+          <section class="form-section">
+            <h3>Kalibrierung</h3>
+            <p class="section-hint">Kalibrierungswerte werden vom Sensortyp vererbt und können hier überschrieben werden</p>
+
+            <div class="form-row">
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Offset-Korrektur</mat-label>
+                <input matInput type="number" step="0.01" formControlName="offsetCorrection" [readonly]="isViewMode()"
+                       [placeholder]="getOffsetPlaceholder()">
+                @if (!isViewMode()) {
+                  <mat-hint>
+                    @if (isOffsetOverridden()) {
+                      <span class="override-hint">Überschrieben</span>
+                      <button mat-icon-button type="button" class="reset-btn" (click)="resetOffset()" matTooltip="Auf Standard zurücksetzen">
+                        <mat-icon>refresh</mat-icon>
+                      </button>
+                    } @else {
+                      Wird zum Messwert addiert
+                    }
+                  </mat-hint>
+                }
+              </mat-form-field>
+
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Gain-Korrektur</mat-label>
+                <input matInput type="number" step="0.01" formControlName="gainCorrection" [readonly]="isViewMode()"
+                       [placeholder]="getGainPlaceholder()">
+                @if (!isViewMode()) {
+                  <mat-hint>
+                    @if (isGainOverridden()) {
+                      <span class="override-hint">Überschrieben</span>
+                      <button mat-icon-button type="button" class="reset-btn" (click)="resetGain()" matTooltip="Auf Standard zurücksetzen">
+                        <mat-icon>refresh</mat-icon>
+                      </button>
+                    } @else {
+                      Messwert wird damit multipliziert
+                    }
+                  </mat-hint>
+                }
+              </mat-form-field>
+            </div>
+
+            <!-- Kalibrierungsformel Anzeige -->
+            <div class="calibration-formula">
+              <mat-icon>functions</mat-icon>
+              <span>Kalibrierter Wert = (Rohwert × {{ getEffectiveGain() }}) + {{ getEffectiveOffset() }}</span>
+            </div>
+
+            <mat-form-field class="full-width"
+                            [appearance]="isViewMode() ? 'fill' : 'outline'"
+                            [floatLabel]="isViewMode() ? 'always' : 'auto'">
+              <mat-label>Kalibrierungsnotizen</mat-label>
+              <textarea matInput formControlName="calibrationNotes" [readonly]="isViewMode()" rows="2"
+                        placeholder="Notizen zur Kalibrierung, z.B. Vergleich mit Referenzsensor"></textarea>
+            </mat-form-field>
+          </section>
+
+          <mat-divider></mat-divider>
+
+          <!-- Status -->
+          @if (!isCreateMode()) {
+            <section class="form-section">
+              <h3>Status</h3>
+
+              <mat-checkbox formControlName="isActive" [disabled]="isViewMode()">
+                Sensor aktiv
+              </mat-checkbox>
+            </section>
+
+            <mat-divider></mat-divider>
+          }
+
+          <!-- Preview -->
+          <section class="form-section">
+            <h3>Vorschau</h3>
+            <div class="preview">
+              <div class="preview-icon" [style.background-color]="getSensorTypeColor(form.get('sensorTypeId')?.value)">
+                <mat-icon>{{ getSensorTypeIcon(form.get('sensorTypeId')?.value) }}</mat-icon>
+              </div>
+              <div class="preview-info">
+                <span class="preview-name">{{ form.get('name')?.value || 'Sensorname' }}</span>
+                <span class="preview-type">{{ getSensorTypeName(form.get('sensorTypeId')?.value) || 'Sensortyp wählen' }}</span>
+                @if (form.get('serialNumber')?.value) {
+                  <code class="preview-serial">{{ form.get('serialNumber')?.value }}</code>
+                }
+                @if (selectedCapabilityIds.length > 0) {
+                  <span class="preview-caps">{{ selectedCapabilityIds.length }} Messwert(e) aktiv</span>
+                }
+              </div>
+            </div>
+          </section>
+        </form>
+      </div>
+
+      <!-- Footer Action Bar (nur im Edit/Create Modus sichtbar) -->
+      @if (!isViewMode()) {
+        <div class="form-footer">
+          <div class="actions">
+            <button mat-button type="button" (click)="onCancel()">
+              <mat-icon>close</mat-icon>
+              Abbrechen
+            </button>
+            <button mat-flat-button color="primary" type="button"
+                    [disabled]="form.invalid || isSaving()"
+                    (click)="onSave()">
+              <mat-icon>{{ isSaving() ? 'sync' : 'check' }}</mat-icon>
+              {{ isSaving() ? 'Speichern...' : (isCreateMode() ? 'Erstellen' : 'Speichern') }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

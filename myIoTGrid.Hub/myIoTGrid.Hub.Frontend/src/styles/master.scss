@@ -4,6 +4,7 @@
 // Based on mySocialCare Design System
 // ================================
 
+@use 'sass:color';
 @use './variables.scss' as *;
 
 // ========== GLOBAL RESETS ==========
@@ -167,25 +168,25 @@ a {
 .alert-ok {
   background-color: rgba($alert-ok, 0.1);
   border-left: 4px solid $alert-ok;
-  color: darken($alert-ok, 20%);
+  color: color.adjust($alert-ok, $lightness: -20%);
 }
 
 .alert-info {
   background-color: rgba($alert-info, 0.1);
   border-left: 4px solid $alert-info;
-  color: darken($alert-info, 20%);
+  color: color.adjust($alert-info, $lightness: -20%);
 }
 
 .alert-warning {
   background-color: rgba($alert-warning, 0.1);
   border-left: 4px solid $alert-warning;
-  color: darken($alert-warning, 20%);
+  color: color.adjust($alert-warning, $lightness: -20%);
 }
 
 .alert-critical {
   background-color: rgba($alert-critical, 0.1);
   border-left: 4px solid $alert-critical;
-  color: darken($alert-critical, 20%);
+  color: color.adjust($alert-critical, $lightness: -20%);
 }
 
 // ========== STATUS INDICATORS ==========
@@ -276,12 +277,12 @@ a {
 .mat-mdc-chip {
   &.online {
     background-color: rgba($success-color, 0.15) !important;
-    color: darken($success-color, 10%) !important;
+    color: color.adjust($success-color, $lightness: -10%) !important;
   }
 
   &.offline {
     background-color: rgba($error-color, 0.15) !important;
-    color: darken($error-color, 10%) !important;
+    color: color.adjust($error-color, $lightness: -10%) !important;
   }
 }
 

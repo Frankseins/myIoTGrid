@@ -390,6 +390,9 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("AnalogPinOverride")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("CalibrationDueAt")
                         .HasColumnType("TEXT");
 
@@ -404,10 +407,19 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("DigitalPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("EchoPinOverride")
+                        .HasColumnType("INTEGER");
+
                     b.Property<double>("GainCorrection")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("REAL")
                         .HasDefaultValue(1.0);
+
+                    b.Property<string>("I2CAddressOverride")
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("IntervalSecondsOverride")
                         .HasColumnType("INTEGER");
@@ -430,6 +442,15 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .HasColumnType("REAL")
                         .HasDefaultValue(0.0);
 
+                    b.Property<int?>("OneWirePinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SclPinOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SdaPinOverride")
+                        .HasColumnType("INTEGER");
+
                     b.Property<Guid>("SensorTypeId")
                         .HasColumnType("TEXT");
 
@@ -439,6 +460,9 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("TriggerPinOverride")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");

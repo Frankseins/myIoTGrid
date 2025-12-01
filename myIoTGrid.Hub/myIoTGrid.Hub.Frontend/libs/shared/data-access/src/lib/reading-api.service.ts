@@ -1,18 +1,27 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { Reading, CreateReadingDto, ReadingFilter, PaginatedResult } from '@myiotgrid/shared/models';
+import { Reading, CreateReadingDto, ReadingFilter, PaginatedResult, QueryParams, PagedResult } from '@myiotgrid/shared/models';
+import { queryParamsToObject } from './api-query.helper';
 
 @Injectable({ providedIn: 'root' })
 export class ReadingApiService extends BaseApiService {
   private readonly endpoint = '/readings';
 
   /**
-   * Get filtered/paginated readings
+   * Get filtered/paginated readings (legacy)
    * GET /api/readings
    */
   getFiltered(filter: ReadingFilter): Observable<PaginatedResult<Reading>> {
     return this.get<PaginatedResult<Reading>>(this.endpoint, filter as Record<string, unknown>);
+  }
+
+  /**
+   * Get readings with server-side paging, sorting, and filtering
+   * GET /api/readings/paged
+   */
+  getPaged(params: QueryParams): Observable<PagedResult<Reading>> {
+    return this.get<PagedResult<Reading>>(`${this.endpoint}/paged`, queryParamsToObject(params));
   }
 
   /**

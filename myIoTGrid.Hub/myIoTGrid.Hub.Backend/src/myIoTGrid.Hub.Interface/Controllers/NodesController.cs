@@ -41,10 +41,30 @@ public class NodesController : ControllerBase
     /// <returns>List of Nodes</returns>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<NodeDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll([FromQuery] Guid hubId, CancellationToken ct)
+    public async Task<IActionResult> GetAll([FromQuery] Guid? hubId, CancellationToken ct)
     {
-        var nodes = await _nodeService.GetByHubAsync(hubId, ct);
-        return Ok(nodes);
+        if (hubId.HasValue)
+        {
+            var nodes = await _nodeService.GetByHubAsync(hubId.Value, ct);
+            return Ok(nodes);
+        }
+
+        var allNodes = await _nodeService.GetAllAsync(ct);
+        return Ok(allNodes);
+    }
+
+    /// <summary>
+    /// Returns Nodes with server-side paging, sorting, and filtering
+    /// </summary>
+    /// <param name="queryParams">Query parameters (page, size, sort, search, filters)</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Paginated list of Nodes</returns>
+    [HttpGet("paged")]
+    [ProducesResponseType(typeof(PagedResultDto<NodeDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaged([FromQuery] QueryParamsDto queryParams, CancellationToken ct)
+    {
+        var result = await _nodeService.GetPagedAsync(queryParams, ct);
+        return Ok(result);
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -35,12 +35,14 @@ import { RelativeTimePipe, SensorUnitPipe } from '@myiotgrid/shared/utils';
   styleUrl: './node-list.component.scss'
 })
 export class NodeListComponent implements OnInit {
+  private readonly router = inject(Router);
   private readonly hubApiService = inject(HubApiService);
   private readonly nodeApiService = inject(NodeApiService);
   private readonly readingApiService = inject(ReadingApiService);
   private readonly sensorTypeApiService = inject(SensorTypeApiService);
 
   readonly isLoading = signal(true);
+  readonly initialLoadDone = signal(false);
   readonly hubs = signal<Hub[]>([]);
   readonly nodes = signal<Node[]>([]);
   readonly latestReadings = signal<Map<string, Reading[]>>(new Map());
@@ -91,6 +93,7 @@ export class NodeListComponent implements OnInit {
       console.error('Error loading nodes:', error);
     } finally {
       this.isLoading.set(false);
+      this.initialLoadDone.set(true);
     }
   }
 
@@ -121,5 +124,9 @@ export class NodeListComponent implements OnInit {
 
   getSensorColor(typeId: string): string {
     return this.sensorTypeApiService.getColor(typeId);
+  }
+
+  onCreate(): void {
+    this.router.navigate(['/nodes', 'new']);
   }
 }

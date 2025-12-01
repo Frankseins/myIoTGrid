@@ -1,0 +1,427 @@
+<div class="node-form-container">
+  @if (isLoading()) {
+    <myiotgrid-loading-spinner message="Lade Node..."></myiotgrid-loading-spinner>
+  } @else {
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>
+          <button mat-icon-button (click)="onBack()" class="back-button">
+            <mat-icon>arrow_back</mat-icon>
+          </button>
+          {{ pageTitle() }}
+        </mat-card-title>
+        <div class="header-actions">
+          @if (isViewMode()) {
+            <button mat-raised-button color="primary" (click)="onEdit()">
+              <mat-icon>edit</mat-icon>
+              Bearbeiten
+            </button>
+          }
+        </div>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form [formGroup]="form" (ngSubmit)="onSave()">
+
+          <!-- Basic Information -->
+          <section class="form-section">
+            <h3>Allgemein</h3>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Node-ID</mat-label>
+                <input matInput formControlName="nodeId" placeholder="z.B. sensor-wohnzimmer-01">
+                <mat-hint>Eindeutige ID (Buchstaben, Zahlen, Bindestriche, Unterstriche)</mat-hint>
+                @if (form.get('nodeId')?.hasError('required')) {
+                  <mat-error>Node-ID ist erforderlich</mat-error>
+                }
+                @if (form.get('nodeId')?.hasError('pattern')) {
+                  <mat-error>Nur Buchstaben, Zahlen, Bindestriche und Unterstriche erlaubt</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Name</mat-label>
+                <input matInput formControlName="name" placeholder="z.B. Wohnzimmer Sensor">
+                @if (form.get('name')?.hasError('required')) {
+                  <mat-error>Name ist erforderlich</mat-error>
+                }
+                @if (form.get('name')?.hasError('minlength')) {
+                  <mat-error>Name muss mindestens 2 Zeichen haben</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Hub</mat-label>
+                <mat-select formControlName="hubId">
+                  @for (hub of hubs(); track hub.id) {
+                    <mat-option [value]="hub.id">{{ hub.name }} ({{ hub.hubId }})</mat-option>
+                  }
+                </mat-select>
+                @if (form.get('hubId')?.hasError('required')) {
+                  <mat-error>Hub ist erforderlich</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Protokoll</mat-label>
+                <mat-select formControlName="protocol">
+                  @for (proto of protocols; track proto.value) {
+                    <mat-option [value]="proto.value">
+                      <mat-icon>{{ proto.value === 1 ? 'wifi' : 'cell_tower' }}</mat-icon>
+                      {{ proto.label }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </section>
+
+          <mat-divider></mat-divider>
+
+          <!-- Location -->
+          <section class="form-section">
+            <h3>Standort</h3>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Standort-Name</mat-label>
+              <input matInput formControlName="locationName" placeholder="z.B. Wohnzimmer">
+              <mat-hint>Optionaler Name für den Standort des Sensors</mat-hint>
+            </mat-form-field>
+          </section>
+
+          @if (!isCreateMode()) {
+            <mat-divider></mat-divider>
+
+            <!-- Firmware (only for existing nodes) -->
+            <section class="form-section">
+              <h3>Firmware</h3>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Firmware-Version</mat-label>
+                <input matInput formControlName="firmwareVersion" placeholder="z.B. 1.0.0">
+              </mat-form-field>
+            </section>
+
+            <mat-divider></mat-divider>
+
+            <!-- Sensor Assignments (only for existing nodes) -->
+            <section class="form-section">
+              <div class="section-header">
+                <h3>Zugeordnete Sensoren</h3>
+                <button mat-stroked-button color="primary" type="button"
+                        (click)="openAssignmentForm()"
+                        [disabled]="getUnassignedSensors().length === 0">
+                  <mat-icon>add</mat-icon>
+                  Sensor zuordnen
+                </button>
+              </div>
+
+              @if (isLoadingAssignments()) {
+                <div class="loading-assignments">
+                  <mat-icon class="spin">sync</mat-icon>
+                  <span>Lade Zuordnungen...</span>
+                </div>
+              } @else if (assignments().length === 0) {
+                <div class="no-assignments">
+                  <mat-icon>sensors_off</mat-icon>
+                  <p>Keine Sensoren zugeordnet</p>
+                  <span class="hint">Ordnen Sie diesem Node Sensoren zu, um Messwerte zu erfassen.</span>
+                </div>
+              } @else {
+                <div class="assignments-list">
+                  @for (assignment of assignments(); track assignment.id) {
+                    <mat-expansion-panel class="assignment-panel" [class.inactive]="!assignment.isActive">
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                          <div class="assignment-header">
+                            <div class="sensor-icon" [style.background-color]="getSensorTypeColor(assignment.sensorTypeId)">
+                              <mat-icon>{{ getSensorTypeIcon(assignment.sensorTypeId) }}</mat-icon>
+                            </div>
+                            <div class="assignment-info">
+                              <span class="sensor-name">{{ assignment.alias || assignment.sensorName }}</span>
+                              <span class="sensor-type">{{ assignment.sensorTypeName }}</span>
+                            </div>
+                          </div>
+                        </mat-panel-title>
+                        <mat-panel-description>
+                          <mat-chip [class.active]="assignment.isActive" [class.inactive]="!assignment.isActive">
+                            {{ assignment.isActive ? 'Aktiv' : 'Inaktiv' }}
+                          </mat-chip>
+                          <span class="endpoint-badge">Endpoint {{ assignment.endpointId }}</span>
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
+
+                      <div class="assignment-details">
+                        <!-- Effective Config -->
+                        <div class="config-section">
+                          <h4>Effektive Konfiguration</h4>
+                          <div class="config-grid">
+                            <div class="config-item">
+                              <span class="label">Intervall</span>
+                              <span class="value">{{ assignment.effectiveConfig.intervalSeconds }}s</span>
+                            </div>
+                            @if (assignment.effectiveConfig.i2cAddress) {
+                              <div class="config-item">
+                                <span class="label">I2C-Adresse</span>
+                                <span class="value">{{ assignment.effectiveConfig.i2cAddress }}</span>
+                              </div>
+                            }
+                            @if (assignment.effectiveConfig.sdaPin !== null && assignment.effectiveConfig.sdaPin !== undefined) {
+                              <div class="config-item">
+                                <span class="label">SDA Pin</span>
+                                <span class="value">GPIO {{ assignment.effectiveConfig.sdaPin }}</span>
+                              </div>
+                            }
+                            @if (assignment.effectiveConfig.sclPin !== null && assignment.effectiveConfig.sclPin !== undefined) {
+                              <div class="config-item">
+                                <span class="label">SCL Pin</span>
+                                <span class="value">GPIO {{ assignment.effectiveConfig.sclPin }}</span>
+                              </div>
+                            }
+                            @if (assignment.effectiveConfig.oneWirePin !== null && assignment.effectiveConfig.oneWirePin !== undefined) {
+                              <div class="config-item">
+                                <span class="label">OneWire Pin</span>
+                                <span class="value">GPIO {{ assignment.effectiveConfig.oneWirePin }}</span>
+                              </div>
+                            }
+                            @if (assignment.effectiveConfig.analogPin !== null && assignment.effectiveConfig.analogPin !== undefined) {
+                              <div class="config-item">
+                                <span class="label">Analog Pin</span>
+                                <span class="value">GPIO {{ assignment.effectiveConfig.analogPin }}</span>
+                              </div>
+                            }
+                            @if (assignment.effectiveConfig.digitalPin !== null && assignment.effectiveConfig.digitalPin !== undefined) {
+                              <div class="config-item">
+                                <span class="label">Digital Pin</span>
+                                <span class="value">GPIO {{ assignment.effectiveConfig.digitalPin }}</span>
+                              </div>
+                            }
+                            @if (assignment.effectiveConfig.triggerPin !== null && assignment.effectiveConfig.triggerPin !== undefined) {
+                              <div class="config-item">
+                                <span class="label">Trigger Pin</span>
+                                <span class="value">GPIO {{ assignment.effectiveConfig.triggerPin }}</span>
+                              </div>
+                            }
+                            @if (assignment.effectiveConfig.echoPin !== null && assignment.effectiveConfig.echoPin !== undefined) {
+                              <div class="config-item">
+                                <span class="label">Echo Pin</span>
+                                <span class="value">GPIO {{ assignment.effectiveConfig.echoPin }}</span>
+                              </div>
+                            }
+                            <div class="config-item">
+                              <span class="label">Offset</span>
+                              <span class="value">{{ assignment.effectiveConfig.offsetCorrection }}</span>
+                            </div>
+                            <div class="config-item">
+                              <span class="label">Gain</span>
+                              <span class="value">{{ assignment.effectiveConfig.gainCorrection }}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Overrides Info -->
+                        @if (assignment.intervalSecondsOverride || assignment.i2cAddressOverride ||
+                             assignment.sdaPinOverride !== null || assignment.sclPinOverride !== null) {
+                          <div class="overrides-section">
+                            <h4>Überschriebene Werte</h4>
+                            <div class="overrides-list">
+                              @if (assignment.intervalSecondsOverride) {
+                                <mat-chip>Intervall: {{ assignment.intervalSecondsOverride }}s</mat-chip>
+                              }
+                              @if (assignment.i2cAddressOverride) {
+                                <mat-chip>I2C: {{ assignment.i2cAddressOverride }}</mat-chip>
+                              }
+                              @if (assignment.sdaPinOverride !== null) {
+                                <mat-chip>SDA: GPIO {{ assignment.sdaPinOverride }}</mat-chip>
+                              }
+                              @if (assignment.sclPinOverride !== null) {
+                                <mat-chip>SCL: GPIO {{ assignment.sclPinOverride }}</mat-chip>
+                              }
+                            </div>
+                          </div>
+                        }
+
+                        <!-- Assignment Actions -->
+                        <div class="assignment-actions">
+                          <button mat-button type="button" (click)="toggleAssignmentActive(assignment)">
+                            <mat-icon>{{ assignment.isActive ? 'pause' : 'play_arrow' }}</mat-icon>
+                            {{ assignment.isActive ? 'Deaktivieren' : 'Aktivieren' }}
+                          </button>
+                          <button mat-button type="button" (click)="openAssignmentForm(assignment)">
+                            <mat-icon>edit</mat-icon>
+                            Bearbeiten
+                          </button>
+                          <button mat-button color="warn" type="button" (click)="deleteAssignment(assignment)">
+                            <mat-icon>delete</mat-icon>
+                            Entfernen
+                          </button>
+                        </div>
+                      </div>
+                    </mat-expansion-panel>
+                  }
+                </div>
+              }
+
+              <!-- Assignment Form Dialog -->
+              @if (showAssignmentForm()) {
+                <div class="assignment-form-overlay">
+                  <mat-card class="assignment-form-card">
+                    <mat-card-header>
+                      <mat-card-title>
+                        {{ editingAssignment() ? 'Zuordnung bearbeiten' : 'Sensor zuordnen' }}
+                      </mat-card-title>
+                    </mat-card-header>
+                    <mat-card-content>
+                      <form [formGroup]="assignmentForm">
+                        <div class="form-row">
+                          <mat-form-field appearance="outline">
+                            <mat-label>Sensor</mat-label>
+                            <mat-select formControlName="sensorId">
+                              @if (editingAssignment()) {
+                                <mat-option [value]="editingAssignment()!.sensorId">
+                                  {{ editingAssignment()!.sensorName }}
+                                </mat-option>
+                              } @else {
+                                @for (sensor of getUnassignedSensors(); track sensor.id) {
+                                  <mat-option [value]="sensor.id">
+                                    {{ sensor.name }} ({{ sensor.sensorTypeName }})
+                                  </mat-option>
+                                }
+                              }
+                            </mat-select>
+                            @if (assignmentForm.get('sensorId')?.hasError('required')) {
+                              <mat-error>Sensor ist erforderlich</mat-error>
+                            }
+                          </mat-form-field>
+
+                          <mat-form-field appearance="outline">
+                            <mat-label>Endpoint-ID</mat-label>
+                            <input matInput type="number" formControlName="endpointId" min="1" max="254">
+                            <mat-hint>Matter-konform: 1-254</mat-hint>
+                            @if (assignmentForm.get('endpointId')?.hasError('required')) {
+                              <mat-error>Endpoint-ID ist erforderlich</mat-error>
+                            }
+                            @if (assignmentForm.get('endpointId')?.hasError('min') || assignmentForm.get('endpointId')?.hasError('max')) {
+                              <mat-error>Muss zwischen 1 und 254 liegen</mat-error>
+                            }
+                          </mat-form-field>
+                        </div>
+
+                        <mat-form-field appearance="outline" class="full-width">
+                          <mat-label>Alias (optional)</mat-label>
+                          <input matInput formControlName="alias" placeholder="z.B. Außentemperatur">
+                          <mat-hint>Optionaler Anzeigename für diese Zuordnung</mat-hint>
+                        </mat-form-field>
+
+                        <mat-divider></mat-divider>
+                        <h4>Pin-Überschreibungen (optional)</h4>
+                        <p class="hint-text">Leer lassen, um die Sensor-Standardwerte zu verwenden</p>
+
+                        <div class="form-row">
+                          <mat-form-field appearance="outline">
+                            <mat-label>I2C-Adresse</mat-label>
+                            <input matInput formControlName="i2cAddressOverride" placeholder="z.B. 0x77">
+                          </mat-form-field>
+
+                          <mat-form-field appearance="outline">
+                            <mat-label>Intervall (Sekunden)</mat-label>
+                            <input matInput type="number" formControlName="intervalSecondsOverride" min="1">
+                          </mat-form-field>
+                        </div>
+
+                        <div class="form-row">
+                          <mat-form-field appearance="outline">
+                            <mat-label>SDA Pin</mat-label>
+                            <input matInput type="number" formControlName="sdaPinOverride">
+                          </mat-form-field>
+
+                          <mat-form-field appearance="outline">
+                            <mat-label>SCL Pin</mat-label>
+                            <input matInput type="number" formControlName="sclPinOverride">
+                          </mat-form-field>
+                        </div>
+
+                        <div class="form-row">
+                          <mat-form-field appearance="outline">
+                            <mat-label>OneWire Pin</mat-label>
+                            <input matInput type="number" formControlName="oneWirePinOverride">
+                          </mat-form-field>
+
+                          <mat-form-field appearance="outline">
+                            <mat-label>Analog Pin</mat-label>
+                            <input matInput type="number" formControlName="analogPinOverride">
+                          </mat-form-field>
+                        </div>
+
+                        <div class="form-row">
+                          <mat-form-field appearance="outline">
+                            <mat-label>Digital Pin</mat-label>
+                            <input matInput type="number" formControlName="digitalPinOverride">
+                          </mat-form-field>
+
+                          <mat-form-field appearance="outline">
+                            <mat-label>Trigger Pin</mat-label>
+                            <input matInput type="number" formControlName="triggerPinOverride">
+                          </mat-form-field>
+                        </div>
+
+                        <div class="form-row">
+                          <mat-form-field appearance="outline">
+                            <mat-label>Echo Pin</mat-label>
+                            <input matInput type="number" formControlName="echoPinOverride">
+                          </mat-form-field>
+                        </div>
+                      </form>
+                    </mat-card-content>
+                    <mat-card-actions align="end">
+                      <button mat-button type="button" (click)="cancelAssignmentForm()">Abbrechen</button>
+                      <button mat-raised-button color="primary" type="button"
+                              (click)="saveAssignment()"
+                              [disabled]="assignmentForm.invalid">
+                        {{ editingAssignment() ? 'Speichern' : 'Zuordnen' }}
+                      </button>
+                    </mat-card-actions>
+                  </mat-card>
+                </div>
+              }
+            </section>
+          }
+
+          <!-- Preview -->
+          <mat-divider></mat-divider>
+
+          <section class="form-section">
+            <h3>Vorschau</h3>
+            <div class="preview-card">
+              <mat-icon class="preview-icon">{{ getProtocolIcon() }}</mat-icon>
+              <div class="preview-info">
+                <span class="preview-name">{{ form.get('name')?.value || 'Node Name' }}</span>
+                <code class="preview-id">{{ form.get('nodeId')?.value || 'node-id' }}</code>
+                @if (form.get('locationName')?.value) {
+                  <span class="preview-location">{{ form.get('locationName')?.value }}</span>
+                }
+              </div>
+            </div>
+          </section>
+
+          <!-- Actions -->
+          @if (!isViewMode()) {
+            <div class="form-actions">
+              <button mat-button type="button" (click)="onCancel()">
+                Abbrechen
+              </button>
+              <button mat-raised-button color="primary" type="submit"
+                      [disabled]="form.invalid || isSaving()">
+                <mat-icon>{{ isSaving() ? 'sync' : 'save' }}</mat-icon>
+                {{ isSaving() ? 'Speichern...' : (isCreateMode() ? 'Erstellen' : 'Speichern') }}
+              </button>
+            </div>
+          }
+        </form>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

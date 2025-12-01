@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { Node, CreateNodeDto, UpdateNodeDto, Sensor } from '@myiotgrid/shared/models';
+import { Node, CreateNodeDto, UpdateNodeDto, Sensor, QueryParams, PagedResult } from '@myiotgrid/shared/models';
+import { queryParamsToObject } from './api-query.helper';
 
 @Injectable({ providedIn: 'root' })
 export class NodeApiService extends BaseApiService {
@@ -13,6 +14,14 @@ export class NodeApiService extends BaseApiService {
    */
   getAll(): Observable<Node[]> {
     return this.get<Node[]>(this.endpoint);
+  }
+
+  /**
+   * Get nodes with server-side paging, sorting, and filtering
+   * GET /api/nodes/paged
+   */
+  getPaged(params: QueryParams): Observable<PagedResult<Node>> {
+    return this.get<PagedResult<Node>>(`${this.endpoint}/paged`, queryParamsToObject(params));
   }
 
   /**

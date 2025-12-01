@@ -161,6 +161,16 @@ public class SensorDtoTests
             Description: "Temperature and humidity sensor in living room",
             SerialNumber: "DHT22-001",
             IntervalSecondsOverride: 30,
+            // Pin Configuration Override
+            I2CAddressOverride: "0x77",
+            SdaPinOverride: 21,
+            SclPinOverride: 22,
+            OneWirePinOverride: null,
+            AnalogPinOverride: null,
+            DigitalPinOverride: 4,
+            TriggerPinOverride: null,
+            EchoPinOverride: null,
+            // Calibration
             OffsetCorrection: 0.5,
             GainCorrection: 1.02,
             LastCalibratedAt: DateTime.UtcNow.AddMonths(-1),

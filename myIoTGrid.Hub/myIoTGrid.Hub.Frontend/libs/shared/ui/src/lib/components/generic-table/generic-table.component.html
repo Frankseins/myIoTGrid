@@ -1,0 +1,266 @@
+<div class="card gtm-scroll outlook">
+    <!-- Toolbar -->
+    <mat-toolbar *ngIf="showToolbar" class="toolbar outlook-toolbar">
+        <div class="left-actions">
+            <button mat-flat-button color="primary" (click)="openCreate()">
+                <mat-icon>add</mat-icon>
+                {{ createLabel }}
+            </button>
+
+            <ng-content select="[table-toolbar-actions]"></ng-content>
+            <span class="spacer"></span>
+
+            <button *ngIf="editMode && canEditToolbar"
+                    mat-icon-button class="tbar-icon"
+                    (click)="onToolbarEdit()" matTooltip="Bearbeiten (E)">
+                <mat-icon>edit</mat-icon>
+            </button>
+
+            <button *ngIf="editMode && canDeleteToolbar"
+                    mat-icon-button class="tbar-icon warn"
+                    (click)="onToolbarDelete()" matTooltip="Löschen (Entf)">
+                <mat-icon>delete</mat-icon>
+            </button>
+        </div>
+
+        <span class="spacer"></span>
+
+        <button type="button" mat-icon-button class="tbar-icon lock-toggle"
+                [class.on]="editMode" (click)="toggleEditMode()"
+                [attr.aria-label]="editMode ? 'Bearbeitung aktiv' : 'Bearbeitung gesperrt'"
+                [matTooltip]="editMode ? 'Bearbeitung aktiv' : 'Bearbeitung gesperrt'">
+            <mat-icon>{{ editMode ? 'lock_open' : 'lock' }}</mat-icon>
+        </button>
+
+        <!-- Refresh Button -->
+        <button type="button" mat-icon-button class="tbar-icon"
+                aria-label="Aktualisieren" (click)="onRefresh()"
+                matTooltip="Aktualisieren">
+            <mat-icon>refresh</mat-icon>
+        </button>
+
+        <!-- Filter Button -->
+        <button *ngIf="showFilter" type="button" mat-icon-button class="tbar-icon"
+                [class.on]="isFilterOpen"
+                [class.active]="hasActiveFilters"
+                aria-label="Filter öffnen" (click)="toggleFilter()"
+                [matTooltip]="hasActiveFilters ? 'Filter (aktiv)' : 'Filter'">
+            <mat-icon>filter_list</mat-icon>
+        </button>
+
+        <div class="o365-search" [class.open]="isSearchOpen">
+            <button type="button" mat-icon-button class="tbar-icon o365-search__btn"
+                    aria-label="Suche öffnen (Ctrl/Cmd+F)" (click)="toggleSearch()">
+                <mat-icon>search</mat-icon>
+            </button>
+
+            <div class="o365-search__field">
+                <input #searchInput matInput class="o365-search__input"
+                       type="text" placeholder="Suche…"
+                       [(ngModel)]="globalFilter"
+                       (ngModelChange)="onFilterInput($event)"
+                       (keydown.escape)="closeSearch()" (blur)="onSearchBlur()" />
+                <button *ngIf="globalFilter?.length" type="button"
+                        mat-icon-button class="tbar-icon o365-search__clear"
+                        aria-label="Suche leeren" (click)="clearSearch()">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+        </div>
+    </mat-toolbar>
+
+    <!-- Loading Indicator -->
+    <mat-progress-bar *ngIf="loading" mode="indeterminate" class="loading-bar"></mat-progress-bar>
+
+    <!-- Tabelle -->
+    <div class="table-wrap" #scrollWrap (scroll)="onScroll($event)">
+        <table mat-table [dataSource]="data" matSort (matSortChange)="onSortChange($event)" class="gtm-table outlook-table">
+
+            <!-- Auswahl -->
+            <ng-container matColumnDef="_select">
+                <th mat-header-cell *matHeaderCellDef class="select-col"
+                    [style.display]="hasSelection ? 'table-cell' : null"
+                    [style.opacity]="hasSelection ? 1 : null"
+                    [style.width.px]="hasSelection ? 48 : null">
+                    <mat-checkbox
+                            [indeterminate]="!isAllSelected() && selection.selected.length > 0"
+                            [checked]="isAllSelected()" (change)="masterToggle()">
+                    </mat-checkbox>
+                </th>
+                <td mat-cell *matCellDef="let row" class="select-col"
+                    [style.display]="hasSelection ? 'table-cell' : null"
+                    [style.opacity]="hasSelection ? 1 : null"
+                    [style.width.px]="hasSelection ? 48 : null">
+                    <div class="row-control">
+                        <mat-checkbox (click)="$event.stopPropagation()"
+                                      (change)="toggleRow(row)"
+                                      [checked]="selection.isSelected(row)">
+                        </mat-checkbox>
+                    </div>
+                </td>
+            </ng-container>
+
+            <!-- Dynamische Spalten -->
+            <ng-container *ngFor="let col of columns" [matColumnDef]="col.field">
+                <th mat-header-cell *matHeaderCellDef
+                    [style.width]="col.width"
+                    [mat-sort-header]="col.sortable ? col.field : ''">
+                    {{ col.header }}
+                </th>
+                <td mat-cell *matCellDef="let row">
+                    <!-- Custom Template hat Priorität -->
+                    <ng-container *ngIf="getColumnTemplate(col.field) as customTemplate; else defaultRenderer">
+                        <ng-container *ngTemplateOutlet="customTemplate; context: { $implicit: row, row: row }"></ng-container>
+                    </ng-container>
+
+                    <!-- Default Renderer basierend auf Type -->
+                    <ng-template #defaultRenderer>
+                        <ng-container [ngSwitch]="col.type">
+                            <!-- Boolean: Checkbox (read-only) -->
+                            <mat-checkbox *ngSwitchCase="'boolean'"
+                                          [checked]="getFieldValue(row, col.field)"
+                                          [disabled]="true">
+                            </mat-checkbox>
+
+                            <!-- Date: Formatiert -->
+                            <span *ngSwitchCase="'date'" class="cell-ellipsis">
+                                {{ $any(getFieldValue(row, col.field)) | date:'short' }}
+                            </span>
+
+                            <!-- Number: Rechtsbündig -->
+                            <span *ngSwitchCase="'number'" class="cell-ellipsis" style="text-align: right; display: block;">
+                                {{ getFieldValue(row, col.field) }}
+                            </span>
+
+                            <!-- Default: Text -->
+                            <span *ngSwitchDefault class="cell-ellipsis">{{ getFieldValue(row, col.field) }}</span>
+                        </ng-container>
+                    </ng-template>
+                </td>
+            </ng-container>
+
+            <!-- Aktionen -->
+            <ng-container matColumnDef="_actions">
+                <th mat-header-cell *matHeaderCellDef class="actions-col"></th>
+                <td mat-cell *matCellDef="let row" class="actions">
+                    <div class="row-control btns">
+                        <ng-container *ngIf="editMode; else viewOnly">
+                            <button mat-icon-button class="row-icon"
+                                    (click)="openDetail(row)" matTooltip="Bearbeiten">
+                                <mat-icon>edit</mat-icon>
+                            </button>
+                            <button mat-icon-button class="row-icon" color="warn"
+                                    (click)="deleteItem(row)" matTooltip="Löschen">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </ng-container>
+                        <ng-template #viewOnly>
+                            <button mat-icon-button class="row-icon"
+                                    (click)="openDetail(row)" matTooltip="Anzeigen (read-only)">
+                                <mat-icon>search</mat-icon>
+                            </button>
+                        </ng-template>
+                    </div>
+                </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns" class="outlook-header-row"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"
+                (dblclick)="openDetail(row)"
+                [class.selected]="selection.isSelected(row)"
+                class="outlook-row">
+            </tr>
+        </table>
+    </div>
+
+    <!-- Footer: gleicher Look wie Toolbar + Reset-Button links -->
+    <mat-toolbar class="toolbar outlook-toolbar outlook-footer">
+        <button *ngIf="hasState"
+                mat-icon-button class="tbar-icon"
+                (click)="clearAllState()"
+                aria-label="Tabellenzustand zurücksetzen"
+                matTooltip="Tabellenzustand zurücksetzen">
+            <mat-icon>restore</mat-icon>
+        </button>
+
+        <span class="spacer"></span>
+
+        <!-- Paginator -->
+        <mat-paginator [length]="totalRecords" [pageSize]="10"
+                       [pageSizeOptions]="[10,25,50,100]"
+                       (page)="onPageChange($event)">
+        </mat-paginator>
+    </mat-toolbar>
+</div>
+
+<!-- Drawer-Content als Template für das CDK-Overlay -->
+<ng-template #drawerHost let-item let-readonly="readonly">
+    <div class="gt-drawer" [class.readonly]="isReadonly">
+        <div class="gt-drawer__header">
+            <h3 class="gt-drawer__title">{{ detailTitle }}</h3>
+
+            <!-- Schloss -->
+            <button type="button" mat-icon-button class="tbar-icon lock-toggle"
+                    (click)="toggleDrawerReadonly()"
+                    [attr.aria-label]="isReadonly ? 'Bearbeitung gesperrt' : 'Bearbeitung aktiv'"
+                    [matTooltip]="isReadonly ? 'Bearbeitung gesperrt' : 'Bearbeitung aktiv'">
+                <mat-icon>{{ isReadonly ? 'lock' : 'lock_open' }}</mat-icon>
+            </button>
+
+            <!-- Schließen -->
+            <button mat-icon-button (click)="closeDrawer()" aria-label="Schließen">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+
+        <div class="gt-drawer__body">
+            <div class="gt-drawer__inner" [myiotgridReadonlyFields]="isReadonly">
+                <ng-container *ngIf="item">
+                    <ng-container *ngTemplateOutlet="detailTemplate; context: { $implicit: item, readonly: readonly }">
+                    </ng-container>
+                </ng-container>
+            </div>
+        </div>
+
+        <div class="drawer-buttons">
+            <button mat-button (click)="closeDrawer()">
+                <mat-icon>close</mat-icon> Schließen
+            </button>
+            <button *ngIf="!isReadonly" mat-flat-button color="primary" (click)="saveChanges()">
+                <mat-icon>check</mat-icon> Speichern
+            </button>
+        </div>
+    </div>
+</ng-template>
+
+<!-- Filter-Sidebar Template -->
+<ng-template #filterHost let-filters>
+    <div class="gt-drawer gt-filter-drawer">
+        <div class="gt-drawer__header">
+            <h3 class="gt-drawer__title">{{ filterTitle }}</h3>
+
+            <!-- Schließen -->
+            <button mat-icon-button (click)="closeFilter()" aria-label="Schließen">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+
+        <div class="gt-drawer__body">
+            <div class="gt-drawer__inner">
+                <ng-container *ngIf="filterTemplate">
+                    <ng-container *ngTemplateOutlet="filterTemplate; context: { $implicit: currentFilters }">
+                    </ng-container>
+                </ng-container>
+            </div>
+        </div>
+
+        <div class="drawer-buttons">
+            <button mat-button (click)="clearFilters()">
+                <mat-icon>clear</mat-icon> Zurücksetzen
+            </button>
+            <button mat-flat-button color="primary" (click)="applyFilters()">
+                <mat-icon>check</mat-icon> Anwenden
+            </button>
+        </div>
+    </div>
+</ng-template>

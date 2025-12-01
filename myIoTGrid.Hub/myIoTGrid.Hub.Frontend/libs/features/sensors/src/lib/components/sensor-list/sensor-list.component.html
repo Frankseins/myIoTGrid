@@ -1,81 +1,90 @@
 <div class="sensor-list-page">
-  <header class="page-header">
-    <div class="header-content">
-      <h1 class="page-title">Sensoren</h1>
-      <p class="page-subtitle">Physische Sensor-Chips (DHT22, BME280, etc.) verwalten</p>
-    </div>
-
-    <div class="header-filters">
-      <mat-form-field appearance="outline">
-        <mat-label>Status</mat-label>
-        <mat-select [(ngModel)]="filterStatus">
-          <mat-option value="all">Alle</mat-option>
-          <mat-option value="active">Aktiv</mat-option>
-          <mat-option value="inactive">Inaktiv</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Node</mat-label>
-        <mat-select [(ngModel)]="filterNode">
-          <mat-option value="">Alle Nodes</mat-option>
-          @for (node of nodes(); track node.id) {
-            <mat-option [value]="node.id">{{ node.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-    </div>
-  </header>
-
-  @if (isLoading()) {
+  @if (!initialLoadDone) {
     <myiotgrid-loading-spinner message="Sensoren werden geladen..."></myiotgrid-loading-spinner>
-  } @else if (filteredSensors.length === 0) {
+  } @else if (totalRecords === 0) {
     <myiotgrid-empty-state
-      icon="memory"
+      icon="sensors"
       title="Keine Sensoren"
-      [message]="filterStatus === 'all' && !filterNode ? 'Es wurden noch keine Sensoren registriert.' : 'Keine Sensoren mit diesen Filtern gefunden.'">
+      message="Es wurden noch keine Sensoren angelegt."
+      actionLabel="Neuer Sensor"
+      (actionClicked)="onCreate()">
     </myiotgrid-empty-state>
   } @else {
-    <div class="sensors-grid">
-      @for (sensor of filteredSensors; track sensor.id) {
-        <mat-card class="sensor-card" [class.inactive]="!sensor.isActive" [routerLink]="['/sensors', sensor.id]">
-          <mat-card-header>
-            <mat-icon mat-card-avatar class="sensor-icon" [style.color]="getSensorColor(sensor.sensorTypeId)">
-              {{ getSensorIcon(sensor.sensorTypeId) }}
-            </mat-icon>
-            <mat-card-title>{{ sensor.name || sensor.sensorTypeId }}</mat-card-title>
-            <mat-card-subtitle>{{ getSensorDisplayName(sensor.sensorTypeId) }}</mat-card-subtitle>
-          </mat-card-header>
+    <header class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">Sensoren</h1>
+        <p class="page-subtitle">Sensor-Instanzen mit Kalibrierung und Pin-Konfiguration verwalten</p>
+      </div>
+    </header>
+    <myiotgrid-generic-table
+        [data]="sensors"
+        [totalRecords]="totalRecords"
+        [loading]="loading"
+        [columns]="columns"
+        dataKey="id"
+        [stateKey]="'sensors-table'"
+        [globalFilterFields]="['id','name','sensorTypeName','serialNumber']"
+        createLabel="Neuer Sensor"
+        [useGlobalSearch]="false"
+        detailTitle="Sensor"
+        (lazyLoad)="loadSensorsLazy($event)"
+        (edit)="onEdit($any($event))"
+        (remove)="deleteSensor($any($event))"
+        (create)="onCreate()"
+        [detailMode]="'route'"
+        detailRouteBase="/sensors"
+        [showFilter]="true"
+        filterTitle="Sensoren filtern"
+        (filterChange)="onFilterChange($event)">
 
-          <mat-card-content>
-            <div class="sensor-info">
-              <div class="info-row">
-                <mat-icon>router</mat-icon>
-                <span>{{ getNodeName(sensor.nodeId) }}</span>
-              </div>
-              <div class="info-row">
-                <mat-icon>pin</mat-icon>
-                <span>Endpoint {{ sensor.endpointId }}</span>
-              </div>
-              @if (sensor.sensorType) {
-                <div class="info-row">
-                  <mat-icon>straighten</mat-icon>
-                  <span>{{ sensor.sensorType.unit }}</span>
-                </div>
-              }
-            </div>
-          </mat-card-content>
+        <!-- Filter Template -->
+        <ng-template #filterTemplate let-filters>
+            <div class="filter-fields">
+                <!-- Sensortyp -->
+                <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Sensortyp</mat-label>
+                    <mat-select [ngModel]="filters['sensorTypeId']"
+                                (ngModelChange)="filters['sensorTypeId'] = $event">
+                        <mat-option [value]="''">Alle</mat-option>
+                        @for (type of sensorTypes; track type.id) {
+                            <mat-option [value]="type.id">{{ type.name }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
 
-          <mat-card-footer>
-            <div class="status-row">
-              <mat-chip [class.active]="sensor.isActive" [class.inactive]="!sensor.isActive">
-                <mat-icon matChipAvatar>{{ sensor.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
-                {{ sensor.isActive ? 'Aktiv' : 'Inaktiv' }}
-              </mat-chip>
+                <!-- Status -->
+                <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Status</mat-label>
+                    <mat-select [ngModel]="filters['isActive']"
+                                (ngModelChange)="filters['isActive'] = $event">
+                        @for (status of statusOptions; track status.value) {
+                            <mat-option [value]="status.value">{{ status.label }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
             </div>
-          </mat-card-footer>
-        </mat-card>
-      }
-    </div>
+        </ng-template>
+
+        <!-- Icon Column Template -->
+        <ng-template [myiotgridColumnTemplate]="'icon'" let-row>
+            <div class="sensor-icon" [style.background-color]="getSensorTypeColor(row.sensorTypeId)">
+                <mat-icon>{{ getSensorTypeIcon(row.sensorTypeId) }}</mat-icon>
+            </div>
+        </ng-template>
+
+        <!-- SensorType Column Template -->
+        <ng-template [myiotgridColumnTemplate]="'sensorTypeId'" let-row>
+            <span>{{ row.sensorTypeName || getSensorTypeName(row.sensorTypeId) }}</span>
+        </ng-template>
+
+        <!-- Status Column Template -->
+        <ng-template [myiotgridColumnTemplate]="'isActive'" let-row>
+            <mat-chip [class.active]="row.isActive" [class.inactive]="!row.isActive">
+                <mat-icon matChipAvatar>{{ row.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
+                {{ row.isActive ? 'Aktiv' : 'Inaktiv' }}
+            </mat-chip>
+        </ng-template>
+
+    </myiotgrid-generic-table>
   }
 </div>

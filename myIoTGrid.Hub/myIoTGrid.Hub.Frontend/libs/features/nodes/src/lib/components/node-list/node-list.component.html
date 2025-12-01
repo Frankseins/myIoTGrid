@@ -1,31 +1,45 @@
 <div class="node-list-page">
-  <header class="page-header">
-    <div class="header-content">
-      <h1 class="page-title">Nodes</h1>
-      <p class="page-subtitle">ESP32/LoRa32 Sensor-Geräte verwalten</p>
-    </div>
-
-    <div class="header-filters">
-      <mat-form-field appearance="outline">
-        <mat-label>Status</mat-label>
-        <mat-select [(ngModel)]="filterStatus">
-          <mat-option value="all">Alle</mat-option>
-          <mat-option value="online">Online</mat-option>
-          <mat-option value="offline">Offline</mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-  </header>
-
-  @if (isLoading()) {
+  @if (!initialLoadDone()) {
     <myiotgrid-loading-spinner message="Nodes werden geladen..."></myiotgrid-loading-spinner>
-  } @else if (filteredNodes.length === 0) {
+  } @else if (nodes().length === 0) {
     <myiotgrid-empty-state
       icon="router"
       title="Keine Nodes"
-      [message]="filterStatus === 'all' ? 'Es wurden noch keine Nodes registriert.' : 'Keine Nodes mit diesem Status gefunden.'">
+      message="Es wurden noch keine Nodes registriert."
+      actionLabel="Neuer Node"
+      (actionClicked)="onCreate()">
     </myiotgrid-empty-state>
   } @else {
+    <header class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">Nodes</h1>
+        <p class="page-subtitle">ESP32/LoRa32 Sensor-Geräte verwalten</p>
+      </div>
+
+      <div class="header-actions">
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="filterStatus">
+            <mat-option value="all">Alle</mat-option>
+            <mat-option value="online">Online</mat-option>
+            <mat-option value="offline">Offline</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" (click)="onCreate()">
+          <mat-icon>add</mat-icon>
+          Neuer Node
+        </button>
+      </div>
+    </header>
+
+    @if (filteredNodes.length === 0) {
+      <myiotgrid-empty-state
+        icon="router"
+        title="Keine Nodes gefunden"
+        [message]="'Keine Nodes mit dem Status \'' + filterStatus + '\' gefunden.'">
+      </myiotgrid-empty-state>
+    } @else {
     <div class="nodes-grid">
       @for (node of filteredNodes; track node.id) {
         <mat-card class="node-card" [class.offline]="!node.isOnline" [routerLink]="['/nodes', node.id]">
@@ -89,5 +103,6 @@
         </mat-card>
       }
     </div>
+    }
   }
 </div>

@@ -1,11 +1,11 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { Sensor, CreateSensorDto, UpdateSensorDto } from '@myiotgrid/shared/models';
+import { Sensor, CreateSensorDto, UpdateSensorDto, CalibrateSensorDto, QueryParams, PagedResult } from '@myiotgrid/shared/models';
+import { queryParamsToObject } from './api-query.helper';
 
 /**
- * API Service for physical Sensor chips (DHT22, BME280, etc.)
- * Matter-konform: Corresponds to Matter Endpoints
+ * API Service for Sensor instances (concrete sensors with calibration)
  */
 @Injectable({ providedIn: 'root' })
 export class SensorApiService extends BaseApiService {
@@ -20,6 +20,14 @@ export class SensorApiService extends BaseApiService {
   }
 
   /**
+   * Get sensors with server-side paging, sorting, and filtering
+   * GET /api/sensors/paged
+   */
+  getPaged(params: QueryParams): Observable<PagedResult<Sensor>> {
+    return this.get<PagedResult<Sensor>>(`${this.endpoint}/paged`, queryParamsToObject(params));
+  }
+
+  /**
    * Get sensor by ID
    * GET /api/sensors/{id}
    */
@@ -28,19 +36,19 @@ export class SensorApiService extends BaseApiService {
   }
 
   /**
-   * Get sensors for a specific node
-   * GET /api/sensors?nodeId={nodeId}
+   * Get sensors by SensorType
+   * GET /api/sensors/by-type/{sensorTypeId}
    */
-  getByNodeId(nodeId: string): Observable<Sensor[]> {
-    return this.get<Sensor[]>(this.endpoint, { nodeId });
+  getBySensorType(sensorTypeId: string): Observable<Sensor[]> {
+    return this.get<Sensor[]>(`${this.endpoint}/by-type/${sensorTypeId}`);
   }
 
   /**
-   * Create new sensor on a node
+   * Create new sensor
    * POST /api/sensors
    */
-  create(nodeId: string, dto: CreateSensorDto): Observable<Sensor> {
-    return this.post<Sensor>(this.endpoint, { ...dto, nodeId });
+  create(dto: CreateSensorDto): Observable<Sensor> {
+    return this.post<Sensor>(this.endpoint, dto);
   }
 
   /**
@@ -49,6 +57,14 @@ export class SensorApiService extends BaseApiService {
    */
   update(id: string, dto: UpdateSensorDto): Observable<Sensor> {
     return this.put<Sensor>(`${this.endpoint}/${id}`, dto);
+  }
+
+  /**
+   * Calibrate sensor
+   * POST /api/sensors/{id}/calibrate
+   */
+  calibrate(id: string, dto: CalibrateSensorDto): Observable<Sensor> {
+    return this.post<Sensor>(`${this.endpoint}/${id}/calibrate`, dto);
   }
 
   /**
@@ -61,7 +77,7 @@ export class SensorApiService extends BaseApiService {
 
   /**
    * Activate/deactivate sensor
-   * PUT /api/sensors/{id}/active
+   * PUT /api/sensors/{id}
    */
   setActive(id: string, isActive: boolean): Observable<Sensor> {
     return this.put<Sensor>(`${this.endpoint}/${id}`, { isActive });

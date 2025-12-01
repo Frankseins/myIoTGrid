@@ -1,11 +1,12 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Observable, tap, shareReplay } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { SensorType, CreateSensorTypeDto, SensorCategory } from '@myiotgrid/shared/models';
+import { SensorType, CreateSensorTypeDto, UpdateSensorTypeDto, SensorTypeCapability, QueryParams, PagedResult } from '@myiotgrid/shared/models';
+import { queryParamsToObject } from './api-query.helper';
 
 /**
  * API Service for SensorTypes with caching
- * Matter-konform: Corresponds to Matter Clusters
+ * Hardware library - defines what sensors CAN do
  */
 @Injectable({ providedIn: 'root' })
 export class SensorTypeApiService extends BaseApiService {
@@ -35,7 +36,7 @@ export class SensorTypeApiService extends BaseApiService {
       this.cache$ = this.get<SensorType[]>(this.endpoint).pipe(
         tap(types => {
           this.sensorTypes.set(types);
-          this.sensorTypesMap.set(new Map(types.map(t => [t.typeId, t])));
+          this.sensorTypesMap.set(new Map(types.map(t => [t.id, t])));
           this.isLoaded.set(true);
         }),
         shareReplay(1)
@@ -45,19 +46,43 @@ export class SensorTypeApiService extends BaseApiService {
   }
 
   /**
-   * Get sensor type by typeId
-   * GET /api/sensortypes/{typeId}
+   * Get sensor types with server-side paging, sorting, and filtering
+   * GET /api/sensortypes/paged
    */
-  getById(typeId: string): Observable<SensorType> {
-    return this.get<SensorType>(`${this.endpoint}/${typeId}`);
+  getPaged(params: QueryParams): Observable<PagedResult<SensorType>> {
+    return this.get<PagedResult<SensorType>>(`${this.endpoint}/paged`, queryParamsToObject(params));
+  }
+
+  /**
+   * Get sensor type by ID (Guid)
+   * GET /api/sensortypes/{id}
+   */
+  getById(id: string): Observable<SensorType> {
+    return this.get<SensorType>(`${this.endpoint}/${id}`);
+  }
+
+  /**
+   * Get sensor type by code
+   * GET /api/sensortypes/code/{code}
+   */
+  getByCode(code: string): Observable<SensorType> {
+    return this.get<SensorType>(`${this.endpoint}/code/${code}`);
   }
 
   /**
    * Get sensor types by category
    * GET /api/sensortypes/category/{category}
    */
-  getByCategory(category: SensorCategory): Observable<SensorType[]> {
+  getByCategory(category: string): Observable<SensorType[]> {
     return this.get<SensorType[]>(`${this.endpoint}/category/${category}`);
+  }
+
+  /**
+   * Get capabilities for a sensor type
+   * GET /api/sensortypes/{id}/capabilities
+   */
+  getCapabilities(id: string): Observable<SensorTypeCapability[]> {
+    return this.get<SensorTypeCapability[]>(`${this.endpoint}/${id}/capabilities`);
   }
 
   /**
@@ -70,49 +95,79 @@ export class SensorTypeApiService extends BaseApiService {
     );
   }
 
+  /**
+   * Update sensor type
+   * PUT /api/sensortypes/{id}
+   */
+  update(id: string, dto: UpdateSensorTypeDto): Observable<SensorType> {
+    return this.put<SensorType>(`${this.endpoint}/${id}`, dto).pipe(
+      tap(() => this.clearCache())
+    );
+  }
+
+  /**
+   * Delete sensor type
+   * DELETE /api/sensortypes/{id}
+   */
+  deleteSensorType(id: string): Observable<void> {
+    return this.delete<void>(`${this.endpoint}/${id}`).pipe(
+      tap(() => this.clearCache())
+    );
+  }
+
+  /**
+   * Trigger sync from cloud
+   * POST /api/sensortypes/sync
+   */
+  syncFromCloud(): Observable<void> {
+    return this.post<void>(`${this.endpoint}/sync`, {}).pipe(
+      tap(() => this.clearCache())
+    );
+  }
+
   // ==========================================
   // Synchronous helper methods (after initial load)
   // ==========================================
 
   /**
-   * Get unit for a sensor type (synchronous)
+   * Get display name for a sensor type (synchronous)
    */
-  getUnit(typeId: string): string {
-    return this.sensorTypesMap().get(typeId)?.unit ?? 'unknown';
+  getDisplayName(id: string): string {
+    return this.sensorTypesMap().get(id)?.name ?? id;
   }
 
   /**
-   * Get display name for a sensor type (synchronous)
+   * Get code for a sensor type (synchronous)
    */
-  getDisplayName(typeId: string): string {
-    return this.sensorTypesMap().get(typeId)?.displayName ?? typeId;
+  getCode(id: string): string {
+    return this.sensorTypesMap().get(id)?.code ?? id;
   }
 
   /**
    * Get icon for a sensor type (synchronous)
    */
-  getIcon(typeId: string): string {
-    return this.sensorTypesMap().get(typeId)?.icon ?? 'sensors';
+  getIcon(id: string): string {
+    return this.sensorTypesMap().get(id)?.icon ?? 'sensors';
   }
 
   /**
    * Get color for a sensor type (synchronous)
    */
-  getColor(typeId: string): string {
-    return this.sensorTypesMap().get(typeId)?.color ?? '#666666';
+  getColor(id: string): string {
+    return this.sensorTypesMap().get(id)?.color ?? '#666666';
   }
 
   /**
-   * Get full sensor type by typeId (synchronous)
+   * Get full sensor type by ID (synchronous)
    */
-  getType(typeId: string): SensorType | undefined {
-    return this.sensorTypesMap().get(typeId);
+  getType(id: string): SensorType | undefined {
+    return this.sensorTypesMap().get(id);
   }
 
   /**
    * Get types by category (synchronous)
    */
-  getTypesByCategory(category: SensorCategory): SensorType[] {
+  getTypesByCategory(category: string): SensorType[] {
     return this.sensorTypes().filter(t => t.category === category);
   }
 

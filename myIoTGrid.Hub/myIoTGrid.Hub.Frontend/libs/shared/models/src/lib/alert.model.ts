@@ -4,6 +4,7 @@ import { AlertLevel, AlertSource } from './enums.model';
  * Alert models - corresponds to Backend AlertDto
  */
 export interface Alert {
+  [key: string]: unknown;
   id: string;
   tenantId: string;
   hubId?: string;

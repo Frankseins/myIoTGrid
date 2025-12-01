@@ -5,6 +5,7 @@ import { Protocol } from './enums.model';
  * Hub models - corresponds to Backend HubDto
  */
 export interface Hub {
+  [key: string]: unknown;
   id: string;
   tenantId: string;
   hubId: string;

@@ -72,6 +72,14 @@ public class SensorTypeService : ISensorTypeService
                 st.Category.ToLower().Contains(term));
         }
 
+        // Filter by manufacturer
+        if (queryParams.Filters?.TryGetValue("manufacturer", out var manufacturer) == true
+            && !string.IsNullOrWhiteSpace(manufacturer))
+        {
+            var manufacturerLower = manufacturer.ToLower();
+            query = query.Where(st => st.Manufacturer != null && st.Manufacturer.ToLower().Contains(manufacturerLower));
+        }
+
         // Filter by category
         if (queryParams.Filters?.TryGetValue("category", out var category) == true
             && !string.IsNullOrWhiteSpace(category))

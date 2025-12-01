@@ -1,0 +1,26 @@
+<h2 mat-dialog-title class="dialog-title">
+  @if (data.icon) {
+    <mat-icon [class]="'icon-' + data.iconColor">{{ data.icon }}</mat-icon>
+  }
+  <span>{{ data.title }}</span>
+</h2>
+
+<mat-dialog-content>
+  <p class="dialog-message" [innerHTML]="data.message"></p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  @if (data.showCancel) {
+    <button mat-button (click)="onCancel()">
+      {{ data.cancelText }}
+    </button>
+  }
+  <button
+    mat-flat-button
+    [color]="data.confirmColor"
+    (click)="onConfirm()"
+    cdkFocusInitial
+  >
+    {{ data.confirmText }}
+  </button>
+</mat-dialog-actions>

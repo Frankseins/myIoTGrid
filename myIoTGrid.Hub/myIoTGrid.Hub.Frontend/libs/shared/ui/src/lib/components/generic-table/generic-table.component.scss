@@ -1,0 +1,215 @@
+:host { display: block; max-width: 100%; }
+
+/* Toolbar-Icon-Design */
+.outlook-toolbar {
+  --tbar-icon-size: 40px;
+  --tbar-icon-radius: 999px;
+  --tbar-icon-bg: #fff;
+  --tbar-icon-border: #e6e6e6;
+  --tbar-icon-shadow: 0 1px 2px rgba(0,0,0,.06);
+  --tbar-icon-hover-bg: rgba(0,0,0,.04);
+  --tbar-icon-active-bg: rgba(0,0,0,.08);
+  --tbar-icon-focus: 0 0 0 3px rgba(25,118,210,.25);
+  --tbar-icon-warn: #d32f2f;
+}
+
+.card.outlook { background: #fff; padding: .5rem .75rem 0; width: 100%; overflow: hidden; }
+
+.toolbar.outlook-toolbar { display: flex; align-items: center; gap: .5rem; background: #fff; margin-bottom: .5rem; min-height: 44px; }
+.left-actions { display: inline-flex; align-items: center; gap: .5rem; }
+.spacer { flex: 1 1 auto; }
+
+.tbar-icon {
+  width: var(--tbar-icon-size); height: var(--tbar-icon-size);
+  border-radius: var(--tbar-icon-radius); display: inline-flex; align-items: center; justify-content: center;
+  background: var(--tbar-icon-bg); border: 1px solid var(--tbar-icon-border); box-shadow: var(--tbar-icon-shadow);
+  padding: 0; transition: background-color .15s, box-shadow .15s, transform .12s, border-color .15s;
+}
+.tbar-icon .mat-icon { font-size: 20px; width: 20px; height: 20px; line-height: 20px; }
+.tbar-icon:hover { background: var(--tbar-icon-hover-bg); }
+.tbar-icon:active { background: var(--tbar-icon-active-bg); transform: translateY(-1px); }
+.tbar-icon:focus-visible { outline: none; box-shadow: var(--tbar-icon-focus); }
+.tbar-icon.warn .mat-icon { color: var(--tbar-icon-warn); }
+
+.lock-toggle.on { border-color: #90caf9; background: rgba(25,118,210,.08); box-shadow: 0 2px 12px rgba(25,118,210,.25); }
+
+/* Filter aktiv */
+.tbar-icon.active { border-color: #90caf9; background: rgba(25,118,210,.08); box-shadow: 0 2px 8px rgba(25,118,210,.2); }
+.tbar-icon.active .mat-icon { color: #1976d2; }
+
+/* Loading Indicator */
+.loading-bar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  z-index: 10;
+}
+
+/* Suche */
+.o365-search { position: relative; display: inline-flex; align-items: center; gap: .5rem;
+  &__field { display: inline-flex; align-items: center; height: var(--tbar-icon-size);
+    border-radius: var(--tbar-icon-radius); padding: 0 0 0 .5rem; background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.10); border: 1px solid rgba(0,0,0,.06);
+    width: 0; overflow: hidden; opacity: 0; transform: translateX(-8px);
+    transition: width .25s, opacity .2s, transform .25s; gap: .25rem; }
+  &__input { border: 0; outline: 0; background: transparent; font: inherit; width: 100%; line-height: 1; padding: 0 .25rem; }
+  &.open { .o365-search__btn { transform: translateX(8px); } .o365-search__field { width: clamp(220px, 28vw, 420px); opacity: 1; transform: translateX(0); } }
+}
+
+/* Tabelle */
+.table-wrap { width: 100%; overflow: auto; }
+.gtm-table.outlook-table { width: 100%; table-layout: fixed; border-collapse: separate; background: #fff; color: #1f1f1f; }
+.outlook-header-row th { position: sticky; top: 0; z-index: 1; background: #fafafa; font-weight: 600; border-bottom: 1px solid #e6e6e6; }
+.select-col { width: 3rem; }
+.actions-col { width: 8%; min-width: 7.5rem; text-align: center; }
+.actions { text-align: center; white-space: nowrap; }
+.outlook-row td { border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0; }
+.outlook-row:hover td { background: #f7f7f7; }
+.outlook-row.selected td { background: #f0f0f0; }
+
+.row-control { opacity: 0; pointer-events: none; transition: opacity .12s ease-in-out; }
+.outlook-row:hover .row-control,
+.outlook-row.selected .row-control,
+.outlook-row:focus-within .row-control { opacity: 1; pointer-events: auto; }
+
+/* ===== Drawer (CDK Overlay) ===== */
+::ng-deep .gt-drawer-backdrop { background: rgba(0,0,0,.25); }
+::ng-deep .gt-drawer-panel {
+  background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
+  border-left: 1px solid #ededed; transform: translateX(100%);
+  transition: transform 200ms ease; max-width: 100vw;
+}
+::ng-deep .gt-drawer-panel.open { transform: translateX(0); }
+
+.gt-drawer { height: 100%; display: flex; flex-direction: column; background: #fff; width: 100%; }
+.gt-drawer__header { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: .25rem;
+  padding: .75rem 1rem; border-bottom: 1px solid #f0f0f0; background: #fff; }
+.gt-drawer__title { margin: 0; font-size: 1.05rem; font-weight: 600; color: #202124; }
+.gt-drawer__body { padding: 1rem; overflow: auto; flex: 1 1 auto; background: #fff; }
+.gt-drawer__inner { width: 100%; }
+.drawer-buttons { display: flex; justify-content: flex-end; gap: .5rem; padding: .75rem 1rem; border-top: 1px solid #f0f0f0; background: #fff; }
+
+/* ===== Readonly vs Edit – nur Eingabefelder beeinflussen ===== */
+
+/* ID ist NIE editierbar (per Name oder formControlName 'id') */
+.gt-drawer [name="id"],
+.gt-drawer [formcontrolname="id"] {
+  pointer-events: none !important;
+  user-select: text;
+  opacity: 0.95;
+}
+
+/* Readonly-Look: Floating Labels ohne Rahmen */
+.gt-drawer.readonly {
+  .mat-mdc-form-field {
+    &.mat-mdc-form-field-appearance-outline .mdc-notched-outline { display: none; }
+    &.mat-mdc-form-field-appearance-fill {
+      .mdc-notched-outline { display: none; }
+      .mat-mdc-form-field-focus-overlay { opacity: 0; }
+      .mat-mdc-text-field-wrapper { background: transparent; box-shadow: none; }
+    }
+    .mat-mdc-form-field-subscript-wrapper { display: none; }
+  }
+  .mat-mdc-input-element { cursor: default; caret-color: transparent; }
+  /* WICHTIG: KEIN pointer-events: none auf Buttons!
+     Buttons (Schließen/Schloss) bleiben voll funktionsfähig. */
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .actions-col { width: 5.5rem; }
+  .outlook-toolbar { gap: .4rem; }
+  .o365-search.open .o365-search__field { width: clamp(160px, 38vw, 280px); }
+}
+
+
+/* Nur im Drawer Hintergrund für FILLED-Container weiß erzwingen */
+.gt-drawer {
+  /* Material v17+ Token */
+  --mat-form-field-filled-container-color: #fff;
+  /* MDC Fallback (manche Themes nutzen noch das) */
+  --mdc-filled-text-field-container-color: #fff;
+}
+
+/* 100% Breite */
+.gt-drawer ::ng-deep .mat-mdc-form-field { width: 100% !important; margin: 0 !important; }
+
+/* Readonly: Outline aus, Unterstreichung simulieren */
+.gt-drawer.is-readonly ::ng-deep .mat-mdc-form-field-appearance-outline .mdc-notched-outline { display: none !important; }
+.gt-drawer.is-readonly ::ng-deep .mat-mdc-text-field-wrapper {
+  background: #fff !important;
+  padding: 0 !important;
+  border-bottom: 1px solid rgba(0,0,0,.42);
+}
+.gt-drawer.is-readonly ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none !important; }
+::ng-deep .mat-mdc-text-field-wrapper:hover {
+  background: #fff !important;
+}
+
+/* Fallback: auch Fokus-Overlay unterdrücken */
+::ng-deep .mat-mdc-form-field-focus-overlay {
+  background: transparent !important;
+}
+
+/* Einheitliche Icon-Größe auch im Drawer-Header */
+.gt-drawer__header .tbar-icon {
+  width: var(--tbar-icon-size, 40px);
+  height: var(--tbar-icon-size, 40px);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tbar-icon-border, #e6e6e6);
+  background: var(--tbar-icon-bg, #fff);
+  padding: 0;
+}
+
+/* (optional) Icon selbst konsistent halten */
+.gt-drawer__header .tbar-icon .mat-icon {
+  width: 20px; height: 20px; font-size: 20px; line-height: 20px;
+}
+
+/* (optional) gleiche Hover/Focus wie in der Toolbar */
+.gt-drawer__header .tbar-icon:hover { background: var(--tbar-icon-hover-bg, rgba(0,0,0,.04)); }
+.gt-drawer__header .tbar-icon:active { background: var(--tbar-icon-active-bg, rgba(0,0,0,.08)); transform: translateY(-1px); }
+.gt-drawer__header .tbar-icon:focus-visible { outline: none; box-shadow: var(--tbar-icon-focus, 0 0 0 3px rgba(25,118,210,.25)); }
+
+/* ======= NEU: Footer im Toolbar-Look mit transparentem Paginator ======= */
+.outlook-footer {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 44px;
+  background: #fff;             /* gleicher Hintergrund wie Toolbar */
+  margin-top: .5rem;
+  padding: 0 .5rem;
+  border-top: 1px solid #e6e6e6;
+
+  .spacer { flex: 1 1 auto; }
+
+  /* Icon-Button links: nutzt exakt das gleiche Aussehen wie oben */
+  .tbar-icon {
+    width: var(--tbar-icon-size);
+    height: var(--tbar-icon-size);
+    border-radius: var(--tbar-icon-radius);
+    background: var(--tbar-icon-bg);
+    border: 1px solid var(--tbar-icon-border);
+    box-shadow: var(--tbar-icon-shadow);
+  }
+
+  /* Paginator rechts ohne weißen Kasten */
+  ::ng-deep .mat-mdc-paginator {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding-right: 0;
+  }
+}
+
+/* Cell text ellipsis */
+.cell-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}

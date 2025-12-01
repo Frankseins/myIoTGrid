@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Shared.DTOs;
+using myIoTGrid.Hub.Shared.DTOs.Common;
 
 namespace myIoTGrid.Hub.Interface.Controllers;
 
@@ -31,6 +32,20 @@ public class SensorsController : ControllerBase
     {
         var sensors = await _sensorService.GetAllAsync(ct);
         return Ok(sensors);
+    }
+
+    /// <summary>
+    /// Returns Sensors with server-side paging, sorting, and filtering
+    /// </summary>
+    /// <param name="queryParams">Query parameters (page, size, sort, search, filters)</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Paginated list of Sensors</returns>
+    [HttpGet("paged")]
+    [ProducesResponseType(typeof(PagedResultDto<SensorDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaged([FromQuery] QueryParamsDto queryParams, CancellationToken ct)
+    {
+        var result = await _sensorService.GetPagedAsync(queryParams, ct);
+        return Ok(result);
     }
 
     /// <summary>

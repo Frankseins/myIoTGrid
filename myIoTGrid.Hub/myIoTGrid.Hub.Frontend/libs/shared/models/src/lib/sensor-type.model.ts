@@ -1,42 +1,148 @@
 /**
- * SensorType model - corresponds to Backend SensorTypeDto
- * Matter-konform: Entspricht einem Matter Cluster
+ * Communication protocol used by sensors.
+ * Matches backend CommunicationProtocolDto enum.
  */
-export interface SensorType {
-  typeId: string;
+export enum CommunicationProtocol {
+  I2C = 1,
+  SPI = 2,
+  OneWire = 3,
+  Analog = 4,
+  UART = 5,
+  Digital = 6,
+  UltraSonic = 7
+}
+
+/**
+ * SensorTypeCapability - Measurement capability of a sensor
+ * Matches backend SensorTypeCapabilityDto
+ */
+export interface SensorTypeCapability {
+  id: string;
+  measurementType: string;
   displayName: string;
-  clusterId: number;
-  matterClusterName?: string;
   unit: string;
-  resolution: number;
   minValue?: number;
   maxValue?: number;
+  resolution: number;
+  accuracy: number;
+  matterClusterId?: number;
+  matterClusterName?: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+/**
+ * SensorType model - corresponds to Backend SensorTypeDto
+ * Defines what a sensor CAN do (hardware library).
+ */
+export interface SensorType {
+  [key: string]: unknown;
+  id: string;
+  code: string;
+  name: string;
+  manufacturer?: string;
+  datasheetUrl?: string;
   description?: string;
-  isCustom: boolean;
-  category: SensorCategory;
+  protocol: CommunicationProtocol;
+  defaultI2CAddress?: string;
+  defaultSdaPin?: number;
+  defaultSclPin?: number;
+  defaultOneWirePin?: number;
+  defaultAnalogPin?: number;
+  defaultDigitalPin?: number;
+  defaultTriggerPin?: number;
+  defaultEchoPin?: number;
+  defaultIntervalSeconds: number;
+  minIntervalSeconds: number;
+  warmupTimeMs: number;
+  defaultOffsetCorrection: number;
+  defaultGainCorrection: number;
+  category: string;
   icon?: string;
   color?: string;
   isGlobal: boolean;
+  isActive: boolean;
+  capabilities: SensorTypeCapability[];
   createdAt: string;
+  updatedAt: string;
 }
 
-export interface CreateSensorTypeDto {
-  typeId: string;
+/**
+ * DTO for creating a SensorTypeCapability
+ * Matches backend CreateSensorTypeCapabilityDto
+ */
+export interface CreateSensorTypeCapabilityDto {
+  measurementType: string;
   displayName: string;
-  clusterId: number;
   unit: string;
-  matterClusterName?: string;
-  resolution?: number;
   minValue?: number;
   maxValue?: number;
-  description?: string;
-  isCustom?: boolean;
-  category?: SensorCategory;
-  icon?: string;
-  color?: string;
+  resolution?: number;
+  accuracy?: number;
+  matterClusterId?: number;
+  matterClusterName?: string;
+  sortOrder?: number;
 }
 
-export type SensorCategory = 'weather' | 'water' | 'air' | 'soil' | 'energy' | 'other';
+/**
+ * DTO for creating a SensorType
+ * Matches backend CreateSensorTypeDto
+ */
+export interface CreateSensorTypeDto {
+  code: string;
+  name: string;
+  protocol: CommunicationProtocol;
+  manufacturer?: string;
+  datasheetUrl?: string;
+  description?: string;
+  defaultI2CAddress?: string;
+  defaultSdaPin?: number;
+  defaultSclPin?: number;
+  defaultOneWirePin?: number;
+  defaultAnalogPin?: number;
+  defaultDigitalPin?: number;
+  defaultTriggerPin?: number;
+  defaultEchoPin?: number;
+  defaultIntervalSeconds?: number;
+  minIntervalSeconds?: number;
+  warmupTimeMs?: number;
+  defaultOffsetCorrection?: number;
+  defaultGainCorrection?: number;
+  category?: string;
+  icon?: string;
+  color?: string;
+  capabilities?: CreateSensorTypeCapabilityDto[];
+}
+
+/**
+ * DTO for updating a SensorType
+ * Matches backend UpdateSensorTypeDto
+ */
+export interface UpdateSensorTypeDto {
+  name?: string;
+  manufacturer?: string;
+  datasheetUrl?: string;
+  description?: string;
+  defaultI2CAddress?: string;
+  defaultSdaPin?: number;
+  defaultSclPin?: number;
+  defaultOneWirePin?: number;
+  defaultAnalogPin?: number;
+  defaultDigitalPin?: number;
+  defaultTriggerPin?: number;
+  defaultEchoPin?: number;
+  defaultIntervalSeconds?: number;
+  minIntervalSeconds?: number;
+  warmupTimeMs?: number;
+  defaultOffsetCorrection?: number;
+  defaultGainCorrection?: number;
+  category?: string;
+  icon?: string;
+  color?: string;
+  isActive?: boolean;
+}
+
+export type SensorCategory = 'climate' | 'water' | 'location' | 'custom' | string;
 
 /**
  * Standard Matter Cluster IDs
@@ -62,3 +168,16 @@ export const MATTER_CLUSTERS = {
   BATTERY: 0xfc0b,
   RSSI: 0xfc0c,
 } as const;
+
+/**
+ * Communication protocol labels for UI display
+ */
+export const COMMUNICATION_PROTOCOL_LABELS: Record<CommunicationProtocol, string> = {
+  [CommunicationProtocol.I2C]: 'I²C',
+  [CommunicationProtocol.SPI]: 'SPI',
+  [CommunicationProtocol.OneWire]: '1-Wire',
+  [CommunicationProtocol.Analog]: 'Analog',
+  [CommunicationProtocol.UART]: 'UART',
+  [CommunicationProtocol.Digital]: 'Digital',
+  [CommunicationProtocol.UltraSonic]: 'Ultraschall'
+};

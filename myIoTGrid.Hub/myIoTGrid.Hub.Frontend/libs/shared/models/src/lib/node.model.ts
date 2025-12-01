@@ -7,6 +7,7 @@ import { Sensor } from './sensor.model';
  * Matter-konform: Entspricht einem Matter Node (ESP32/LoRa32 device)
  */
 export interface Node {
+  [key: string]: unknown;
   id: string;
   hubId: string;
   nodeId: string;

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Shared.DTOs;
+using myIoTGrid.Hub.Shared.DTOs.Common;
 
 namespace myIoTGrid.Hub.Interface.Controllers;
 
@@ -38,7 +39,7 @@ public class ReadingsController : ControllerBase
     }
 
     /// <summary>
-    /// Returns Readings filtered and paginated
+    /// Returns Readings filtered and paginated (legacy)
     /// </summary>
     /// <param name="filter">Filter criteria</param>
     /// <param name="ct">Cancellation Token</param>
@@ -48,6 +49,20 @@ public class ReadingsController : ControllerBase
     public async Task<IActionResult> GetFiltered([FromQuery] ReadingFilterDto filter, CancellationToken ct)
     {
         var result = await _readingService.GetFilteredAsync(filter, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Returns Readings with server-side paging, sorting, and filtering
+    /// </summary>
+    /// <param name="queryParams">Query parameters (page, size, sort, search, filters)</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Paginated list of Readings</returns>
+    [HttpGet("paged")]
+    [ProducesResponseType(typeof(PagedResultDto<ReadingDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaged([FromQuery] QueryParamsDto queryParams, CancellationToken ct)
+    {
+        var result = await _readingService.GetPagedAsync(queryParams, ct);
         return Ok(result);
     }
 

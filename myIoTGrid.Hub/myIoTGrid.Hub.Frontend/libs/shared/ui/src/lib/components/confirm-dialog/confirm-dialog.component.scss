@@ -1,0 +1,42 @@
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 24px;
+
+  mat-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+
+    &.icon-primary {
+      color: var(--mat-primary-color, #1976d2);
+    }
+
+    &.icon-accent {
+      color: var(--mat-accent-color, #ff4081);
+    }
+
+    &.icon-warn {
+      color: var(--mat-warn-color, #f44336);
+    }
+  }
+}
+
+.dialog-message {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--mat-dialog-content-color, rgba(0, 0, 0, 0.87));
+}
+
+mat-dialog-content {
+  padding: 0 24px 16px;
+  min-width: 320px;
+  max-width: 480px;
+}
+
+mat-dialog-actions {
+  padding: 8px 16px 16px;
+  gap: 8px;
+}

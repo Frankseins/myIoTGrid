@@ -4,12 +4,19 @@ export * from './api.config';
 // Base
 export * from './base-api.service';
 
+// Helpers
+export * from './api-query.helper';
+
+// State Management
+export * from './table-state.service';
+
 // SignalR
 export * from './signalr.service';
 
 // API Services
 export * from './hub-api.service';
 export * from './node-api.service';
+export * from './node-sensor-assignment-api.service';
 export * from './sensor-api.service';
 export * from './reading-api.service';
 export * from './sensor-type-api.service';

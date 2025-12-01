@@ -5,6 +5,7 @@ import { Location } from './location.model';
  * Matter-konform: Entspricht einem Matter Attribute Report
  */
 export interface Reading {
+  [key: string]: unknown;
   id: number;
   tenantId: string;
   nodeId: string;

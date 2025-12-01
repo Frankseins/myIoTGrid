@@ -97,6 +97,7 @@ export class NavigationRailComponent implements OnInit, OnDestroy {
     { icon: 'dashboard', label: 'Dashboard', route: '/dashboard', disabled: false },
     { icon: 'router', label: 'Nodes', route: '/nodes', disabled: false },
     { icon: 'memory', label: 'Sensoren', route: '/sensors', disabled: false },
+    { icon: 'category', label: 'Sensortypen', route: '/sensor-types', disabled: false },
     { icon: 'hub', label: 'Hubs', route: '/hubs', disabled: false },
     { icon: 'warning', label: 'Warnungen', route: '/alerts', disabled: false }
   ];

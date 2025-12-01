@@ -5,6 +5,8 @@ using myIoTGrid.Hub.Infrastructure.Data;
 using myIoTGrid.Hub.Service.Extensions;
 using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Shared.DTOs;
+using myIoTGrid.Hub.Shared.DTOs.Common;
+using myIoTGrid.Hub.Shared.Extensions;
 
 namespace myIoTGrid.Hub.Service.Services;
 
@@ -44,6 +46,57 @@ public class SensorService : ISensorService
             .ToListAsync(ct);
 
         return sensors.ToDtos();
+    }
+
+    /// <inheritdoc />
+    public async Task<PagedResultDto<SensorDto>> GetPagedAsync(QueryParamsDto queryParams, CancellationToken ct = default)
+    {
+        var tenantId = _tenantService.GetCurrentTenantId();
+
+        var query = _context.Sensors
+            .AsNoTracking()
+            .Include(s => s.SensorType)
+            .Where(s => s.TenantId == tenantId);
+
+        // Global search
+        if (!string.IsNullOrWhiteSpace(queryParams.Search))
+        {
+            var term = queryParams.Search.ToLower();
+            query = query.Where(s =>
+                s.Name.ToLower().Contains(term) ||
+                (s.Description != null && s.Description.ToLower().Contains(term)) ||
+                (s.SerialNumber != null && s.SerialNumber.ToLower().Contains(term)) ||
+                (s.SensorType != null && s.SensorType.Name.ToLower().Contains(term)) ||
+                (s.SensorType != null && s.SensorType.Code.ToLower().Contains(term)));
+        }
+
+        // Filter by sensorTypeId
+        if (queryParams.Filters?.TryGetValue("sensorTypeId", out var sensorTypeId) == true
+            && Guid.TryParse(sensorTypeId, out var sensorTypeGuid))
+        {
+            query = query.Where(s => s.SensorTypeId == sensorTypeGuid);
+        }
+
+        // Filter by isActive
+        if (queryParams.Filters?.TryGetValue("isActive", out var isActiveStr) == true
+            && bool.TryParse(isActiveStr, out var isActive))
+        {
+            query = query.Where(s => s.IsActive == isActive);
+        }
+
+        // Total count before paging
+        var totalRecords = await query.CountAsync(ct);
+
+        // Sorting
+        query = query.ApplySort(queryParams, "Name");
+
+        // Paging
+        query = query.ApplyPaging(queryParams);
+
+        var items = await query.ToListAsync(ct);
+        var dtos = items.ToDtos();
+
+        return PagedResultDto<SensorDto>.Create(dtos, totalRecords, queryParams);
     }
 
     /// <inheritdoc />

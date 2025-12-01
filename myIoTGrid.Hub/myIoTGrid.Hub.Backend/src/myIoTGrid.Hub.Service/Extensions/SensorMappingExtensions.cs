@@ -6,7 +6,7 @@ namespace myIoTGrid.Hub.Service.Extensions;
 
 /// <summary>
 /// Mapping Extensions for Sensor Entity.
-/// Concrete sensor instance with calibration settings.
+/// Concrete sensor instance with calibration settings and pin configuration overrides.
 /// </summary>
 public static class SensorMappingExtensions
 {
@@ -24,13 +24,31 @@ public static class SensorMappingExtensions
             Name: sensor.Name,
             Description: sensor.Description,
             SerialNumber: sensor.SerialNumber,
+
+            // Interval Override
             IntervalSecondsOverride: sensor.IntervalSecondsOverride,
+
+            // Pin Configuration Override
+            I2CAddressOverride: sensor.I2CAddressOverride,
+            SdaPinOverride: sensor.SdaPinOverride,
+            SclPinOverride: sensor.SclPinOverride,
+            OneWirePinOverride: sensor.OneWirePinOverride,
+            AnalogPinOverride: sensor.AnalogPinOverride,
+            DigitalPinOverride: sensor.DigitalPinOverride,
+            TriggerPinOverride: sensor.TriggerPinOverride,
+            EchoPinOverride: sensor.EchoPinOverride,
+
+            // Calibration
             OffsetCorrection: sensor.OffsetCorrection,
             GainCorrection: sensor.GainCorrection,
             LastCalibratedAt: sensor.LastCalibratedAt,
             CalibrationNotes: sensor.CalibrationNotes,
             CalibrationDueAt: sensor.CalibrationDueAt,
+
+            // Capabilities
             ActiveCapabilityIds: sensor.GetActiveCapabilityIds(),
+
+            // Status
             IsActive: sensor.IsActive,
             CreatedAt: sensor.CreatedAt,
             UpdatedAt: sensor.UpdatedAt
@@ -85,9 +103,25 @@ public static class SensorMappingExtensions
             Name = dto.Name,
             Description = dto.Description,
             SerialNumber = dto.SerialNumber,
+
+            // Interval Override
             IntervalSecondsOverride = dto.IntervalSecondsOverride,
-            OffsetCorrection = 0,
-            GainCorrection = 1.0,
+
+            // Pin Configuration Override
+            I2CAddressOverride = dto.I2CAddressOverride,
+            SdaPinOverride = dto.SdaPinOverride,
+            SclPinOverride = dto.SclPinOverride,
+            OneWirePinOverride = dto.OneWirePinOverride,
+            AnalogPinOverride = dto.AnalogPinOverride,
+            DigitalPinOverride = dto.DigitalPinOverride,
+            TriggerPinOverride = dto.TriggerPinOverride,
+            EchoPinOverride = dto.EchoPinOverride,
+
+            // Calibration (use provided values or defaults)
+            OffsetCorrection = dto.OffsetCorrection ?? 0,
+            GainCorrection = dto.GainCorrection ?? 1.0,
+
+            // Status
             IsActive = true,
             CreatedAt = now,
             UpdatedAt = now
@@ -111,12 +145,50 @@ public static class SensorMappingExtensions
         if (dto.SerialNumber != null)
             sensor.SerialNumber = dto.SerialNumber;
 
+        // Interval Override
         if (dto.IntervalSecondsOverride.HasValue)
             sensor.IntervalSecondsOverride = dto.IntervalSecondsOverride;
 
+        // Pin Configuration Override
+        if (dto.I2CAddressOverride != null)
+            sensor.I2CAddressOverride = dto.I2CAddressOverride;
+
+        if (dto.SdaPinOverride.HasValue)
+            sensor.SdaPinOverride = dto.SdaPinOverride;
+
+        if (dto.SclPinOverride.HasValue)
+            sensor.SclPinOverride = dto.SclPinOverride;
+
+        if (dto.OneWirePinOverride.HasValue)
+            sensor.OneWirePinOverride = dto.OneWirePinOverride;
+
+        if (dto.AnalogPinOverride.HasValue)
+            sensor.AnalogPinOverride = dto.AnalogPinOverride;
+
+        if (dto.DigitalPinOverride.HasValue)
+            sensor.DigitalPinOverride = dto.DigitalPinOverride;
+
+        if (dto.TriggerPinOverride.HasValue)
+            sensor.TriggerPinOverride = dto.TriggerPinOverride;
+
+        if (dto.EchoPinOverride.HasValue)
+            sensor.EchoPinOverride = dto.EchoPinOverride;
+
+        // Calibration
+        if (dto.OffsetCorrection.HasValue)
+            sensor.OffsetCorrection = dto.OffsetCorrection.Value;
+
+        if (dto.GainCorrection.HasValue)
+            sensor.GainCorrection = dto.GainCorrection.Value;
+
+        if (dto.CalibrationNotes != null)
+            sensor.CalibrationNotes = dto.CalibrationNotes;
+
+        // Capabilities
         if (dto.ActiveCapabilityIds != null)
             sensor.SetActiveCapabilityIds(dto.ActiveCapabilityIds);
 
+        // Status
         if (dto.IsActive.HasValue)
             sensor.IsActive = dto.IsActive.Value;
 

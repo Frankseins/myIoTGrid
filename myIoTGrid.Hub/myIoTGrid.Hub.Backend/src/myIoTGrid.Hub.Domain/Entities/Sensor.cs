@@ -32,6 +32,32 @@ public class Sensor : ITenantEntity
     /// <summary>Override measurement interval (null = use SensorType default)</summary>
     public int? IntervalSecondsOverride { get; set; }
 
+    // === Pin Configuration Override (null = use SensorType default) ===
+
+    /// <summary>Override I2C address (e.g., "0x77" for second BME280 on bus)</summary>
+    public string? I2CAddressOverride { get; set; }
+
+    /// <summary>Override SDA pin for I2C</summary>
+    public int? SdaPinOverride { get; set; }
+
+    /// <summary>Override SCL pin for I2C</summary>
+    public int? SclPinOverride { get; set; }
+
+    /// <summary>Override OneWire data pin</summary>
+    public int? OneWirePinOverride { get; set; }
+
+    /// <summary>Override analog input pin</summary>
+    public int? AnalogPinOverride { get; set; }
+
+    /// <summary>Override digital GPIO pin</summary>
+    public int? DigitalPinOverride { get; set; }
+
+    /// <summary>Override trigger pin for ultrasonic sensors</summary>
+    public int? TriggerPinOverride { get; set; }
+
+    /// <summary>Override echo pin for ultrasonic sensors</summary>
+    public int? EchoPinOverride { get; set; }
+
     // === Calibration ===
 
     /// <summary>Offset correction applied to raw values</summary>
