@@ -1,49 +1,73 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { Hub, Sensor, CreateHubDto, UpdateHubDto } from '@myiotgrid/shared/models';
+import { Hub, HubStatus, Node, UpdateHubDto } from '@myiotgrid/shared/models';
 
+/**
+ * API Service for Hub management
+ * Single-Hub-Architecture: Only one Hub per installation
+ */
 @Injectable({ providedIn: 'root' })
 export class HubApiService extends BaseApiService {
-  private readonly endpoint = '/hubs';
+  private readonly endpoint = '/hub';
+
+  // === Single-Hub API (New) ===
 
   /**
-   * Get all registered hubs
-   * GET /api/hubs
+   * Get the current Hub (Single-Hub-Architecture)
+   * GET /api/hub
+   */
+  getCurrent(): Observable<Hub> {
+    return this.get<Hub>(this.endpoint);
+  }
+
+  /**
+   * Update the current Hub
+   * PUT /api/hub
+   */
+  updateCurrent(dto: UpdateHubDto): Observable<Hub> {
+    return this.put<Hub>(this.endpoint, dto);
+  }
+
+  /**
+   * Get Hub status information
+   * GET /api/hub/status
+   */
+  getStatus(): Observable<HubStatus> {
+    return this.get<HubStatus>(`${this.endpoint}/status`);
+  }
+
+  /**
+   * Get all Nodes for the current Hub
+   * GET /api/hub/nodes
+   */
+  getNodes(): Observable<Node[]> {
+    return this.get<Node[]>(`${this.endpoint}/nodes`);
+  }
+
+  // === Legacy API (for compatibility) ===
+
+  /**
+   * @deprecated Use getCurrent() instead - Single-Hub-Architecture
    */
   getAll(): Observable<Hub[]> {
-    return this.get<Hub[]>(this.endpoint);
+    return this.getCurrent().pipe(
+      map(hub => [hub])
+    );
   }
 
   /**
-   * Get hub by ID
-   * GET /api/hubs/{id}
+   * @deprecated Use getCurrent() instead - Single-Hub-Architecture
    */
   getById(id: string): Observable<Hub> {
-    return this.get<Hub>(`${this.endpoint}/${id}`);
+    // In Single-Hub-Architecture, always return the current hub
+    return this.getCurrent();
   }
 
   /**
-   * Get all sensors for a hub
-   * GET /api/hubs/{id}/sensors
-   */
-  getSensors(hubId: string): Observable<Sensor[]> {
-    return this.get<Sensor[]>(`${this.endpoint}/${hubId}/sensors`);
-  }
-
-  /**
-   * Create new hub
-   * POST /api/hubs
-   */
-  create(dto: CreateHubDto): Observable<Hub> {
-    return this.post<Hub>(this.endpoint, dto);
-  }
-
-  /**
-   * Update hub
-   * PUT /api/hubs/{id}
+   * @deprecated Use updateCurrent() instead - Single-Hub-Architecture
    */
   update(id: string, dto: UpdateHubDto): Observable<Hub> {
-    return this.put<Hub>(`${this.endpoint}/${id}`, dto);
+    return this.updateCurrent(dto);
   }
 }
