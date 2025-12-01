@@ -1,0 +1,196 @@
+<div class="hub-settings-page">
+  <header class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">Hub-Einstellungen</h1>
+      <p class="page-subtitle">Single-Hub-Konfiguration</p>
+    </div>
+    @if (!isLoading() && hub()) {
+      <div class="header-actions">
+        <button
+          mat-icon-button
+          [matTooltip]="isViewMode() ? 'Bearbeiten' : 'Abbrechen'"
+          (click)="toggleEditMode()">
+          <mat-icon>{{ isViewMode() ? 'edit' : 'lock' }}</mat-icon>
+        </button>
+      </div>
+    }
+  </header>
+
+  @if (isLoading()) {
+    <myiotgrid-loading-spinner message="Hub-Einstellungen werden geladen..."></myiotgrid-loading-spinner>
+  } @else if (!hub()) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <mat-icon color="warn">error</mat-icon>
+        <p>Hub nicht initialisiert. Bitte starten Sie die Anwendung neu.</p>
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <div class="settings-grid">
+      <!-- Status Card -->
+      <mat-card class="status-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>hub</mat-icon>
+            Status
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="status-indicator" [class]="getStatusClass()">
+            <mat-icon>{{ getStatusIcon() }}</mat-icon>
+            <span class="status-text">{{ getStatusText() }}</span>
+          </div>
+
+          <div class="status-details">
+            <div class="detail-row">
+              <span class="label">Hub-ID:</span>
+              <code class="value">{{ hub()?.hubId }}</code>
+            </div>
+            <div class="detail-row">
+              <span class="label">Zuletzt gesehen:</span>
+              <span class="value">
+                @if (hub()?.lastSeen) {
+                  {{ hub()?.lastSeen | relativeTime }}
+                } @else {
+                  <span class="no-data">–</span>
+                }
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Erstellt am:</span>
+              <span class="value">{{ hub()?.createdAt | date:'dd.MM.yyyy HH:mm' }}</span>
+            </div>
+          </div>
+
+          @if (status()) {
+            <mat-divider></mat-divider>
+            <div class="node-stats">
+              <h4>Nodes</h4>
+              <div class="stat-row">
+                <span class="stat-label">Gesamt:</span>
+                <span class="stat-value">{{ status()?.nodeCount }}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Online:</span>
+                <span class="stat-value online">{{ status()?.onlineNodeCount }}</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Offline:</span>
+                <span class="stat-value offline">{{ (status()?.nodeCount || 0) - (status()?.onlineNodeCount || 0) }}</span>
+              </div>
+              <button
+                mat-stroked-button
+                color="primary"
+                class="view-nodes-btn"
+                (click)="navigateToNodes()">
+                <mat-icon>device_hub</mat-icon>
+                Nodes verwalten
+              </button>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Settings Form Card -->
+      <mat-card class="settings-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>settings</mat-icon>
+            Konfiguration
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <form [formGroup]="form" (ngSubmit)="onSave()">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Name</mat-label>
+              <input
+                matInput
+                formControlName="name"
+                placeholder="Hub-Name"
+                [readonly]="isViewMode()">
+              @if (form.get('name')?.hasError('required')) {
+                <mat-error>Name ist erforderlich</mat-error>
+              }
+              @if (form.get('name')?.hasError('minlength')) {
+                <mat-error>Name muss mindestens 2 Zeichen haben</mat-error>
+              }
+              @if (form.get('name')?.hasError('maxlength')) {
+                <mat-error>Name darf maximal 200 Zeichen haben</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Beschreibung</mat-label>
+              <textarea
+                matInput
+                formControlName="description"
+                placeholder="Optionale Beschreibung"
+                [readonly]="isViewMode()"
+                rows="3"></textarea>
+              @if (form.get('description')?.hasError('maxlength')) {
+                <mat-error>Beschreibung darf maximal 500 Zeichen haben</mat-error>
+              }
+            </mat-form-field>
+
+            @if (isEditMode()) {
+              <div class="form-actions">
+                <button
+                  mat-button
+                  type="button"
+                  (click)="onCancel()"
+                  [disabled]="isSaving()">
+                  Abbrechen
+                </button>
+                <button
+                  mat-raised-button
+                  color="primary"
+                  type="submit"
+                  [disabled]="form.invalid || isSaving()">
+                  @if (isSaving()) {
+                    <mat-icon class="spin">sync</mat-icon>
+                    Speichern...
+                  } @else {
+                    <mat-icon>save</mat-icon>
+                    Speichern
+                  }
+                </button>
+              </div>
+            }
+          </form>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Info Card -->
+      <mat-card class="info-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>info</mat-icon>
+            Information
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="info-text">
+            Dies ist der zentrale Hub Ihrer myIoTGrid-Installation.
+            Pro Installation ist nur ein Hub erlaubt (Single-Hub-Architektur).
+          </p>
+          <mat-divider></mat-divider>
+          <h4>Architektur</h4>
+          <ul class="architecture-list">
+            <li>
+              <mat-icon>hub</mat-icon>
+              <span><strong>Hub</strong> - Raspberry Pi Gateway (dieser Server)</span>
+            </li>
+            <li>
+              <mat-icon>device_hub</mat-icon>
+              <span><strong>Nodes</strong> - ESP32 Sensoren, die mit dem Hub verbunden sind</span>
+            </li>
+            <li>
+              <mat-icon>sensors</mat-icon>
+              <span><strong>Sensoren</strong> - Messgeräte (Temperatur, CO2, etc.)</span>
+            </li>
+          </ul>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  }
+</div>

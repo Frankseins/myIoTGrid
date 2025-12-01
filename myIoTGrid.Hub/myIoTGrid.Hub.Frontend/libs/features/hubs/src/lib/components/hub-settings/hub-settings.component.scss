@@ -1,0 +1,300 @@
+.hub-settings-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+
+  .header-content {
+    .page-title {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 400;
+    }
+
+    .page-subtitle {
+      margin: 4px 0 0;
+      color: rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+.error-card {
+  mat-card-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+
+    mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+    }
+
+    p {
+      margin: 0;
+      font-size: 16px;
+    }
+  }
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 24px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.status-card {
+  grid-row: span 2;
+
+  mat-card-header {
+    mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      mat-icon {
+        color: #1976d2;
+      }
+    }
+  }
+
+  mat-card-content {
+    padding-top: 16px;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+
+    &.online {
+      background: rgba(76, 175, 80, 0.1);
+      color: #2e7d32;
+
+      mat-icon {
+        color: #2e7d32;
+      }
+    }
+
+    &.offline {
+      background: rgba(244, 67, 54, 0.1);
+      color: #c62828;
+
+      mat-icon {
+        color: #c62828;
+      }
+    }
+
+    mat-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+
+    .status-text {
+      font-size: 18px;
+      font-weight: 500;
+    }
+  }
+
+  .status-details {
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .label {
+        color: rgba(0, 0, 0, 0.6);
+      }
+
+      .value {
+        font-weight: 500;
+
+        &.no-data {
+          color: rgba(0, 0, 0, 0.38);
+        }
+      }
+
+      code {
+        background: rgba(0, 0, 0, 0.05);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+      }
+    }
+  }
+
+  mat-divider {
+    margin: 24px 0;
+  }
+
+  .node-stats {
+    h4 {
+      margin: 0 0 16px;
+      font-weight: 500;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+
+      .stat-label {
+        color: rgba(0, 0, 0, 0.6);
+      }
+
+      .stat-value {
+        font-weight: 500;
+
+        &.online {
+          color: #2e7d32;
+        }
+
+        &.offline {
+          color: #c62828;
+        }
+      }
+    }
+
+    .view-nodes-btn {
+      margin-top: 16px;
+      width: 100%;
+
+      mat-icon {
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+.settings-card {
+  mat-card-header {
+    mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      mat-icon {
+        color: #1976d2;
+      }
+    }
+  }
+
+  mat-card-content {
+    padding-top: 16px;
+  }
+
+  .full-width {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+.info-card {
+  mat-card-header {
+    mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      mat-icon {
+        color: #1976d2;
+      }
+    }
+  }
+
+  mat-card-content {
+    padding-top: 16px;
+  }
+
+  .info-text {
+    color: rgba(0, 0, 0, 0.7);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  mat-divider {
+    margin: 16px 0;
+  }
+
+  h4 {
+    margin: 0 0 12px;
+    font-weight: 500;
+  }
+
+  .architecture-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+
+      mat-icon {
+        color: #1976d2;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+
+      span {
+        font-size: 14px;
+        color: rgba(0, 0, 0, 0.7);
+
+        strong {
+          color: rgba(0, 0, 0, 0.87);
+        }
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
