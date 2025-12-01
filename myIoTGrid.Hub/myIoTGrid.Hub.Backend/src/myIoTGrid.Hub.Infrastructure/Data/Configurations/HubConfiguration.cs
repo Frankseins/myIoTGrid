@@ -54,9 +54,12 @@ public class HubConfiguration : IEntityTypeConfiguration<Domain.Entities.Hub>
             .OnDelete(DeleteBehavior.SetNull);
 
         // Indexes
-        builder.HasIndex(h => h.TenantId);
+        // Single-Hub-Architecture: Only ONE Hub per Tenant allowed
+        builder.HasIndex(h => h.TenantId)
+            .IsUnique()
+            .HasDatabaseName("IX_Hub_TenantId_Unique");
+
         builder.HasIndex(h => h.HubId);
-        builder.HasIndex(h => new { h.TenantId, h.HubId }).IsUnique();
         builder.HasIndex(h => h.IsOnline);
         builder.HasIndex(h => h.LastSeen);
     }

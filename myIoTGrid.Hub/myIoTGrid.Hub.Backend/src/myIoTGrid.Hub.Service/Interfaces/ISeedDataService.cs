@@ -29,4 +29,9 @@ public interface ISeedDataService
     /// Seeds default sensors (one per SensorType)
     /// </summary>
     Task SeedSensorsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Ensures the default Hub exists (Single-Hub-Architecture)
+    /// </summary>
+    Task SeedHubAsync(CancellationToken ct = default);
 }

@@ -402,12 +402,7 @@ public class ReadingService : IReadingService
             return await _hubService.GetOrCreateByHubIdAsync(hubId, ct);
         }
 
-        // Use default hub for tenant
-        var defaultHub = await _hubService.GetDefaultHubAsync(ct);
-        if (defaultHub != null)
-            return defaultHub;
-
-        // Create default hub
-        return await _hubService.GetOrCreateByHubIdAsync("default-hub", ct);
+        // Single-Hub-Architecture: Use the current hub for this tenant
+        return await _hubService.GetCurrentHubAsync(ct);
     }
 }

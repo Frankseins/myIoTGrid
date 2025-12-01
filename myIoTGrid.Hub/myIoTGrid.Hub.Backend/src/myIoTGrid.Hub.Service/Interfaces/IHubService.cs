@@ -3,12 +3,26 @@ using myIoTGrid.Hub.Shared.DTOs;
 namespace myIoTGrid.Hub.Service.Interfaces;
 
 /// <summary>
-/// Service Interface for Hub (Raspberry Pi Gateway) management
+/// Service Interface for Hub (Raspberry Pi Gateway) management.
+/// Single-Hub-Architecture: Only one Hub per Tenant/Installation allowed.
 /// </summary>
 public interface IHubService
 {
-    /// <summary>Returns all Hubs for the current Tenant</summary>
-    Task<IEnumerable<HubDto>> GetAllAsync(CancellationToken ct = default);
+    // === Single-Hub API (New) ===
+
+    /// <summary>Returns the current Hub (Single-Hub-Architecture)</summary>
+    Task<HubDto> GetCurrentHubAsync(CancellationToken ct = default);
+
+    /// <summary>Updates the current Hub (Single-Hub-Architecture)</summary>
+    Task<HubDto> UpdateCurrentHubAsync(UpdateHubDto dto, CancellationToken ct = default);
+
+    /// <summary>Returns the current Hub status</summary>
+    Task<HubStatusDto> GetStatusAsync(CancellationToken ct = default);
+
+    /// <summary>Ensures the default Hub exists (called during startup)</summary>
+    Task EnsureDefaultHubAsync(CancellationToken ct = default);
+
+    // === Legacy API (for internal use) ===
 
     /// <summary>Returns a Hub by ID</summary>
     Task<HubDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
@@ -19,10 +33,7 @@ public interface IHubService
     /// <summary>Finds or creates a Hub by Hub identifier</summary>
     Task<HubDto> GetOrCreateByHubIdAsync(string hubId, CancellationToken ct = default);
 
-    /// <summary>Creates a new Hub</summary>
-    Task<HubDto> CreateAsync(CreateHubDto dto, CancellationToken ct = default);
-
-    /// <summary>Updates a Hub</summary>
+    /// <summary>Updates a Hub by ID (internal)</summary>
     Task<HubDto?> UpdateAsync(Guid id, UpdateHubDto dto, CancellationToken ct = default);
 
     /// <summary>Updates the LastSeen timestamp</summary>
@@ -30,7 +41,4 @@ public interface IHubService
 
     /// <summary>Sets the online status</summary>
     Task SetOnlineStatusAsync(Guid id, bool isOnline, CancellationToken ct = default);
-
-    /// <summary>Returns the default Hub for the current Tenant</summary>
-    Task<HubDto?> GetDefaultHubAsync(CancellationToken ct = default);
 }

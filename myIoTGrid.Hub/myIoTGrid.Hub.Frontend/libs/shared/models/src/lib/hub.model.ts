@@ -3,6 +3,7 @@ import { Protocol } from './enums.model';
 
 /**
  * Hub models - corresponds to Backend HubDto
+ * Single-Hub-Architecture: Only one Hub per installation
  */
 export interface Hub {
   [key: string]: unknown;
@@ -10,17 +11,30 @@ export interface Hub {
   tenantId: string;
   hubId: string;
   name: string;
-  protocol: Protocol;
+  description?: string;
+  protocol?: Protocol;
   defaultLocation?: Location;
   lastSeen?: string;
   isOnline: boolean;
   metadata?: string;
   createdAt: string;
+  sensorCount?: number;
+}
+
+/**
+ * Hub status information
+ */
+export interface HubStatus {
+  isOnline: boolean;
+  lastSeen?: string;
+  nodeCount: number;
+  onlineNodeCount: number;
 }
 
 export interface CreateHubDto {
   hubId: string;
   name: string;
+  description?: string;
   protocol?: Protocol;
   defaultLocation?: Location;
   metadata?: string;
@@ -28,6 +42,7 @@ export interface CreateHubDto {
 
 export interface UpdateHubDto {
   name?: string;
+  description?: string;
   protocol?: Protocol;
   defaultLocation?: Location;
   metadata?: string;

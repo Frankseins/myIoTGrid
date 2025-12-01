@@ -12,6 +12,7 @@ public class SeedDataService : ISeedDataService
     private readonly ISensorTypeService _sensorTypeService;
     private readonly IAlertTypeService _alertTypeService;
     private readonly ISensorService _sensorService;
+    private readonly IHubService _hubService;
     private readonly ILogger<SeedDataService> _logger;
 
     public SeedDataService(
@@ -19,12 +20,14 @@ public class SeedDataService : ISeedDataService
         ISensorTypeService sensorTypeService,
         IAlertTypeService alertTypeService,
         ISensorService sensorService,
+        IHubService hubService,
         ILogger<SeedDataService> logger)
     {
         _tenantService = tenantService;
         _sensorTypeService = sensorTypeService;
         _alertTypeService = alertTypeService;
         _sensorService = sensorService;
+        _hubService = hubService;
         _logger = logger;
     }
 
@@ -34,6 +37,7 @@ public class SeedDataService : ISeedDataService
         _logger.LogInformation("Starting seed data process...");
 
         await SeedTenantAsync(ct);
+        await SeedHubAsync(ct);
         await SeedSensorTypesAsync(ct);
         await SeedAlertTypesAsync(ct);
         await SeedSensorsAsync(ct);
@@ -71,5 +75,13 @@ public class SeedDataService : ISeedDataService
         _logger.LogDebug("Seeding default sensors (one per SensorType)...");
         await _sensorService.SeedDefaultSensorsAsync(ct);
         _logger.LogInformation("Default sensors seeded");
+    }
+
+    /// <inheritdoc />
+    public async Task SeedHubAsync(CancellationToken ct = default)
+    {
+        _logger.LogDebug("Ensuring default Hub exists (Single-Hub-Architecture)...");
+        await _hubService.EnsureDefaultHubAsync(ct);
+        _logger.LogInformation("Default Hub ensured");
     }
 }

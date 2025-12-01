@@ -12,6 +12,10 @@ using myIoTGrid.Hub.Shared.Enums;
 
 namespace myIoTGrid.Hub.Service.Tests.Services;
 
+/// <summary>
+/// Tests for HubService.
+/// Single-Hub-Architecture: Only one Hub per Tenant/Installation allowed.
+/// </summary>
 public class HubServiceTests : IDisposable
 {
     private readonly Infrastructure.Data.HubDbContext _context;
@@ -46,45 +50,163 @@ public class HubServiceTests : IDisposable
         _context.Dispose();
     }
 
-    [Fact]
-    public async Task GetAllAsync_WhenNoHubs_ReturnsEmptyList()
-    {
-        // Act
-        var result = await _sut.GetAllAsync();
-
-        // Assert
-        result.Should().BeEmpty();
-    }
+    #region GetCurrentHubAsync Tests (Single-Hub API)
 
     [Fact]
-    public async Task GetAllAsync_ReturnsOnlyTenantsHubs()
+    public async Task GetCurrentHubAsync_WithExistingHub_ReturnsHub()
     {
         // Arrange
         _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
         {
             Id = Guid.NewGuid(),
             TenantId = _tenantId,
-            HubId = "hub-1",
-            Name = "Hub 1",
-            CreatedAt = DateTime.UtcNow
-        });
-        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
-        {
-            Id = Guid.NewGuid(),
-            TenantId = Guid.NewGuid(), // Different tenant
-            HubId = "hub-2",
-            Name = "Hub 2",
+            HubId = "my-iot-hub",
+            Name = "My IoT Hub",
             CreatedAt = DateTime.UtcNow
         });
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _sut.GetAllAsync();
+        var result = await _sut.GetCurrentHubAsync();
 
         // Assert
-        result.Should().ContainSingle();
-        result.First().HubId.Should().Be("hub-1");
+        result.Should().NotBeNull();
+        result.HubId.Should().Be("my-iot-hub");
     }
+
+    [Fact]
+    public async Task GetCurrentHubAsync_WithNoHub_ThrowsException()
+    {
+        // Act & Assert
+        var act = () => _sut.GetCurrentHubAsync();
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not initialized*");
+    }
+
+    #endregion
+
+    #region UpdateCurrentHubAsync Tests (Single-Hub API)
+
+    [Fact]
+    public async Task UpdateCurrentHubAsync_WithExistingHub_UpdatesHub()
+    {
+        // Arrange
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            HubId = "my-iot-hub",
+            Name = "Original Name",
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdateHubDto(Name: "Updated Name");
+
+        // Act
+        var result = await _sut.UpdateCurrentHubAsync(dto);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Name.Should().Be("Updated Name");
+    }
+
+    [Fact]
+    public async Task UpdateCurrentHubAsync_WithNoHub_ThrowsException()
+    {
+        // Arrange
+        var dto = new UpdateHubDto(Name: "Test");
+
+        // Act & Assert
+        var act = () => _sut.UpdateCurrentHubAsync(dto);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not initialized*");
+    }
+
+    #endregion
+
+    #region GetStatusAsync Tests (Single-Hub API)
+
+    [Fact]
+    public async Task GetStatusAsync_WithExistingHub_ReturnsStatus()
+    {
+        // Arrange
+        var hubId = Guid.NewGuid();
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = hubId,
+            TenantId = _tenantId,
+            HubId = "my-iot-hub",
+            Name = "My IoT Hub",
+            IsOnline = true,
+            LastSeen = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetStatusAsync();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IsOnline.Should().BeTrue();
+        result.NodeCount.Should().Be(0);
+        result.OnlineNodeCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_WithNoHub_ThrowsException()
+    {
+        // Act & Assert
+        var act = () => _sut.GetStatusAsync();
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not initialized*");
+    }
+
+    #endregion
+
+    #region EnsureDefaultHubAsync Tests (Single-Hub API)
+
+    [Fact]
+    public async Task EnsureDefaultHubAsync_WithNoHub_CreatesDefaultHub()
+    {
+        // Act
+        await _sut.EnsureDefaultHubAsync();
+
+        // Assert
+        var hub = await _sut.GetCurrentHubAsync();
+        hub.Should().NotBeNull();
+        hub.HubId.Should().Be("my-iot-hub");
+        hub.Name.Should().Be("My IoT Hub");
+        hub.IsOnline.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task EnsureDefaultHubAsync_WithExistingHub_DoesNotCreateDuplicate()
+    {
+        // Arrange
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            HubId = "existing-hub",
+            Name = "Existing Hub",
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _sut.EnsureDefaultHubAsync();
+
+        // Assert
+        var hub = await _sut.GetCurrentHubAsync();
+        hub.HubId.Should().Be("existing-hub"); // Original hub unchanged
+        _context.Hubs.Count().Should().Be(1);
+    }
+
+    #endregion
+
+    #region Legacy API Tests
 
     [Fact]
     public async Task GetByIdAsync_WithExistingHub_ReturnsHub()
@@ -200,56 +322,12 @@ public class HubServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetOrCreateByHubIdAsync_WithNewHub_CreatesHub()
+    public async Task GetOrCreateByHubIdAsync_WithNoHub_ThrowsException()
     {
-        // Act
-        var result = await _sut.GetOrCreateByHubIdAsync("new-hub-id");
-
-        // Assert
-        result.Should().NotBeNull();
-        result.HubId.Should().Be("new-hub-id");
-        result.Name.Should().Be("New Hub Id");
-        result.IsOnline.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task CreateAsync_WithValidDto_CreatesHub()
-    {
-        // Arrange
-        var dto = new CreateHubDto(
-            HubId: "created-hub",
-            Name: "Created Hub"
-        );
-
-        // Act
-        var result = await _sut.CreateAsync(dto);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.HubId.Should().Be("created-hub");
-        result.Name.Should().Be("Created Hub");
-    }
-
-    [Fact]
-    public async Task CreateAsync_WithDuplicateHubId_ThrowsException()
-    {
-        // Arrange
-        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
-        {
-            Id = Guid.NewGuid(),
-            TenantId = _tenantId,
-            HubId = "duplicate-hub",
-            Name = "Duplicate",
-            CreatedAt = DateTime.UtcNow
-        });
-        await _context.SaveChangesAsync();
-
-        var dto = new CreateHubDto(HubId: "duplicate-hub", Name: "New Hub");
-
-        // Act & Assert
-        var act = () => _sut.CreateAsync(dto);
+        // Act & Assert (Single-Hub-Architecture: Hub must be initialized first)
+        var act = () => _sut.GetOrCreateByHubIdAsync("new-hub-id");
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*already exists*");
+            .WithMessage("*not initialized*");
     }
 
     [Fact]
@@ -384,24 +462,5 @@ public class HubServiceTests : IDisposable
         await act.Should().NotThrowAsync();
     }
 
-    [Theory]
-    [InlineData("hub-home-01", "Hub Home 01")]
-    [InlineData("sensor_wohnzimmer_temp", "Sensor Wohnzimmer Temp")]
-    [InlineData("simple", "Simple")]
-    [InlineData("", "Unknown Hub")]
-    public async Task GetOrCreateByHubIdAsync_GeneratesCorrectName(string hubId, string expectedName)
-    {
-        // Act
-        var result = await _sut.GetOrCreateByHubIdAsync(hubId);
-
-        // Assert
-        if (string.IsNullOrEmpty(hubId))
-        {
-            result.Name.Should().Be("Unknown Hub");
-        }
-        else
-        {
-            result.Name.Should().Be(expectedName);
-        }
-    }
+    #endregion
 }

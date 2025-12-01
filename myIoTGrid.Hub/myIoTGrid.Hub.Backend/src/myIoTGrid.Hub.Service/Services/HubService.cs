@@ -9,7 +9,8 @@ using myIoTGrid.Hub.Shared.DTOs;
 namespace myIoTGrid.Hub.Service.Services;
 
 /// <summary>
-/// Service for Hub (Raspberry Pi Gateway) management
+/// Service for Hub (Raspberry Pi Gateway) management.
+/// Single-Hub-Architecture: Only one Hub per Tenant/Installation allowed.
 /// </summary>
 public class HubService : IHubService
 {
@@ -18,6 +19,9 @@ public class HubService : IHubService
     private readonly ITenantService _tenantService;
     private readonly ISignalRNotificationService _signalRNotificationService;
     private readonly ILogger<HubService> _logger;
+
+    private const string DefaultHubId = "my-iot-hub";
+    private const string DefaultHubName = "My IoT Hub";
 
     public HubService(
         HubDbContext context,
@@ -33,20 +37,103 @@ public class HubService : IHubService
         _logger = logger;
     }
 
+    // === Single-Hub API Implementation ===
+
     /// <inheritdoc />
-    public async Task<IEnumerable<HubDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<HubDto> GetCurrentHubAsync(CancellationToken ct = default)
     {
         var tenantId = _tenantService.GetCurrentTenantId();
 
-        var hubs = await _context.Hubs
+        var hub = await _context.Hubs
             .AsNoTracking()
-            .Where(h => h.TenantId == tenantId)
             .Include(h => h.Nodes)
-            .OrderBy(h => h.Name)
-            .ToListAsync(ct);
+            .FirstOrDefaultAsync(h => h.TenantId == tenantId, ct);
 
-        return hubs.ToDtos();
+        if (hub == null)
+        {
+            throw new InvalidOperationException("Hub not initialized. Please restart the application.");
+        }
+
+        return hub.ToDto();
     }
+
+    /// <inheritdoc />
+    public async Task<HubDto> UpdateCurrentHubAsync(UpdateHubDto dto, CancellationToken ct = default)
+    {
+        var tenantId = _tenantService.GetCurrentTenantId();
+
+        var hub = await _context.Hubs
+            .Include(h => h.Nodes)
+            .FirstOrDefaultAsync(h => h.TenantId == tenantId, ct);
+
+        if (hub == null)
+        {
+            throw new InvalidOperationException("Hub not initialized. Please restart the application.");
+        }
+
+        hub.ApplyUpdate(dto);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Hub updated: {HubId} ({Name})", hub.HubId, hub.Name);
+
+        return hub.ToDto();
+    }
+
+    /// <inheritdoc />
+    public async Task<HubStatusDto> GetStatusAsync(CancellationToken ct = default)
+    {
+        var tenantId = _tenantService.GetCurrentTenantId();
+
+        var hub = await _context.Hubs
+            .AsNoTracking()
+            .Include(h => h.Nodes)
+            .FirstOrDefaultAsync(h => h.TenantId == tenantId, ct);
+
+        if (hub == null)
+        {
+            throw new InvalidOperationException("Hub not initialized. Please restart the application.");
+        }
+
+        var nodeCount = hub.Nodes.Count;
+        var onlineNodeCount = hub.Nodes.Count(n => n.IsOnline);
+
+        return new HubStatusDto(hub.IsOnline, hub.LastSeen, nodeCount, onlineNodeCount);
+    }
+
+    /// <inheritdoc />
+    public async Task EnsureDefaultHubAsync(CancellationToken ct = default)
+    {
+        var tenantId = _tenantService.GetCurrentTenantId();
+
+        var existingHub = await _context.Hubs
+            .FirstOrDefaultAsync(h => h.TenantId == tenantId, ct);
+
+        if (existingHub != null)
+        {
+            _logger.LogDebug("Hub already exists: {HubId}", existingHub.HubId);
+            return;
+        }
+
+        // Create the default Hub
+        var defaultHub = new Domain.Entities.Hub
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            HubId = DefaultHubId,
+            Name = DefaultHubName,
+            Description = "Auto-initialized Hub for this installation",
+            IsOnline = true,
+            LastSeen = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Hubs.Add(defaultHub);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Default Hub created: {HubId} ({Name})", defaultHub.HubId, defaultHub.Name);
+    }
+
+    // === Legacy API Implementation ===
 
     /// <inheritdoc />
     public async Task<HubDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
@@ -79,9 +166,10 @@ public class HubService : IHubService
     {
         var tenantId = _tenantService.GetCurrentTenantId();
 
+        // Single-Hub-Architecture: Always return the existing hub, update its LastSeen
         var existingHub = await _context.Hubs
             .Include(h => h.Nodes)
-            .FirstOrDefaultAsync(h => h.HubId == hubId && h.TenantId == tenantId, ct);
+            .FirstOrDefaultAsync(h => h.TenantId == tenantId, ct);
 
         if (existingHub != null)
         {
@@ -93,49 +181,8 @@ public class HubService : IHubService
             return existingHub.ToDto();
         }
 
-        // Create new Hub (Auto-Registration)
-        var newHub = new Domain.Entities.Hub
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            HubId = hubId,
-            Name = GenerateNameFromHubId(hubId),
-            IsOnline = true,
-            LastSeen = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Hubs.Add(newHub);
-        await _unitOfWork.SaveChangesAsync(ct);
-
-        _logger.LogInformation("Hub auto-registered: {HubId} ({Name})", newHub.HubId, newHub.Name);
-
-        return newHub.ToDto(0);
-    }
-
-    /// <inheritdoc />
-    public async Task<HubDto> CreateAsync(CreateHubDto dto, CancellationToken ct = default)
-    {
-        var tenantId = _tenantService.GetCurrentTenantId();
-
-        // Check if HubId already exists
-        var exists = await _context.Hubs
-            .AsNoTracking()
-            .AnyAsync(h => h.HubId == dto.HubId && h.TenantId == tenantId, ct);
-
-        if (exists)
-        {
-            throw new InvalidOperationException($"Hub with HubId '{dto.HubId}' already exists.");
-        }
-
-        var hub = dto.ToEntity(tenantId);
-
-        _context.Hubs.Add(hub);
-        await _unitOfWork.SaveChangesAsync(ct);
-
-        _logger.LogInformation("Hub created: {HubId} ({Name})", hub.HubId, hub.Name);
-
-        return hub.ToDto(0);
+        // Hub should have been created by EnsureDefaultHubAsync during startup
+        throw new InvalidOperationException("Hub not initialized. Please restart the application.");
     }
 
     /// <inheritdoc />
@@ -198,35 +245,5 @@ public class HubService : IHubService
         {
             await _signalRNotificationService.NotifyHubStatusChangedAsync(hub.TenantId, hub.ToDto(), ct);
         }
-    }
-
-    /// <inheritdoc />
-    public async Task<HubDto?> GetDefaultHubAsync(CancellationToken ct = default)
-    {
-        var tenantId = _tenantService.GetCurrentTenantId();
-
-        var hub = await _context.Hubs
-            .AsNoTracking()
-            .Include(h => h.Nodes)
-            .Where(h => h.TenantId == tenantId)
-            .OrderBy(h => h.CreatedAt)
-            .FirstOrDefaultAsync(ct);
-
-        return hub?.ToDto();
-    }
-
-    /// <summary>
-    /// Generates a name from the HubId
-    /// </summary>
-    private static string GenerateNameFromHubId(string hubId)
-    {
-        if (string.IsNullOrWhiteSpace(hubId)) return "Unknown Hub";
-
-        // "hub-home-01" -> "Hub Home 01"
-        var parts = hubId.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries);
-        var formattedParts = parts.Select(s =>
-            s.Length > 0 ? char.ToUpper(s[0]) + s[1..].ToLower() : s);
-
-        return string.Join(" ", formattedParts);
     }
 }
