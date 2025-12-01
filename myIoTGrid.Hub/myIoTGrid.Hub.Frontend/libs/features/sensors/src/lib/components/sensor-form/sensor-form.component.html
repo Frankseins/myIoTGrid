@@ -33,13 +33,16 @@
 
             <div class="form-row">
               <mat-form-field class="full"
-                              [appearance]="isViewMode() ? 'fill' : 'outline'"
-                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                              [appearance]="(isViewMode() || isEditMode()) ? 'fill' : 'outline'"
+                              [floatLabel]="(isViewMode() || isEditMode()) ? 'always' : 'auto'">
                 <mat-label>Sensortyp</mat-label>
-                @if (isViewMode()) {
+                @if (isViewMode() || isEditMode()) {
                   <input matInput [value]="getSensorTypeName(form.get('sensorTypeId')?.value)" readonly>
+                  @if (isEditMode()) {
+                    <mat-hint>Sensortyp kann nicht geändert werden</mat-hint>
+                  }
                 } @else {
-                  <mat-select formControlName="sensorTypeId" [disabled]="!isCreateMode()">
+                  <mat-select formControlName="sensorTypeId">
                     @for (type of sensorTypes(); track type.id) {
                       <mat-option [value]="type.id">
                         <div class="sensor-type-option">
