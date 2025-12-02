@@ -51,11 +51,14 @@
 
 .settings-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto;
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
 
-  @media (max-width: 900px) {
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
 }
@@ -228,7 +231,48 @@
   }
 }
 
-.info-card {
+.sensor-types-card {
+  mat-card-header {
+    mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      mat-icon {
+        color: #1976d2;
+      }
+    }
+
+    mat-card-subtitle {
+      margin-top: 4px;
+    }
+  }
+
+  mat-card-content {
+    padding-top: 8px;
+  }
+
+  .no-data {
+    color: rgba(0, 0, 0, 0.54);
+    text-align: center;
+    padding: 24px;
+    margin: 0;
+  }
+
+  .sensor-types-list {
+    max-height: 300px;
+    overflow-y: auto;
+
+    mat-list-item {
+      mat-icon {
+        color: #1976d2;
+      }
+    }
+  }
+}
+
+// Services Card
+.services-card {
   mat-card-header {
     mat-card-title {
       display: flex;
@@ -245,47 +289,164 @@
     padding-top: 16px;
   }
 
-  .info-text {
-    color: rgba(0, 0, 0, 0.7);
-    line-height: 1.6;
-    margin: 0;
+  .services-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
-  mat-divider {
-    margin: 16px 0;
+  .service-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.02);
+
+    > mat-icon {
+      color: rgba(0, 0, 0, 0.54);
+    }
+
+    .service-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+
+      .service-name {
+        font-weight: 500;
+        font-size: 14px;
+      }
+
+      .service-status {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.54);
+      }
+    }
+
+    .status-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    &.online {
+      background: rgba(76, 175, 80, 0.08);
+
+      .status-icon {
+        color: #2e7d32;
+      }
+    }
+
+    &.offline {
+      background: rgba(244, 67, 54, 0.08);
+
+      .status-icon {
+        color: #c62828;
+      }
+    }
+
+    &.not-configured {
+      background: rgba(0, 0, 0, 0.04);
+
+      .status-icon {
+        color: rgba(0, 0, 0, 0.38);
+      }
+    }
   }
+}
 
-  h4 {
-    margin: 0 0 12px;
-    font-weight: 500;
-  }
-
-  .architecture-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-
-    li {
+// Cloud Card
+.cloud-card {
+  mat-card-header {
+    mat-card-title {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 8px 0;
+      gap: 8px;
+
+      mat-icon {
+        color: rgba(0, 0, 0, 0.38);
+      }
+    }
+  }
+
+  mat-card-content {
+    padding-top: 16px;
+  }
+
+  .cloud-not-configured {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px;
+
+    .cloud-icon {
+      font-size: 64px;
+      width: 64px;
+      height: 64px;
+      color: rgba(0, 0, 0, 0.38);
+      margin-bottom: 16px;
+    }
+
+    p {
+      color: rgba(0, 0, 0, 0.7);
+      margin: 0 0 8px;
+      line-height: 1.5;
+
+      &.hint {
+        font-size: 13px;
+        color: rgba(0, 0, 0, 0.54);
+        margin-bottom: 16px;
+      }
+    }
+
+    button mat-icon {
+      margin-right: 8px;
+    }
+  }
+}
+
+// SmartHome Card
+.smarthome-card {
+  mat-card-header {
+    mat-card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
 
       mat-icon {
         color: #1976d2;
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
       }
+    }
+  }
 
-      span {
-        font-size: 14px;
-        color: rgba(0, 0, 0, 0.7);
+  mat-card-content {
+    padding-top: 16px;
+  }
 
-        strong {
-          color: rgba(0, 0, 0, 0.87);
-        }
-      }
+  .matter-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px;
+
+    .matter-icon {
+      font-size: 64px;
+      width: 64px;
+      height: 64px;
+      color: #1976d2;
+      margin-bottom: 16px;
+    }
+
+    p {
+      color: rgba(0, 0, 0, 0.7);
+      margin: 0 0 16px;
+      line-height: 1.5;
+    }
+
+    button mat-icon {
+      margin-right: 8px;
     }
   }
 }

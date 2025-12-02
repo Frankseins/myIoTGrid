@@ -1,8 +1,8 @@
 <div class="hub-settings-page">
   <header class="page-header">
     <div class="header-content">
-      <h1 class="page-title">Hub-Einstellungen</h1>
-      <p class="page-subtitle">Single-Hub-Konfiguration</p>
+      <h1 class="page-title">Einstellungen</h1>
+      <p class="page-subtitle">Hub-Konfiguration und System-Informationen</p>
     </div>
     @if (!isLoading() && hub()) {
       <div class="header-actions">
@@ -160,35 +160,123 @@
         </mat-card-content>
       </mat-card>
 
-      <!-- Info Card -->
-      <mat-card class="info-card">
+      <!-- Services Status Card -->
+      <mat-card class="services-card">
         <mat-card-header>
           <mat-card-title>
-            <mat-icon>info</mat-icon>
-            Information
+            <mat-icon>dns</mat-icon>
+            Dienste
           </mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <p class="info-text">
-            Dies ist der zentrale Hub Ihrer myIoTGrid-Installation.
-            Pro Installation ist nur ein Hub erlaubt (Single-Hub-Architektur).
-          </p>
-          <mat-divider></mat-divider>
-          <h4>Architektur</h4>
-          <ul class="architecture-list">
-            <li>
-              <mat-icon>hub</mat-icon>
-              <span><strong>Hub</strong> - Raspberry Pi Gateway (dieser Server)</span>
-            </li>
-            <li>
-              <mat-icon>device_hub</mat-icon>
-              <span><strong>Nodes</strong> - ESP32 Sensoren, die mit dem Hub verbunden sind</span>
-            </li>
-            <li>
-              <mat-icon>sensors</mat-icon>
-              <span><strong>Sensoren</strong> - Messgeräte (Temperatur, CO2, etc.)</span>
-            </li>
-          </ul>
+          <div class="services-list">
+            <!-- API -->
+            <div class="service-item" [class.online]="status()?.services?.api?.isOnline" [class.offline]="!status()?.services?.api?.isOnline">
+              <mat-icon>api</mat-icon>
+              <div class="service-info">
+                <span class="service-name">Backend API</span>
+                <span class="service-status">{{ status()?.services?.api?.message || (status()?.services?.api?.isOnline ? 'Online' : 'Offline') }}</span>
+              </div>
+              <mat-icon class="status-icon">{{ status()?.services?.api?.isOnline ? 'check_circle' : 'cancel' }}</mat-icon>
+            </div>
+
+            <!-- Database -->
+            <div class="service-item" [class.online]="status()?.services?.database?.isOnline" [class.offline]="!status()?.services?.database?.isOnline">
+              <mat-icon>storage</mat-icon>
+              <div class="service-info">
+                <span class="service-name">Datenbank</span>
+                <span class="service-status">{{ status()?.services?.database?.message || (status()?.services?.database?.isOnline ? 'Verbunden' : 'Nicht verbunden') }}</span>
+              </div>
+              <mat-icon class="status-icon">{{ status()?.services?.database?.isOnline ? 'check_circle' : 'cancel' }}</mat-icon>
+            </div>
+
+            <!-- MQTT -->
+            <div class="service-item" [class.online]="status()?.services?.mqtt?.isOnline" [class.offline]="!status()?.services?.mqtt?.isOnline" [class.not-configured]="status()?.services?.mqtt?.message === 'Not configured'">
+              <mat-icon>router</mat-icon>
+              <div class="service-info">
+                <span class="service-name">MQTT Broker</span>
+                <span class="service-status">{{ status()?.services?.mqtt?.message === 'Not configured' ? 'Nicht konfiguriert' : (status()?.services?.mqtt?.isOnline ? 'Verbunden' : 'Nicht verbunden') }}</span>
+              </div>
+              <mat-icon class="status-icon">{{ status()?.services?.mqtt?.message === 'Not configured' ? 'remove_circle_outline' : (status()?.services?.mqtt?.isOnline ? 'check_circle' : 'cancel') }}</mat-icon>
+            </div>
+
+            <!-- Cloud -->
+            <div class="service-item" [class.online]="status()?.services?.cloud?.isOnline" [class.offline]="!status()?.services?.cloud?.isOnline" [class.not-configured]="status()?.services?.cloud?.message === 'Not configured'">
+              <mat-icon>cloud</mat-icon>
+              <div class="service-info">
+                <span class="service-name">Cloud-Verbindung</span>
+                <span class="service-status">{{ status()?.services?.cloud?.message === 'Not configured' ? 'Nicht konfiguriert' : (status()?.services?.cloud?.isOnline ? 'Verbunden' : 'Nicht verbunden') }}</span>
+              </div>
+              <mat-icon class="status-icon">{{ status()?.services?.cloud?.message === 'Not configured' ? 'remove_circle_outline' : (status()?.services?.cloud?.isOnline ? 'check_circle' : 'cancel') }}</mat-icon>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Cloud Connection Card -->
+      <mat-card class="cloud-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>cloud_off</mat-icon>
+            Cloud-Verbindung
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="cloud-not-configured">
+            <mat-icon class="cloud-icon">cloud_off</mat-icon>
+            <p>Cloud-Verbindung ist nicht eingerichtet.</p>
+            <p class="hint">Verbinden Sie Ihren Hub mit der myIoTGrid Cloud für KI-Analyse und Remote-Zugriff.</p>
+            <button mat-stroked-button color="primary" disabled>
+              <mat-icon>link</mat-icon>
+              Mit Cloud verbinden
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Smart Home Card -->
+      <mat-card class="smarthome-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>home</mat-icon>
+            Smart Home
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="matter-info">
+            <mat-icon class="matter-icon">qr_code_2</mat-icon>
+            <p>Matter-Pairing ist bereit. Scannen Sie den QR-Code in Ihrer Smart Home App.</p>
+            <button mat-stroked-button color="primary" disabled>
+              <mat-icon>qr_code</mat-icon>
+              QR-Code anzeigen
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Sensor Types Card -->
+      <mat-card class="sensor-types-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>category</mat-icon>
+            Sensor-Typen
+          </mat-card-title>
+          <mat-card-subtitle>{{ sensorTypes().length }} Typen verfügbar</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (sensorTypes().length === 0) {
+            <p class="no-data">Keine Sensor-Typen vorhanden</p>
+          } @else {
+            <mat-list class="sensor-types-list">
+              @for (type of sensorTypes(); track type.id) {
+                <mat-list-item>
+                  <mat-icon matListItemIcon>{{ type.icon || 'sensors' }}</mat-icon>
+                  <span matListItemTitle>{{ type.name }}</span>
+                  <span matListItemLine>{{ type.unit }} · {{ type.code }}</span>
+                </mat-list-item>
+              }
+            </mat-list>
+          }
         </mat-card-content>
       </mat-card>
     </div>

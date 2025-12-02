@@ -68,9 +68,19 @@ public class HubMonitorService : BackgroundService
         var hubService = scope.ServiceProvider.GetRequiredService<IHubService>();
         var tenantService = scope.ServiceProvider.GetRequiredService<ITenantService>();
 
+        // Single-Hub-Architecture: The Hub itself is always online when the API is running
+        // Update LastSeen for all hubs to mark them as online
+        var allHubs = await dbContext.Hubs.ToListAsync(ct);
+        foreach (var hub in allHubs)
+        {
+            hub.LastSeen = DateTime.UtcNow;
+            hub.IsOnline = true;
+        }
+        await dbContext.SaveChangesAsync(ct);
+
         var threshold = DateTime.UtcNow.AddMinutes(-_options.HubOfflineTimeoutMinutes);
 
-        // Find hubs that have gone offline
+        // Find hubs that have gone offline (not applicable in Single-Hub-Architecture, but kept for future multi-hub support)
         var offlineHubs = await dbContext.Hubs
             .Where(h => h.IsOnline && (h.LastSeen == null || h.LastSeen < threshold))
             .ToListAsync(ct);

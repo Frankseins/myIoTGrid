@@ -11,8 +11,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { HubApiService } from '@myiotgrid/shared/data-access';
-import { Hub, HubStatus, UpdateHubDto, Node } from '@myiotgrid/shared/models';
+import { MatListModule } from '@angular/material/list';
+import { HubApiService, SensorTypeApiService } from '@myiotgrid/shared/data-access';
+import { Hub, HubStatus, UpdateHubDto, Node, SensorType } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent } from '@myiotgrid/shared/ui';
 import { RelativeTimePipe } from '@myiotgrid/shared/utils';
 
@@ -37,6 +38,7 @@ type FormMode = 'view' | 'edit';
     MatDividerModule,
     MatChipsModule,
     MatTooltipModule,
+    MatListModule,
     LoadingSpinnerComponent,
     RelativeTimePipe
   ],
@@ -47,6 +49,7 @@ export class HubSettingsComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly hubApiService = inject(HubApiService);
+  private readonly sensorTypeApiService = inject(SensorTypeApiService);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly isLoading = signal(true);
@@ -55,6 +58,7 @@ export class HubSettingsComponent implements OnInit {
   readonly hub = signal<Hub | null>(null);
   readonly status = signal<HubStatus | null>(null);
   readonly nodes = signal<Node[]>([]);
+  readonly sensorTypes = signal<SensorType[]>([]);
 
   readonly isViewMode = computed(() => this.mode() === 'view');
   readonly isEditMode = computed(() => this.mode() === 'edit');
@@ -76,15 +80,17 @@ export class HubSettingsComponent implements OnInit {
   private loadHub(): void {
     this.isLoading.set(true);
 
-    // Load hub, status and nodes in parallel
+    // Load hub, status, nodes and sensor types in parallel
     Promise.all([
       this.hubApiService.getCurrent().toPromise(),
       this.hubApiService.getStatus().toPromise(),
-      this.hubApiService.getNodes().toPromise()
-    ]).then(([hub, status, nodes]) => {
+      this.hubApiService.getNodes().toPromise(),
+      this.sensorTypeApiService.getAll().toPromise()
+    ]).then(([hub, status, nodes, sensorTypes]) => {
       this.hub.set(hub || null);
       this.status.set(status || null);
       this.nodes.set(nodes || []);
+      this.sensorTypes.set(sensorTypes || []);
 
       if (hub) {
         this.patchForm(hub);

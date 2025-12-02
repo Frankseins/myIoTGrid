@@ -9,6 +9,7 @@ public static class HubMappingExtensions
 {
     /// <summary>
     /// Converts Hub Entity to HubDto
+    /// Single-Hub-Architecture: IsOnline is always true when API is reachable
     /// </summary>
     public static HubDto ToDto(this Domain.Entities.Hub entity)
     {
@@ -18,8 +19,8 @@ public static class HubMappingExtensions
             entity.HubId,
             entity.Name,
             entity.Description,
-            entity.LastSeen,
-            entity.IsOnline,
+            DateTime.UtcNow, // LastSeen is now (API is responding)
+            true, // Always online when API is reachable
             entity.CreatedAt,
             entity.Nodes.Count
         );
@@ -27,6 +28,7 @@ public static class HubMappingExtensions
 
     /// <summary>
     /// Converts Hub Entity to HubDto (without Nodes collection loaded)
+    /// Single-Hub-Architecture: IsOnline is always true when API is reachable
     /// </summary>
     public static HubDto ToDto(this Domain.Entities.Hub entity, int nodeCount)
     {
@@ -36,8 +38,8 @@ public static class HubMappingExtensions
             entity.HubId,
             entity.Name,
             entity.Description,
-            entity.LastSeen,
-            entity.IsOnline,
+            DateTime.UtcNow, // LastSeen is now (API is responding)
+            true, // Always online when API is reachable
             entity.CreatedAt,
             nodeCount
         );

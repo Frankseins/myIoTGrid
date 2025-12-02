@@ -97,7 +97,42 @@ public class HubService : IHubService
         var nodeCount = hub.Nodes.Count;
         var onlineNodeCount = hub.Nodes.Count(n => n.IsOnline);
 
-        return new HubStatusDto(hub.IsOnline, hub.LastSeen, nodeCount, onlineNodeCount);
+        // Check individual service status
+        var services = new ServiceStatusDto(
+            Api: new ServiceState(true, "Running"), // Always true if we reach this point
+            Database: await CheckDatabaseStatusAsync(ct),
+            Mqtt: CheckMqttStatus(),
+            Cloud: CheckCloudStatus()
+        );
+
+        // Hub is online if API is reachable (which it is if we're here)
+        return new HubStatusDto(true, DateTime.UtcNow, nodeCount, onlineNodeCount, services);
+    }
+
+    private async Task<ServiceState> CheckDatabaseStatusAsync(CancellationToken ct)
+    {
+        try
+        {
+            await _context.Database.CanConnectAsync(ct);
+            return new ServiceState(true, "Connected");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database connection check failed");
+            return new ServiceState(false, "Connection failed");
+        }
+    }
+
+    private ServiceState CheckMqttStatus()
+    {
+        // TODO: Implement actual MQTT status check when MQTT is enabled
+        return new ServiceState(false, "Not configured");
+    }
+
+    private ServiceState CheckCloudStatus()
+    {
+        // TODO: Implement actual Cloud status check when Cloud sync is enabled
+        return new ServiceState(false, "Not configured");
     }
 
     /// <inheritdoc />
@@ -110,7 +145,11 @@ public class HubService : IHubService
 
         if (existingHub != null)
         {
-            _logger.LogDebug("Hub already exists: {HubId}", existingHub.HubId);
+            // Single-Hub-Architecture: Mark existing hub as online on startup
+            existingHub.IsOnline = true;
+            existingHub.LastSeen = DateTime.UtcNow;
+            await _unitOfWork.SaveChangesAsync(ct);
+            _logger.LogDebug("Hub already exists and marked as online: {HubId}", existingHub.HubId);
             return;
         }
 
