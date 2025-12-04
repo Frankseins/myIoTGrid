@@ -2,24 +2,49 @@
   @if (!initialLoadDone()) {
     <myiotgrid-loading-spinner message="Nodes werden geladen..."></myiotgrid-loading-spinner>
   } @else if (nodes().length === 0) {
-    <myiotgrid-empty-state
-      icon="router"
-      title="Keine Nodes"
-      message="Es wurden noch keine Nodes registriert."
-      actionLabel="Neuer Node"
-      (actionClicked)="onCreate()">
-    </myiotgrid-empty-state>
+    <div class="empty-state-container">
+      <div class="empty-state-content">
+        <mat-icon class="empty-state-icon">router</mat-icon>
+        <h2 class="empty-state-title">Keine Nodes</h2>
+        <p class="empty-state-message">Es wurden noch keine Nodes registriert.</p>
+        <div class="empty-state-actions">
+          <button mat-flat-button color="primary" (click)="onStartWizard()">
+            <mat-icon>auto_fix_high</mat-icon>
+            Setup-Assistent starten
+          </button>
+          <button mat-stroked-button (click)="onCreate()">
+            <mat-icon>add</mat-icon>
+            Manuell hinzufügen
+          </button>
+        </div>
+      </div>
+    </div>
   } @else {
-    <!-- Toolbar im O365-Style wie GenericTable -->
+    <!-- Page Header wie bei Sensoren -->
+    <header class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">Nodes</h1>
+        <p class="page-subtitle">IoT-Geräte und ihre Sensorzuordnungen verwalten</p>
+      </div>
+    </header>
+
+    <!-- Toolbar im O365-Style -->
     <mat-toolbar class="toolbar outlook-toolbar">
       <div class="left-actions">
         <button mat-flat-button color="primary" (click)="onCreate()">
           <mat-icon>add</mat-icon>
           Neuer Node
         </button>
+        <button mat-stroked-button color="primary" (click)="onStartWizard()">
+          <mat-icon>auto_fix_high</mat-icon>
+          Setup-Assistent
+        </button>
       </div>
 
       <span class="spacer"></span>
+
+      <!-- Ergebnis-Info in Toolbar -->
+      <span class="results-count">{{ filteredAndSortedNodes.length }} von {{ nodes().length }}</span>
 
       <!-- Sortierung -->
       <button type="button" mat-icon-button class="tbar-icon"
@@ -79,18 +104,14 @@
           }
         </div>
       </div>
-    </mat-toolbar>
 
-    <!-- Ergebnis-Info -->
-    <div class="results-info">
-      <span class="count">{{ filteredAndSortedNodes.length }} von {{ nodes().length }} Nodes</span>
       @if (hasActiveFilters || searchTerm.length >= 2) {
-        <button mat-button class="clear-all" (click)="clearFilters(); searchTerm = ''">
+        <button mat-icon-button class="tbar-icon" matTooltip="Filter zurücksetzen"
+                (click)="clearFilters(); searchTerm = ''">
           <mat-icon>clear</mat-icon>
-          Filter zurücksetzen
         </button>
       }
-    </div>
+    </mat-toolbar>
 
     @if (filteredAndSortedNodes.length === 0) {
       <myiotgrid-empty-state
@@ -103,120 +124,13 @@
     } @else {
       <div class="nodes-grid">
         @for (node of filteredAndSortedNodes; track node.id) {
-          <mat-card class="node-card"
-                    [class.deleting]="isDeleting() === node.id"
-                    (click)="onCardClick(node)">
-            <!-- Card Header mit Status-Indikator -->
-            <div class="card-header">
-              <div class="status-indicator" [class.online]="node.isOnline" [class.offline]="!node.isOnline">
-                <mat-icon>{{ getNodeIcon(node) }}</mat-icon>
-              </div>
-              <div class="node-info">
-                <h3 class="node-name">{{ node.location?.name || node.name }}</h3>
-                <code class="node-id">{{ node.nodeId }}</code>
-              </div>
-              <div class="card-actions">
-                <button mat-icon-button matTooltip="Bearbeiten" (click)="onEdit(node, $event)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button matTooltip="Löschen" color="warn"
-                        [disabled]="isDeleting() === node.id"
-                        (click)="onDelete(node, $event)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </div>
-            </div>
-
-            <!-- Sensoren Liste (klappbar) -->
-            <div class="sensors-content">
-              @if (node.sensors && node.sensors.length > 0) {
-                <!-- Klappbarer Header -->
-                <div class="sensors-header" (click)="toggleSensorsExpanded(node.id, $event)">
-                  <mat-icon class="expand-icon" [class.expanded]="isSensorsExpanded(node.id)">
-                    chevron_right
-                  </mat-icon>
-                  <span class="sensors-count">{{ node.sensors.length }} Sensoren</span>
-                </div>
-
-                <!-- Sensoren-Liste (nur wenn ausgeklappt) -->
-                @if (isSensorsExpanded(node.id)) {
-                  <div class="sensors-list">
-                    @for (sensor of node.sensors; track sensor.id) {
-                      <div class="sensor-row">
-                        <div class="sensor-icon" [style.background-color]="getSensorColor(sensor)">
-                          <mat-icon>{{ getSensorIcon(sensor) }}</mat-icon>
-                        </div>
-                        <span class="sensor-name">{{ sensor.name }}</span>
-                        <span class="sensor-value">
-                          @if (getSensorReading(node.id, sensor.id); as reading) {
-                            {{ reading.value | number:'1.1-1' }} {{ reading.unit }}
-                          } @else {
-                            <span class="no-data">--</span>
-                          }
-                        </span>
-                      </div>
-                    }
-                  </div>
-                }
-              } @else if (getLatestReadings(node.id).length > 0) {
-                <!-- Fallback: Readings ohne Sensor-Objekte -->
-                <div class="sensors-header" (click)="toggleSensorsExpanded(node.id, $event)">
-                  <mat-icon class="expand-icon" [class.expanded]="isSensorsExpanded(node.id)">
-                    chevron_right
-                  </mat-icon>
-                  <span class="sensors-count">{{ getLatestReadings(node.id).length }} Sensoren</span>
-                </div>
-
-                @if (isSensorsExpanded(node.id)) {
-                  <div class="sensors-list">
-                    @for (reading of getLatestReadings(node.id); track reading.id) {
-                      <div class="sensor-row">
-                        <div class="sensor-icon" [style.background-color]="reading.sensorColor || '#607d8b'">
-                          <mat-icon>{{ reading.sensorIcon || 'sensors' }}</mat-icon>
-                        </div>
-                        <span class="sensor-name">{{ reading.sensorName }}</span>
-                        <span class="sensor-value">
-                          {{ reading.value | number:'1.1-1' }} {{ reading.unit }}
-                        </span>
-                      </div>
-                    }
-                  </div>
-                }
-              } @else {
-                <div class="no-sensors">
-                  <mat-icon>sensors_off</mat-icon>
-                  <span>Keine Sensoren</span>
-                </div>
-              }
-            </div>
-
-            <!-- Card Footer -->
-            <div class="card-footer">
-              <div class="status-badge" [class.online]="node.isOnline" [class.offline]="!node.isOnline">
-                <mat-icon>{{ node.isOnline ? 'wifi' : 'wifi_off' }}</mat-icon>
-                <span>{{ node.isOnline ? 'Online' : 'Offline' }}</span>
-              </div>
-              @if (node.lastSeen) {
-                <span class="last-seen">
-                  <mat-icon>visibility</mat-icon>
-                  {{ node.lastSeen | relativeTime }}
-                </span>
-              }
-              @if (node.batteryLevel !== null && node.batteryLevel !== undefined) {
-                <span class="battery">
-                  <mat-icon>battery_{{ node.batteryLevel > 80 ? 'full' : node.batteryLevel > 20 ? 'std' : 'alert' }}</mat-icon>
-                  {{ node.batteryLevel }}%
-                </span>
-              }
-              <span class="spacer"></span>
-              @if (getLastUpdated(node.id); as updated) {
-                <span class="last-updated">
-                  <mat-icon>update</mat-icon>
-                  {{ updated | relativeTime }}
-                </span>
-              }
-            </div>
-          </mat-card>
+          <myiotgrid-node-card
+            [node]="node"
+            [sensorsLatest]="getSensorsLatest(node.id)"
+            [isDeleting]="isDeleting() === node.id"
+            (cardClick)="onCardClick($event)"
+            (configureClick)="onConfigure($event)">
+          </myiotgrid-node-card>
         }
       </div>
     }

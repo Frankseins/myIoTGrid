@@ -1,7 +1,7 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, ViewChild, TemplateRef, ViewContainerRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,13 +14,16 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { NodeApiService, HubApiService, NodeSensorAssignmentApiService, SensorApiService } from '@myiotgrid/shared/data-access';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { Overlay, OverlayRef, OverlayModule } from '@angular/cdk/overlay';
+import { TemplatePortal } from '@angular/cdk/portal';
+import { NodeApiService, HubApiService, NodeSensorAssignmentApiService, SensorApiService, SignalRService, ReadingApiService } from '@myiotgrid/shared/data-access';
 import {
   Node, CreateNodeDto, UpdateNodeDto, Hub, Protocol,
   NodeSensorAssignment, CreateNodeSensorAssignmentDto, UpdateNodeSensorAssignmentDto,
-  Sensor
+  Sensor, NodeSensorsLatest, Reading, QueryParams
 } from '@myiotgrid/shared/models';
-import { LoadingSpinnerComponent } from '@myiotgrid/shared/ui';
+import { LoadingSpinnerComponent, GenericListComponent, GenericListColumn, ListLazyEvent, ListColumnTemplateDirective } from '@myiotgrid/shared/ui';
 import { ConfirmDialogComponent } from '@myiotgrid/shared/ui';
 
 type FormMode = 'view' | 'edit' | 'create';
@@ -31,6 +34,7 @@ type FormMode = 'view' | 'edit' | 'create';
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
@@ -43,24 +47,51 @@ type FormMode = 'view' | 'edit' | 'create';
     MatExpansionModule,
     MatTooltipModule,
     MatDialogModule,
-    LoadingSpinnerComponent
+    MatSlideToggleModule,
+    OverlayModule,
+    LoadingSpinnerComponent,
+    GenericListComponent,
+    ListColumnTemplateDirective
   ],
   templateUrl: './node-form.component.html',
   styleUrl: './node-form.component.scss'
 })
-export class NodeFormComponent implements OnInit {
+export class NodeFormComponent implements OnInit, OnDestroy {
+  @ViewChild('assignmentDrawer') assignmentDrawerTemplate!: TemplateRef<unknown>;
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly overlay = inject(Overlay);
+  private readonly viewContainerRef = inject(ViewContainerRef);
   private readonly nodeApiService = inject(NodeApiService);
   private readonly hubApiService = inject(HubApiService);
   private readonly assignmentApiService = inject(NodeSensorAssignmentApiService);
   private readonly sensorApiService = inject(SensorApiService);
+  private readonly signalRService = inject(SignalRService);
+  private readonly readingApiService = inject(ReadingApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
 
+  private assignmentOverlayRef: OverlayRef | null = null;
+  private timestampInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Effect to sync isSimulation FormControl disabled state with view mode
+  private readonly modeEffect = effect(() => {
+    const viewMode = this.isViewMode();
+    const isSimulationControl = this.form?.get('isSimulation');
+    if (isSimulationControl) {
+      if (viewMode) {
+        isSimulationControl.disable({ emitEvent: false });
+      } else {
+        isSimulationControl.enable({ emitEvent: false });
+      }
+    }
+  });
+
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
+  readonly isDeleting = signal(false);
   readonly mode = signal<FormMode>('view');
   readonly node = signal<Node | null>(null);
   readonly hubs = signal<Hub[]>([]);
@@ -69,9 +100,37 @@ export class NodeFormComponent implements OnInit {
   readonly assignments = signal<NodeSensorAssignment[]>([]);
   readonly availableSensors = signal<Sensor[]>([]);
   readonly isLoadingAssignments = signal(false);
-  readonly showAssignmentForm = signal(false);
+  readonly isAssignmentDrawerOpen = signal(false);
   readonly editingAssignment = signal<NodeSensorAssignment | null>(null);
   assignmentForm!: FormGroup;
+
+  // Sensor Latest Readings (US-8.5.2)
+  readonly sensorsLatest = signal<NodeSensorsLatest | null>(null);
+  readonly isLoadingSensorsLatest = signal(false);
+  readonly timestampRefresh = signal(0); // Trigger for relative time refresh
+
+  // Reading History (Generic Table)
+  readonly readingHistory = signal<Reading[]>([]);
+  readonly isLoadingHistory = signal(false);
+  readonly historyTotalRecords = signal(0);
+  readonly historyColumns: GenericListColumn[] = [
+    { field: 'timestamp', header: 'Zeitstempel', sortable: true, type: 'date' },
+    { field: 'sensorName', header: 'Sensor', sortable: true },
+    { field: 'displayName', header: 'Messtyp', sortable: true },
+    { field: 'value', header: 'Wert', sortable: true, type: 'number' }
+  ];
+  // Field mapping for sorting: frontend camelCase -> backend PascalCase
+  private readonly historyFieldMapping: Record<string, string> = {
+    timestamp: 'Timestamp',
+    sensorName: 'SensorName',
+    displayName: 'DisplayName',
+    measurementType: 'MeasurementType',
+    value: 'Value'
+  };
+  // Current filters for reading history
+  private historyFilters: Record<string, unknown> = {};
+  // Last lazy load event for refresh after filter change
+  private lastHistoryEvent: ListLazyEvent | null = null;
 
   readonly isViewMode = computed(() => this.mode() === 'view');
   readonly isEditMode = computed(() => this.mode() === 'edit');
@@ -90,6 +149,14 @@ export class NodeFormComponent implements OnInit {
   readonly protocols: { value: Protocol; label: string }[] = [
     { value: Protocol.WLAN, label: 'WLAN' },
     { value: Protocol.LoRaWAN, label: 'LoRaWAN' }
+  ];
+
+  // Node types (Sensorart) - Placeholder for future backend enum
+  readonly nodeTypes: { value: string; label: string }[] = [
+    { value: 'esp32', label: 'ESP32' },
+    { value: 'softsensor', label: 'Softsensor' },
+    { value: 'raspberry', label: 'Raspberry Pi' },
+    { value: 'other', label: 'Sonstige' }
   ];
 
   ngOnInit(): void {
@@ -111,7 +178,37 @@ export class NodeFormComponent implements OnInit {
       this.loadNode(id);
       this.loadAssignments(id);
       this.loadAvailableSensors();
+      this.loadSensorsLatest(id);
+      // Reading history is now loaded via Generic Table's lazyLoad event
+      this.setupSignalR(id);
     }
+
+    // Auto-refresh timestamps every 30 seconds
+    this.timestampInterval = setInterval(() => {
+      this.timestampRefresh.update(v => v + 1);
+    }, 30000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.timestampInterval) {
+      clearInterval(this.timestampInterval);
+    }
+    // Cleanup SignalR subscription
+    this.signalRService.off('NewReading');
+  }
+
+  private setupSignalR(nodeId: string): void {
+    // Subscribe to new readings - reload sensorsLatest when new reading for this node arrives
+    this.signalRService.onNewReading((reading: Reading) => {
+      if (reading.nodeId === nodeId) {
+        // Reload latest sensor readings
+        this.loadSensorsLatest(nodeId);
+        // Add to history at the beginning (keep max 10 items for display)
+        const currentHistory = this.readingHistory();
+        this.readingHistory.set([reading, ...currentHistory.slice(0, 9)]);
+        this.historyTotalRecords.update(c => c + 1);
+      }
+    });
   }
 
   private initForm(): void {
@@ -121,7 +218,9 @@ export class NodeFormComponent implements OnInit {
       hubId: ['', [Validators.required]],
       protocol: [Protocol.WLAN, [Validators.required]],
       locationName: [''],
-      firmwareVersion: ['']
+      nodeType: ['esp32'],  // Default: ESP32
+      firmwareVersion: [''],
+      isSimulation: [false]
     });
   }
 
@@ -145,7 +244,13 @@ export class NodeFormComponent implements OnInit {
 
   private loadHubs(): void {
     this.hubApiService.getAll().subscribe({
-      next: (hubs) => this.hubs.set(hubs),
+      next: (hubs) => {
+        this.hubs.set(hubs);
+        // Set default hub if in create mode and no hub is selected
+        if (this.isCreateMode() && hubs.length > 0 && !this.form.get('hubId')?.value) {
+          this.form.patchValue({ hubId: hubs[0].id });
+        }
+      },
       error: (error) => console.error('Error loading hubs:', error)
     });
   }
@@ -168,6 +273,134 @@ export class NodeFormComponent implements OnInit {
         console.error('Error loading assignments:', error);
         this.isLoadingAssignments.set(false);
       }
+    });
+  }
+
+  private loadSensorsLatest(nodeId: string): void {
+    this.isLoadingSensorsLatest.set(true);
+    this.nodeApiService.getSensorsLatest(nodeId).subscribe({
+      next: (data) => {
+        this.sensorsLatest.set(data);
+        this.isLoadingSensorsLatest.set(false);
+      },
+      error: (error) => {
+        console.error('Error loading sensors latest:', error);
+        this.isLoadingSensorsLatest.set(false);
+      }
+    });
+  }
+
+  /** Lazy load readings for Generic List */
+  loadReadingsLazy(event: ListLazyEvent): void {
+    const nodeId = this.node()?.id;
+    if (!nodeId) return;
+
+    // Store event for filter refresh
+    this.lastHistoryEvent = event;
+
+    this.isLoadingHistory.set(true);
+
+    // Build QueryParams for backend
+    const page = Math.floor(event.first / event.rows);
+    const sortField = event.sortField ? (this.historyFieldMapping[event.sortField] || event.sortField) : 'Timestamp';
+    const sortDir = event.sortOrder === -1 ? 'desc' : 'asc';
+
+    // Merge nodeId with additional filters from drawer, convert to strings
+    const filters: Record<string, string> = { nodeId };
+    for (const [key, value] of Object.entries(this.historyFilters)) {
+      if (value != null && value !== '') {
+        filters[key] = String(value);
+      }
+    }
+
+    const params: QueryParams = {
+      page,
+      size: event.rows,
+      sort: `${sortField},${sortDir}`,
+      search: event.globalFilter || undefined,
+      filters
+    };
+
+    this.readingApiService.getPaged(params).subscribe({
+      next: (result) => {
+        this.readingHistory.set(result.items);
+        this.historyTotalRecords.set(result.totalRecords);
+        this.isLoadingHistory.set(false);
+      },
+      error: (error) => {
+        console.error('Error loading reading history:', error);
+        this.isLoadingHistory.set(false);
+      }
+    });
+  }
+
+  /** Handle filter changes from Generic List filter drawer */
+  onHistoryFilterChange(filters: Record<string, unknown>): void {
+    this.historyFilters = filters;
+    // Reload with new filters - reset to first page
+    if (this.lastHistoryEvent) {
+      this.loadReadingsLazy({ ...this.lastHistoryEvent, first: 0 });
+    }
+  }
+
+  /** Get unique sensor names from assignments for filter dropdown */
+  getAssignedSensorNames(): { value: string; label: string }[] {
+    return this.assignments().map(a => ({
+      value: a.sensorCode,
+      label: a.alias || a.sensorName
+    }));
+  }
+
+  /** Get unique measurement types from available sensors for filter dropdown */
+  getMeasurementTypes(): { value: string; label: string }[] {
+    const types = new Map<string, string>();
+    for (const sensor of this.availableSensors()) {
+      for (const cap of sensor.capabilities || []) {
+        if (!types.has(cap.measurementType)) {
+          types.set(cap.measurementType, cap.displayName);
+        }
+      }
+    }
+    return Array.from(types.entries()).map(([value, label]) => ({ value, label }));
+  }
+
+  /** Converts a timestamp to a relative time string (e.g., "vor 19 Sekunden") */
+  getRelativeTime(timestamp: string): string {
+    // Reference timestampRefresh to trigger updates
+    this.timestampRefresh();
+
+    const now = new Date();
+    // Backend returns UTC timestamps without 'Z' suffix - append it for correct parsing
+    const utcTimestamp = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
+    const date = new Date(utcTimestamp);
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+
+    if (diffSec < 5) return 'gerade eben';
+    if (diffSec < 60) return `vor ${diffSec} Sekunden`;
+
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `vor ${diffMin} Minute${diffMin !== 1 ? 'n' : ''}`;
+
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `vor ${diffHour} Stunde${diffHour !== 1 ? 'n' : ''}`;
+
+    const diffDay = Math.floor(diffHour / 24);
+    if (diffDay < 7) return `vor ${diffDay} Tag${diffDay !== 1 ? 'en' : ''}`;
+
+    return date.toLocaleDateString('de-DE');
+  }
+
+  /** Formats a timestamp for table display */
+  formatTimestamp(timestamp: string): string {
+    const date = new Date(timestamp);
+    return date.toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
     });
   }
 
@@ -194,7 +427,8 @@ export class NodeFormComponent implements OnInit {
       hubId: node.hubId,
       protocol: node.protocol ?? Protocol.WLAN,
       locationName: node.location?.name || '',
-      firmwareVersion: node.firmwareVersion || ''
+      firmwareVersion: node.firmwareVersion || '',
+      isSimulation: node.isSimulation || false
     });
     // Note: We use [readonly] in the template instead of disable()
     // to keep the form valid while preventing edits
@@ -233,7 +467,8 @@ export class NodeFormComponent implements OnInit {
       const dto: UpdateNodeDto = {
         name: formValue.name,
         location: formValue.locationName ? { name: formValue.locationName } : undefined,
-        firmwareVersion: formValue.firmwareVersion || undefined
+        firmwareVersion: formValue.firmwareVersion || undefined,
+        isSimulation: formValue.isSimulation
       };
 
       this.nodeApiService.update(this.node()!.id, dto).subscribe({
@@ -288,16 +523,9 @@ export class NodeFormComponent implements OnInit {
     }
   }
 
-  getProtocolIcon(): string {
-    const protocol = this.form.get('protocol')?.value;
-    switch (protocol) {
-      case Protocol.WLAN:
-        return 'wifi';
-      case Protocol.LoRaWAN:
-        return 'cell_tower';
-      default:
-        return 'router';
-    }
+  getNodeTypeLabel(nodeType: string): string {
+    const type = this.nodeTypes.find(t => t.value === nodeType);
+    return type?.label ?? 'Unbekannt';
   }
 
   // === Sensor Assignment Methods ===
@@ -320,12 +548,20 @@ export class NodeFormComponent implements OnInit {
     return sensor?.color || '#666';
   }
 
+  /** Get capabilities (measurement types) for a sensor by its code */
+  getSensorCapabilities(sensorCode: string): string[] {
+    const sensor = this.availableSensors().find(s => s.code === sensorCode);
+    return sensor?.capabilities?.map(c => c.displayName) || [];
+  }
+
   getUnassignedSensors(): Sensor[] {
     const assignedSensorIds = this.assignments().map(a => a.sensorId);
     return this.availableSensors().filter(s => !assignedSensorIds.includes(s.id));
   }
 
   openAssignmentForm(assignment?: NodeSensorAssignment): void {
+    if (this.assignmentOverlayRef) return;
+
     this.editingAssignment.set(assignment || null);
 
     if (assignment) {
@@ -364,14 +600,95 @@ export class NodeFormComponent implements OnInit {
         isActive: true
       });
       this.assignmentForm.get('sensorId')?.enable();
+
+      // Subscribe to sensor selection to prefill default values
+      this.setupSensorSelectionListener();
     }
 
-    this.showAssignmentForm.set(true);
+    // Open drawer via CDK Overlay
+    this.isAssignmentDrawerOpen.set(true);
+
+    const positionStrategy = this.overlay.position()
+      .global()
+      .right('0')
+      .top('0');
+
+    this.assignmentOverlayRef = this.overlay.create({
+      positionStrategy,
+      hasBackdrop: true,
+      backdropClass: 'gt-drawer-backdrop',
+      panelClass: ['gt-drawer-panel'],
+      width: '420px',
+      height: '100vh',
+      scrollStrategy: this.overlay.scrollStrategies.block()
+    });
+
+    this.assignmentOverlayRef.backdropClick().subscribe(() => this.closeAssignmentDrawer());
+
+    const portal = new TemplatePortal(this.assignmentDrawerTemplate, this.viewContainerRef);
+    this.assignmentOverlayRef.attach(portal);
+
+    // Trigger animation after attach
+    requestAnimationFrame(() => {
+      this.assignmentOverlayRef?.addPanelClass('open');
+    });
+  }
+
+  private sensorSelectionSubscription: { unsubscribe: () => void } | null = null;
+
+  private setupSensorSelectionListener(): void {
+    // Use subscription to prefill default values when sensor is selected
+    this.sensorSelectionSubscription = this.assignmentForm.get('sensorId')?.valueChanges.subscribe(sensorId => {
+      if (sensorId) {
+        this.prefillSensorDefaults(sensorId);
+      }
+    }) || null;
+  }
+
+  private prefillSensorDefaults(sensorId: string): void {
+    const sensor = this.availableSensors().find(s => s.id === sensorId);
+    if (!sensor) return;
+
+    // Prefill the form with sensor default values (as placeholders/suggestions)
+    this.assignmentForm.patchValue({
+      i2cAddressOverride: sensor.i2cAddress || '',
+      sdaPinOverride: sensor.sdaPin ?? null,
+      sclPinOverride: sensor.sclPin ?? null,
+      oneWirePinOverride: sensor.oneWirePin ?? null,
+      analogPinOverride: sensor.analogPin ?? null,
+      digitalPinOverride: sensor.digitalPin ?? null,
+      triggerPinOverride: sensor.triggerPin ?? null,
+      echoPinOverride: sensor.echoPin ?? null,
+      intervalSecondsOverride: sensor.intervalSeconds ?? null
+    });
+  }
+
+  getSelectedSensor(): Sensor | undefined {
+    const sensorId = this.assignmentForm.get('sensorId')?.value;
+    return this.availableSensors().find(s => s.id === sensorId);
+  }
+
+  closeAssignmentDrawer(): void {
+    if (this.assignmentOverlayRef) {
+      this.assignmentOverlayRef.removePanelClass('open');
+      // Wait for animation to complete before disposing
+      setTimeout(() => {
+        this.assignmentOverlayRef?.dispose();
+        this.assignmentOverlayRef = null;
+      }, 200);
+    }
+    this.isAssignmentDrawerOpen.set(false);
+    this.editingAssignment.set(null);
+
+    // Clean up sensor selection subscription
+    if (this.sensorSelectionSubscription) {
+      this.sensorSelectionSubscription.unsubscribe();
+      this.sensorSelectionSubscription = null;
+    }
   }
 
   cancelAssignmentForm(): void {
-    this.showAssignmentForm.set(false);
-    this.editingAssignment.set(null);
+    this.closeAssignmentDrawer();
   }
 
   saveAssignment(): void {
@@ -492,6 +809,38 @@ export class NodeFormComponent implements OnInit {
       error: (error) => {
         console.error('Error toggling assignment:', error);
         this.snackBar.open('Fehler beim Ändern des Status', 'Schließen', { duration: 5000 });
+      }
+    });
+  }
+
+  /** Node löschen */
+  deleteNode(): void {
+    const node = this.node();
+    if (!node) return;
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Node löschen',
+        message: `Möchten Sie den Node "${node.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`,
+        confirmText: 'Löschen',
+        cancelText: 'Abbrechen'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.isDeleting.set(true);
+        this.nodeApiService.remove(node.id).subscribe({
+          next: () => {
+            this.snackBar.open('Node gelöscht', 'Schließen', { duration: 3000 });
+            this.router.navigate(['/nodes']);
+          },
+          error: (error) => {
+            console.error('Error deleting node:', error);
+            this.snackBar.open('Fehler beim Löschen des Nodes', 'Schließen', { duration: 5000 });
+            this.isDeleting.set(false);
+          }
+        });
       }
     });
   }

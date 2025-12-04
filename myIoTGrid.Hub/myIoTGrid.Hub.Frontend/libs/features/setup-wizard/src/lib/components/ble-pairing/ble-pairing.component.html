@@ -1,0 +1,130 @@
+<div class="ble-pairing-container">
+  <mat-card class="pairing-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="step-icon">bluetooth_searching</mat-icon>
+      <mat-card-title>BLE-Pairing</mat-card-title>
+      <mat-card-subtitle>Schritt 1 von 5 - Node verbinden</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!isBluetoothSupported()) {
+        <div class="error-section">
+          <mat-icon class="error-icon">bluetooth_disabled</mat-icon>
+          <h3>Bluetooth nicht verfügbar</h3>
+          <p>{{ errorMessage() }}</p>
+          <p class="hint">
+            Alternative: Sie können auch einen Node manuell über die Node-Verwaltung
+            hinzufügen, wenn Sie die MAC-Adresse kennen.
+          </p>
+        </div>
+      } @else {
+        <div class="scan-section">
+          <div class="scan-header">
+            <h3>Verfügbare Geräte</h3>
+            @if (scanState() === 'scanning') {
+              <mat-chip color="primary">
+                <mat-spinner diameter="16"></mat-spinner>
+                Suche läuft...
+              </mat-chip>
+            }
+          </div>
+
+          <div class="scan-controls">
+            @if (scanState() === 'idle' || scanState() === 'error') {
+              <button mat-flat-button color="primary" (click)="startScan()">
+                <mat-icon>bluetooth_searching</mat-icon>
+                Nach Geräten suchen
+              </button>
+            } @else if (scanState() === 'scanning') {
+              <button mat-stroked-button (click)="stopScan()">
+                <mat-icon>stop</mat-icon>
+                Suche beenden
+              </button>
+            }
+          </div>
+
+          @if (errorMessage() && scanState() === 'error') {
+            <div class="error-message">
+              <mat-icon>warning</mat-icon>
+              <span>{{ errorMessage() }}</span>
+            </div>
+          }
+
+          <div class="device-list">
+            @if (devices().length === 0 && scanState() === 'idle') {
+              <div class="empty-state">
+                <mat-icon>devices</mat-icon>
+                <p>Keine Geräte gefunden</p>
+                <p class="hint">Klicken Sie auf "Nach Geräten suchen", um den Scan zu starten.</p>
+              </div>
+            } @else if (scanState() === 'scanning' && devices().length === 0) {
+              <div class="scanning-state">
+                <mat-spinner diameter="48"></mat-spinner>
+                <p>Suche nach myIoTGrid Nodes...</p>
+                <p class="hint">Stellen Sie sicher, dass der Node eingeschaltet ist und sich in Reichweite befindet.</p>
+              </div>
+            } @else {
+              <mat-selection-list [multiple]="false">
+                @for (device of devices(); track device.id) {
+                  <mat-list-option
+                    [value]="device"
+                    [selected]="selectedDevice()?.id === device.id"
+                    (click)="selectDevice(device)"
+                    [class.selected]="selectedDevice()?.id === device.id"
+                  >
+                    <mat-icon matListItemIcon>memory</mat-icon>
+                    <div matListItemTitle class="device-name">{{ device.name }}</div>
+                    <div matListItemLine class="device-info">
+                      <span class="mac-address">{{ device.macAddress }}</span>
+                      <span class="signal-strength" [class]="getSignalStrengthClass(device.rssi)">
+                        <mat-icon>{{ getSignalStrengthIcon(device.rssi) }}</mat-icon>
+                        {{ device.rssi }} dBm
+                      </span>
+                    </div>
+                  </mat-list-option>
+                }
+              </mat-selection-list>
+            }
+          </div>
+        </div>
+
+        @if (scanState() === 'connecting') {
+          <div class="connecting-overlay">
+            <mat-spinner diameter="64"></mat-spinner>
+            <h3>Verbinde mit {{ selectedDevice()?.name }}...</h3>
+            <p>Bitte warten Sie einen Moment.</p>
+          </div>
+        }
+
+        @if (scanState() === 'connected') {
+          <div class="connected-overlay">
+            <mat-icon class="success-icon">check_circle</mat-icon>
+            <h3>Verbunden!</h3>
+            <p>{{ selectedDevice()?.name }}</p>
+          </div>
+        }
+      }
+    </mat-card-content>
+
+    <mat-divider></mat-divider>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="onCancel()">
+        Abbrechen
+      </button>
+      <button mat-button (click)="onBack()">
+        <mat-icon>arrow_back</mat-icon>
+        Zurück
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        [disabled]="!selectedDevice() || scanState() === 'scanning' || scanState() === 'connecting'"
+        (click)="connectToDevice()"
+      >
+        <mat-icon>bluetooth_connected</mat-icon>
+        Verbinden
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

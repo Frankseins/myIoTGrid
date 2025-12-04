@@ -8,7 +8,15 @@ export const SENSORS_ROUTES: Routes = [
     component: SensorListComponent
   },
   {
+    path: 'new',
+    component: SensorFormComponent
+  },
+  {
     path: ':id',
+    component: SensorFormComponent
+  },
+  {
+    path: ':id/edit',
     component: SensorFormComponent
   }
 ];

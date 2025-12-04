@@ -1,0 +1,21 @@
+.chart-container {
+  width: 100%;
+  position: relative;
+  // Ensure canvas receives pointer events
+  pointer-events: auto;
+
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+    // Ensure canvas is interactive
+    pointer-events: auto;
+    cursor: crosshair;
+  }
+}
+
+// Chart.js tooltip styling override (if needed)
+:host ::ng-deep {
+  .chartjs-tooltip {
+    pointer-events: none;
+  }
+}

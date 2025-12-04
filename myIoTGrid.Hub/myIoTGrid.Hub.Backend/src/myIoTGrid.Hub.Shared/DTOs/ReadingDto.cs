@@ -10,7 +10,13 @@ public record ReadingDto(
     Guid NodeId,
     string NodeName,
     Guid? AssignmentId,
+    Guid? SensorId,
+    string SensorCode,
+    string SensorName,
+    string? SensorIcon,
+    string? SensorColor,
     string MeasurementType,
+    string DisplayName,
     double RawValue,
     double Value,
     string Unit,
@@ -76,5 +82,10 @@ public record CreateSensorReadingDto(
     string Type,
     double Value,
     string? Unit = null,
-    long? Timestamp = null
+    long? Timestamp = null,
+    /// <summary>
+    /// Optional EndpointId to identify which sensor assignment this reading belongs to.
+    /// Required when multiple sensors have the same measurement type (e.g., BME280 and DHT22 both measure temperature).
+    /// </summary>
+    int? EndpointId = null
 );

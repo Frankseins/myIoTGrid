@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using myIoTGrid.Hub.Domain.Enums;
 using myIoTGrid.Hub.Domain.Interfaces;
 using myIoTGrid.Hub.Infrastructure.Data;
 using myIoTGrid.Hub.Service.Extensions;
@@ -120,6 +121,15 @@ public class NodeSensorAssignmentService : INodeSensorAssignmentService
         var assignment = dto.ToEntity(nodeId);
 
         _context.NodeSensorAssignments.Add(assignment);
+
+        // Update Node status to Configured when first sensor is assigned
+        var node = await _context.Nodes.FirstOrDefaultAsync(n => n.Id == nodeId, ct);
+        if (node != null && node.Status == NodeStatus.Unconfigured)
+        {
+            node.Status = NodeStatus.Configured;
+            _logger.LogInformation("Node {NodeId} status changed to Configured after first sensor assignment", nodeId);
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         // Reload with navigation properties

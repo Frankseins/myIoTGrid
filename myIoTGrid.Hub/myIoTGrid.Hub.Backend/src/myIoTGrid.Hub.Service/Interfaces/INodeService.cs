@@ -67,4 +67,12 @@ public interface INodeService
 
     /// <summary>Regenerates API key for a node (for security purposes)</summary>
     Task<NodeConfigurationDto?> RegenerateApiKeyAsync(Guid nodeId, string wifiSsid, string wifiPassword, string hubApiUrl, CancellationToken ct = default);
+
+    // === Sensor Latest Readings ===
+
+    /// <summary>
+    /// Gets the latest readings for each sensor assigned to a node.
+    /// Groups by sensor (not by measurement type) to show unique sensors with their last values.
+    /// </summary>
+    Task<NodeSensorsLatestDto?> GetSensorsLatestAsync(Guid nodeId, CancellationToken ct = default);
 }

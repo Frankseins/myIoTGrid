@@ -277,7 +277,8 @@ public class HubControllerTests
             BatteryLevel: 100,
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
-            Status: NodeProvisioningStatusDto.Configured
+            Status: NodeProvisioningStatusDto.Configured,
+            IsSimulation: false
         );
     }
 

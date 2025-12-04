@@ -1,15 +1,67 @@
-<div class="dashboard">
-  <!-- Header -->
-  <header class="dashboard-header">
-    <div class="header-content">
-      <h1 class="page-title">Dashboard</h1>
-      <myiotgrid-connection-status></myiotgrid-connection-status>
-    </div>
-  </header>
-
-  @if (isLoading()) {
+<div class="dashboard-page">
+  @if (!initialLoadDone()) {
     <myiotgrid-loading-spinner message="Dashboard wird geladen..."></myiotgrid-loading-spinner>
+  } @else if (totalWidgets() === 0 && !hasActiveFilters()) {
+    <div class="empty-state-container">
+      <div class="empty-state-content">
+        <mat-icon class="empty-state-icon">sensors</mat-icon>
+        <h2 class="empty-state-title">Keine Sensordaten</h2>
+        <p class="empty-state-message">Es wurden noch keine Sensordaten empfangen. Stellen Sie sicher, dass Ihre Nodes konfiguriert sind und Daten senden.</p>
+        <div class="empty-state-actions">
+          <button mat-flat-button color="primary" (click)="navigateToNodes()">
+            <mat-icon>router</mat-icon>
+            Nodes verwalten
+          </button>
+        </div>
+      </div>
+    </div>
   } @else {
+    <!-- Page Header wie bei Nodes -->
+    <header class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Sensordaten im Überblick</p>
+      </div>
+      <myiotgrid-connection-status></myiotgrid-connection-status>
+    </header>
+
+    <!-- Toolbar im O365-Style -->
+    <mat-toolbar class="toolbar outlook-toolbar">
+      <div class="left-actions">
+        <button mat-stroked-button color="primary" (click)="togglePeriod()">
+          <mat-icon>schedule</mat-icon>
+          {{ selectedPeriodLabel() }}
+        </button>
+      </div>
+
+      <span class="spacer"></span>
+
+      <!-- Ergebnis-Info in Toolbar -->
+      <span class="results-count">{{ totalWidgets() }} Widgets</span>
+
+      <!-- Aktualisieren -->
+      <button type="button" mat-icon-button class="tbar-icon"
+              (click)="refresh()"
+              matTooltip="Aktualisieren">
+        <mat-icon>refresh</mat-icon>
+      </button>
+
+      <!-- Filter -->
+      <button type="button" mat-icon-button class="tbar-icon"
+              [class.active]="hasActiveFilters()"
+              (click)="toggleFilter()"
+              [matTooltip]="hasActiveFilters() ? 'Filter (aktiv)' : 'Filter'">
+        <mat-icon>filter_list</mat-icon>
+      </button>
+
+      @if (hasActiveFilters()) {
+        <button mat-icon-button class="tbar-icon" matTooltip="Filter zurücksetzen"
+                (click)="clearFilters(); refresh()">
+          <mat-icon>clear</mat-icon>
+        </button>
+      }
+    </mat-toolbar>
+
     <!-- Alerts Banner -->
     @if (criticalAlerts().length > 0 || warningAlerts().length > 0) {
       <section class="alerts-section">
@@ -28,70 +80,152 @@
       </section>
     }
 
-    <!-- Stats Overview -->
-    <section class="stats-section">
-      <mat-card class="stat-card">
-        <mat-card-content>
-          <mat-icon class="stat-icon hubs">hub</mat-icon>
-          <div class="stat-info">
-            <span class="stat-value">{{ onlineHubs().length }}/{{ hubs().length }}</span>
-            <span class="stat-label">Hubs Online</span>
+    @if (totalWidgets() === 0 && hasActiveFilters()) {
+      <myiotgrid-empty-state
+        icon="search_off"
+        title="Keine Widgets gefunden"
+        message="Keine Sensordaten entsprechen den aktuellen Filterkriterien."
+        actionLabel="Filter zurücksetzen"
+        (actionClicked)="clearFilters(); refresh()">
+      </myiotgrid-empty-state>
+    } @else {
+      <!-- Hero Locations (Full Width) -->
+      @for (location of heroLocations(); track location.locationName) {
+        <section class="location-section hero-section">
+          <div class="widgets-grid hero-grid">
+            @for (widget of location.widgets; track widget.widgetId) {
+              <myiotgrid-sensor-widget
+                [widget]="widget"
+                [isHero]="true"
+                (widgetClick)="onWidgetClick($event)">
+              </myiotgrid-sensor-widget>
+            }
           </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="stat-card">
-        <mat-card-content>
-          <mat-icon class="stat-icon online">router</mat-icon>
-          <div class="stat-info">
-            <span class="stat-value">{{ onlineNodes().length }}</span>
-            <span class="stat-label">Nodes Online</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="stat-card">
-        <mat-card-content>
-          <mat-icon class="stat-icon offline">router</mat-icon>
-          <div class="stat-info">
-            <span class="stat-value">{{ offlineNodes().length }}</span>
-            <span class="stat-label">Nodes Offline</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="stat-card">
-        <mat-card-content>
-          <mat-icon class="stat-icon warning">warning</mat-icon>
-          <div class="stat-info">
-            <span class="stat-value">{{ activeAlerts().length }}</span>
-            <span class="stat-label">Warnungen</span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </section>
-
-    <!-- Nodes Grid -->
-    <section class="nodes-section">
-      <h2 class="section-title">Nodes</h2>
-
-      @if (nodes().length === 0) {
-        <myiotgrid-empty-state
-          icon="router"
-          title="Keine Nodes"
-          message="Es wurden noch keine Nodes registriert. Verbinden Sie einen ESP32 oder LoRa32 Node mit dem Hub."
-          actionLabel="Mehr erfahren">
-        </myiotgrid-empty-state>
-      } @else {
-        <div class="nodes-grid">
-          @for (node of nodes(); track node.id) {
-            <myiotgrid-node-card
-              [node]="node"
-              [latestReadings]="getLatestReadingsForNode(node.id)">
-            </myiotgrid-node-card>
-          }
-        </div>
+        </section>
       }
-    </section>
+
+      <!-- Regular Locations -->
+      @for (location of regularLocations(); track location.locationName) {
+        <section class="location-section">
+          <h2 class="location-title">
+            <mat-icon class="location-icon">{{ getLocationIcon(location) }}</mat-icon>
+            {{ location.locationName }}
+          </h2>
+          <div class="widgets-grid">
+            @for (widget of location.widgets; track widget.widgetId) {
+              <myiotgrid-sensor-widget
+                [widget]="widget"
+                [isHero]="false"
+                (widgetClick)="onWidgetClick($event)">
+              </myiotgrid-sensor-widget>
+            }
+          </div>
+        </section>
+      }
+    }
   }
 </div>
+
+<!-- Filter-Drawer Template -->
+<ng-template #filterDrawer>
+  <div class="gt-drawer gt-filter-drawer">
+    <div class="gt-drawer__header">
+      <h3 class="gt-drawer__title">Dashboard filtern</h3>
+      <button mat-icon-button (click)="closeFilter()" aria-label="Schließen">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="gt-drawer__body">
+      <div class="gt-drawer__inner">
+        @if (filterOptions()) {
+          <!-- Standort Filter -->
+          <div class="filter-section">
+            <h4 class="filter-section-title">
+              <mat-icon>location_on</mat-icon>
+              Standorte
+            </h4>
+            <div class="filter-chips">
+              @for (location of filterOptions()!.locations; track location) {
+                <mat-chip-option
+                  [selected]="isLocationSelected(location)"
+                  (click)="toggleLocation(location)">
+                  {{ location }}
+                </mat-chip-option>
+              }
+            </div>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <!-- Messungsart Filter -->
+          <div class="filter-section">
+            <h4 class="filter-section-title">
+              <mat-icon>sensors</mat-icon>
+              Messungsart
+            </h4>
+            <div class="filter-chips">
+              @for (type of filterOptions()!.measurementTypes; track type) {
+                <mat-chip-option
+                  [selected]="isMeasurementTypeSelected(type)"
+                  (click)="toggleMeasurementType(type)">
+                  <mat-icon class="chip-icon">{{ getMeasurementTypeIcon(type) }}</mat-icon>
+                  {{ getMeasurementTypeLabel(type) }}
+                </mat-chip-option>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="filter-loading">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>Filteroptionen werden geladen...</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="drawer-buttons">
+      <button mat-button (click)="clearFilters()">
+        <mat-icon>clear</mat-icon> Zurücksetzen
+      </button>
+      <button mat-flat-button color="primary" (click)="applyFilters()">
+        <mat-icon>check</mat-icon> Anwenden
+      </button>
+    </div>
+  </div>
+</ng-template>
+
+<!-- Period-Drawer Template -->
+<ng-template #periodDrawer>
+  <div class="gt-drawer gt-period-drawer">
+    <div class="gt-drawer__header">
+      <h3 class="gt-drawer__title">Zeitraum wählen</h3>
+      <button mat-icon-button (click)="closePeriod()" aria-label="Schließen">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="gt-drawer__body">
+      <div class="gt-drawer__inner">
+        <div class="period-options">
+          @for (option of periodOptions; track option.value) {
+            <button mat-stroked-button
+                    class="period-option"
+                    [class.selected]="selectedPeriod() === option.value"
+                    (click)="selectPeriod(option.value)">
+              <mat-icon>schedule</mat-icon>
+              <span class="period-label">{{ option.label }}</span>
+              <span class="period-badge">{{ option.shortLabel }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-buttons">
+      <button mat-flat-button color="primary" (click)="applyPeriod()">
+        <mat-icon>check</mat-icon> Anwenden
+      </button>
+    </div>
+  </div>
+</ng-template>

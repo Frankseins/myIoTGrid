@@ -14,6 +14,9 @@
 
 # Environment files
 /.env
+.env
+.env.local
+.env.*.local
 
 # Angular CLI and build artefacts
 /.angular-cli.json
@@ -26,3 +29,25 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# SSL Certificates (NEVER commit private keys!)
+certs/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# IDE Files
+.idea/
+*.iml
+.vscode/
+.vs/
+
+# Claude Code / AI
+.claude/
+.cursor/

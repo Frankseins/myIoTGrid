@@ -1,0 +1,11 @@
+<mat-button-toggle-group
+  class="interval-selector"
+  [value]="selectedInterval"
+  (change)="onIntervalChange($event.value)"
+>
+  @for (interval of intervals; track interval) {
+    <mat-button-toggle [value]="interval">
+      {{ labels[interval] }}
+    </mat-button-toggle>
+  }
+</mat-button-toggle-group>

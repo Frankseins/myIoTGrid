@@ -1,0 +1,174 @@
+# =============================================================================
+# myIoTGrid - Complete Docker Stack
+# =============================================================================
+# Services:
+# - hub-api:      Backend API (.NET 10) - Port 5001 (HTTPS + UDP Discovery)
+# - hub-frontend: Frontend (Angular/nginx) - Port 443 (HTTPS)
+# - mosquitto:    MQTT Broker - Port 1883, 9001
+# - sensor-sim:   Sensor Simulator (Native) - Test sensor with auto-discovery
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Backend API (.NET 10) - Port 5001 (HTTPS + UDP Discovery)
+  # ---------------------------------------------------------------------------
+  hub-api:
+    build:
+      context: ./myIoTGrid.Hub/myIoTGrid.Hub.Backend
+      dockerfile: src/myIoTGrid.Hub.Api/Dockerfile
+    image: ghcr.io/frankseins/myiotgrid/hub-api:latest
+    container_name: myIoTGrid.Hub
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+      - "5001:5001/udp"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=https://+:5001
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/app/certs/fullchain.pem
+      - ASPNETCORE_Kestrel__Certificates__Default__KeyPath=/app/certs/privkey.pem
+      - ConnectionStrings__HubDb=Data Source=/app/data/hub.db
+      - Mqtt__Host=mosquitto
+      - Mqtt__Port=1883
+      - Hub__DefaultTenantName=Default
+      - Discovery__Enabled=true
+      - Discovery__Port=5001
+      - Discovery__Protocol=https
+      - Discovery__ApiPort=5001
+    volumes:
+      - hub-data:/app/data
+      - hub-logs:/app/logs
+      - hub-certs:/app/certs
+    networks:
+      - myiotgrid-network
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.myiotgrid.service=hub-api"
+      - "com.myiotgrid.description=Backend API (HTTPS)"
+
+  # ---------------------------------------------------------------------------
+  # Frontend (Angular + nginx with HTTPS) - Port 443
+  # ---------------------------------------------------------------------------
+  hub-frontend:
+    build:
+      context: ./myIoTGrid.Hub/myIoTGrid.Hub.Frontend
+      dockerfile: docker/Dockerfile
+    image: ghcr.io/frankseins/myiotgrid/hub-frontend:latest
+    container_name: myIoTGrid.Frontend
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - myiotgrid-network
+    depends_on:
+      hub-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "com.myiotgrid.service=hub-frontend"
+      - "com.myiotgrid.description=Frontend UI (HTTPS)"
+
+  # ---------------------------------------------------------------------------
+  # MQTT Broker (Mosquitto)
+  # ---------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: myIoTGrid.Mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-logs:/mosquitto/log
+    networks:
+      - myiotgrid-network
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "com.myiotgrid.service=mosquitto"
+      - "com.myiotgrid.description=MQTT Broker"
+
+  # ---------------------------------------------------------------------------
+  # Sensor Simulator (Native Build) - Auto-discovers Hub via UDP broadcast
+  # ---------------------------------------------------------------------------
+  sensor-sim:
+    build:
+      context: ./myIoTGrid.Sensor
+      dockerfile: docker/Dockerfile
+    image: ghcr.io/frankseins/myiotgrid/sensor-sim:latest
+    container_name: myIoTGrid.Sensor
+    restart: unless-stopped
+    environment:
+      # Manual fallback config (used if discovery fails)
+      - HUB_HOST=hub-api
+      - HUB_PORT=5001
+      - HUB_PROTOCOL=https
+      - HUB_INSECURE=true
+      # Discovery configuration
+      - DISCOVERY_ENABLED=true
+      - DISCOVERY_PORT=5001
+      - SENSOR_ID=sim-sensor-01
+      - DATA_DIR=/data
+    volumes:
+      - sensor-data:/data
+    networks:
+      - myiotgrid-network
+    depends_on:
+      hub-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pgrep", "-x", "sensor"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.myiotgrid.service=sensor-sim"
+      - "com.myiotgrid.description=Test Sensor Simulator"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  myiotgrid-network:
+    driver: bridge
+    name: myiotgrid-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  hub-data:
+    name: myiotgrid-hub-data
+  hub-logs:
+    name: myiotgrid-hub-logs
+  hub-certs:
+    name: myiotgrid-hub-certs
+  mosquitto-data:
+    name: myiotgrid-mosquitto-data
+  mosquitto-logs:
+    name: myiotgrid-mosquitto-logs
+  sensor-data:
+    name: myiotgrid-sensor-data

@@ -24,6 +24,9 @@ void StateMachine::processEvent(StateEvent event) {
                     transitionTo(NodeState::CONFIGURED);
                     break;
                 case StateEvent::NO_CONFIG:
+                    // Stay in UNCONFIGURED - native will try discovery, ESP32 will start BLE
+                    // handleUnconfiguredState() will handle the next steps
+                    break;
                 case StateEvent::BLE_PAIR_START:
                     transitionTo(NodeState::PAIRING);
                     break;

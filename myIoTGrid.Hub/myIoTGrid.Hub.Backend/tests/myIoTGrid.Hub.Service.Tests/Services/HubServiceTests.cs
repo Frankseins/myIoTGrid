@@ -462,5 +462,140 @@ public class HubServiceTests : IDisposable
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task GetDefaultHubAsync_WithExistingHub_ReturnsHub()
+    {
+        // Arrange
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            HubId = "default-hub",
+            Name = "Default Hub",
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetDefaultHubAsync();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.HubId.Should().Be("default-hub");
+    }
+
+    [Fact]
+    public async Task GetDefaultHubAsync_WithNoHub_CreatesDefaultHub()
+    {
+        // Act
+        var result = await _sut.GetDefaultHubAsync();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.HubId.Should().Be("my-iot-hub");
+        result.Name.Should().Be("My IoT Hub");
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_WithNodes_ReturnsCorrectCounts()
+    {
+        // Arrange
+        var hubId = Guid.NewGuid();
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = hubId,
+            TenantId = _tenantId,
+            HubId = "hub-with-nodes",
+            Name = "Hub With Nodes",
+            IsOnline = true,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _context.Nodes.Add(new Node
+        {
+            Id = Guid.NewGuid(),
+            HubId = hubId,
+            NodeId = "node-1",
+            Name = "Online Node",
+            IsOnline = true,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _context.Nodes.Add(new Node
+        {
+            Id = Guid.NewGuid(),
+            HubId = hubId,
+            NodeId = "node-2",
+            Name = "Offline Node",
+            IsOnline = false,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetStatusAsync();
+
+        // Assert
+        result.NodeCount.Should().Be(2);
+        result.OnlineNodeCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetCurrentHubAsync_IncludesNodes()
+    {
+        // Arrange
+        var hubId = Guid.NewGuid();
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = hubId,
+            TenantId = _tenantId,
+            HubId = "hub-with-nodes",
+            Name = "Hub With Nodes",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _context.Nodes.Add(new Node
+        {
+            Id = Guid.NewGuid(),
+            HubId = hubId,
+            NodeId = "node-1",
+            Name = "Test Node",
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetCurrentHubAsync();
+
+        // Assert
+        result.SensorCount.Should().Be(1); // SensorCount is actually NodeCount in the mapping
+    }
+
+    [Fact]
+    public async Task UpdateCurrentHubAsync_WithAllProperties_UpdatesAllFields()
+    {
+        // Arrange
+        var hubId = Guid.NewGuid();
+        _context.Hubs.Add(new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = hubId,
+            TenantId = _tenantId,
+            HubId = "original-hub",
+            Name = "Original Name",
+            Description = null,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdateHubDto(Name: "Updated Name", Description: "New Description");
+
+        // Act
+        var result = await _sut.UpdateCurrentHubAsync(dto);
+
+        // Assert
+        result.Name.Should().Be("Updated Name");
+        result.Description.Should().Be("New Description");
+    }
+
     #endregion
 }

@@ -20,7 +20,8 @@ public record NodeDto(
     int? BatteryLevel,
     DateTime CreatedAt,
     string MacAddress,
-    NodeProvisioningStatusDto Status
+    NodeProvisioningStatusDto Status,
+    bool IsSimulation
 );
 
 /// <summary>
@@ -41,7 +42,8 @@ public record CreateNodeDto(
 public record UpdateNodeDto(
     string? Name = null,
     LocationDto? Location = null,
-    string? FirmwareVersion = null
+    string? FirmwareVersion = null,
+    bool? IsSimulation = null
 );
 
 /// <summary>
@@ -141,4 +143,53 @@ public record NodeHeartbeatResponseDto(
     bool Success,
     DateTime ServerTime,
     int? NextHeartbeatSeconds = null
+);
+
+/// <summary>
+/// DTO for node sensor configuration response.
+/// Returns full sensor configuration for the node to start measuring.
+/// </summary>
+public record NodeSensorConfigurationDto(
+    Guid NodeId,
+    string SerialNumber,
+    string Name,
+    bool IsSimulation,
+    int DefaultIntervalSeconds,
+    List<SensorAssignmentConfigDto> Sensors,
+    DateTime ConfigurationTimestamp
+);
+
+/// <summary>
+/// Individual sensor assignment configuration for a node.
+/// Contains all pin and timing configuration for the sensor.
+/// </summary>
+public record SensorAssignmentConfigDto(
+    int EndpointId,
+    string SensorCode,
+    string SensorName,
+    string? Icon,
+    string? Color,
+    bool IsActive,
+    int IntervalSeconds,
+    string? I2CAddress,
+    int? SdaPin,
+    int? SclPin,
+    int? OneWirePin,
+    int? AnalogPin,
+    int? DigitalPin,
+    int? TriggerPin,
+    int? EchoPin,
+    double OffsetCorrection,
+    double GainCorrection,
+    List<SensorCapabilityConfigDto> Capabilities
+);
+
+/// <summary>
+/// Sensor capability configuration for the firmware.
+/// Tells the sensor which measurement types to capture and their units.
+/// </summary>
+public record SensorCapabilityConfigDto(
+    string MeasurementType,
+    string DisplayName,
+    string Unit
 );

@@ -19,3 +19,5 @@ export * from './reading.model';
 export * from './unified-node.model';
 export * from './alert-type.model';
 export * from './alert.model';
+export * from './dashboard.model';
+export * from './chart.model';

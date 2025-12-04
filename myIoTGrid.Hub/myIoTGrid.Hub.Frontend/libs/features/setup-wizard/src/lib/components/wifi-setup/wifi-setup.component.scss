@@ -1,0 +1,232 @@
+.wifi-setup-container {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+.wifi-card {
+  max-width: 600px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+
+  mat-card-header {
+    .step-icon {
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
+      color: var(--mat-primary-color, #1976d2);
+    }
+  }
+}
+
+.device-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--mat-sys-surface-container-low, #f5f5f5);
+  border-radius: 8px;
+  margin-bottom: 24px;
+
+  mat-icon {
+    color: var(--mat-primary-color, #1976d2);
+  }
+
+  span {
+    color: var(--mat-sys-on-surface-variant, #666);
+  }
+}
+
+.wifi-form {
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.scanning-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+
+  span {
+    color: var(--mat-sys-on-surface-variant, #666);
+  }
+}
+
+.network-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--mat-sys-outline-variant, #e0e0e0);
+  border-radius: 8px;
+}
+
+.network-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-low, #f5f5f5);
+  }
+
+  &:focus {
+    outline: 2px solid var(--mat-primary-color, #1976d2);
+    outline-offset: -2px;
+  }
+
+  &.selected {
+    background: var(--mat-sys-primary-container, #e3f2fd);
+
+    .wifi-icon {
+      color: var(--mat-primary-color, #1976d2);
+    }
+  }
+
+  .wifi-icon {
+    color: var(--mat-sys-on-surface-variant, #666);
+  }
+
+  .network-name {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  .lock-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--mat-sys-on-surface-variant, #999);
+  }
+}
+
+.no-networks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  color: var(--mat-sys-on-surface-variant, #666);
+
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 8px;
+  }
+}
+
+mat-divider {
+  margin: 24px 0;
+}
+
+.credentials-section {
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--mat-warn-container, #ffebee);
+  border-radius: 8px;
+  margin-top: 16px;
+
+  mat-icon {
+    color: var(--mat-warn-color, #f44336);
+  }
+
+  span {
+    color: var(--mat-sys-on-surface, #1a1a1a);
+  }
+}
+
+.configuring-overlay,
+.success-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 10;
+
+  h3 {
+    margin: 24px 0 8px 0;
+    color: var(--mat-sys-on-surface, #1a1a1a);
+  }
+
+  p {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant, #666);
+  }
+}
+
+.success-overlay {
+  .success-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: var(--mat-success-color, #4caf50);
+  }
+}
+
+mat-card-actions {
+  padding: 16px;
+  gap: 8px;
+
+  button {
+    mat-icon {
+      margin-right: 4px;
+    }
+  }
+}
+
+// Responsive
+@media (max-width: 600px) {
+  .wifi-setup-container {
+    padding: 16px;
+  }
+
+  .network-list {
+    max-height: 150px;
+  }
+}

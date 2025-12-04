@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { Node, CreateNodeDto, UpdateNodeDto, Sensor, QueryParams, PagedResult } from '@myiotgrid/shared/models';
+import { Node, CreateNodeDto, UpdateNodeDto, Sensor, QueryParams, PagedResult, NodeSensorsLatest } from '@myiotgrid/shared/models';
 import { queryParamsToObject } from './api-query.helper';
 
 @Injectable({ providedIn: 'root' })
@@ -86,5 +86,14 @@ export class NodeApiService extends BaseApiService {
    */
   updateStatus(id: string, isOnline: boolean): Observable<void> {
     return this.put<void>(`${this.endpoint}/${id}/status`, { isOnline });
+  }
+
+  /**
+   * Get the latest readings for each sensor assigned to a node.
+   * Groups by sensor (not by measurement type) to show unique sensors.
+   * GET /api/nodes/{id}/sensors/latest
+   */
+  getSensorsLatest(nodeId: string): Observable<NodeSensorsLatest> {
+    return this.get<NodeSensorsLatest>(`${this.endpoint}/${nodeId}/sensors/latest`);
   }
 }

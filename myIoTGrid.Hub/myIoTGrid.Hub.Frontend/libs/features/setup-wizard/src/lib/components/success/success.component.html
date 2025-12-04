@@ -1,0 +1,146 @@
+<div class="success-container">
+  <mat-card class="success-card">
+    <mat-card-content>
+      <div class="success-header">
+        <div class="success-icon-wrapper">
+          <mat-icon class="success-icon">check_circle</mat-icon>
+        </div>
+        <h1>Node erfolgreich eingerichtet!</h1>
+        <p class="success-subtitle">
+          Ihr neuer Sensor-Node ist jetzt einsatzbereit und mit dem Hub verbunden.
+        </p>
+      </div>
+
+      <div class="summary-section">
+        <h2>
+          <mat-icon>summarize</mat-icon>
+          Zusammenfassung
+        </h2>
+
+        <div class="summary-cards">
+          <!-- Node Info -->
+          <div class="summary-card">
+            <div class="card-header">
+              <mat-icon>{{ nodeInfo()?.icon || 'memory' }}</mat-icon>
+              <span>Node</span>
+            </div>
+            <div class="card-content">
+              <div class="info-row">
+                <span class="label">Name:</span>
+                <span class="value">{{ nodeInfo()?.name || createdNode()?.name }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Standort:</span>
+                <span class="value">{{ nodeInfo()?.location || createdNode()?.location?.name || '-' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">MAC:</span>
+                <span class="value mac">{{ bleDevice()?.macAddress || createdNode()?.macAddress }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- WiFi Info -->
+          <div class="summary-card">
+            <div class="card-header">
+              <mat-icon>wifi</mat-icon>
+              <span>WiFi</span>
+            </div>
+            <div class="card-content">
+              <div class="info-row">
+                <span class="label">Netzwerk:</span>
+                <span class="value">{{ wifiCredentials()?.ssid || 'Konfiguriert' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Status:</span>
+                <mat-chip class="status-chip online">
+                  <mat-icon>signal_wifi_4_bar</mat-icon>
+                  Verbunden
+                </mat-chip>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sensor Info (if configured) -->
+          @if (sensor()) {
+            <div class="summary-card">
+              <div class="card-header">
+                <mat-icon>sensors</mat-icon>
+                <span>Sensor</span>
+              </div>
+              <div class="card-content">
+                <div class="info-row">
+                  <span class="label">Typ:</span>
+                  <span class="value">{{ sensor()?.name }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Intervall:</span>
+                  <span class="value">{{ sensor()?.intervalSeconds }} Sekunden</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="next-steps">
+        <h2>
+          <mat-icon>arrow_forward</mat-icon>
+          Nächste Schritte
+        </h2>
+
+        <div class="steps-list">
+          <div class="step-item">
+            <mat-icon>dashboard</mat-icon>
+            <div class="step-content">
+              <strong>Dashboard prüfen</strong>
+              <span>Sehen Sie Ihre ersten Messwerte im Dashboard</span>
+            </div>
+          </div>
+          @if (!sensor()) {
+            <div class="step-item">
+              <mat-icon>add_circle</mat-icon>
+              <div class="step-content">
+                <strong>Sensor hinzufügen</strong>
+                <span>Ordnen Sie dem Node einen Sensor zu</span>
+              </div>
+            </div>
+          }
+          <div class="step-item">
+            <mat-icon>notifications</mat-icon>
+            <div class="step-content">
+              <strong>Alerts konfigurieren</strong>
+              <span>Richten Sie Benachrichtigungen für Grenzwerte ein</span>
+            </div>
+          </div>
+          <div class="step-item">
+            <mat-icon>devices_other</mat-icon>
+            <div class="step-content">
+              <strong>Weitere Nodes hinzufügen</strong>
+              <span>Erweitern Sie Ihr Sensornetzwerk</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-divider></mat-divider>
+
+    <mat-card-actions align="end" class="centered-actions">
+      <button mat-stroked-button (click)="addAnotherNode()">
+        <mat-icon>add</mat-icon>
+        Weiteren Node einrichten
+      </button>
+      <button mat-stroked-button (click)="goToNodeList()">
+        <mat-icon>list</mat-icon>
+        Zur Node-Übersicht
+      </button>
+      <button mat-flat-button color="primary" (click)="goToNode()">
+        <mat-icon>open_in_new</mat-icon>
+        Node öffnen
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

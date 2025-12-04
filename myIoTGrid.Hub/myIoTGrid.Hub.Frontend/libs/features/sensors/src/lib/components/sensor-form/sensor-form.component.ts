@@ -7,7 +7,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -25,6 +25,7 @@ import {
   SensorCapability,
   CreateSensorDto,
   UpdateSensorDto,
+  UpdateSensorCapabilityDto,
   CommunicationProtocol,
   COMMUNICATION_PROTOCOL_LABELS
 } from '@myiotgrid/shared/models';
@@ -98,6 +99,61 @@ export class SensorFormComponent implements OnInit {
     { value: 'custom', label: 'Benutzerdefiniert' }
   ];
 
+  // Measurement Type options for capabilities
+  readonly measurementTypeOptions = [
+    { value: 'temperature', label: 'Temperatur', unit: '°C', matterClusterId: 1026, matterClusterName: 'TemperatureMeasurement' },
+    { value: 'humidity', label: 'Luftfeuchtigkeit', unit: '%', matterClusterId: 1029, matterClusterName: 'RelativeHumidityMeasurement' },
+    { value: 'pressure', label: 'Luftdruck', unit: 'hPa', matterClusterId: 1027, matterClusterName: 'PressureMeasurement' },
+    { value: 'illuminance', label: 'Helligkeit', unit: 'lux', matterClusterId: 1024, matterClusterName: 'IlluminanceMeasurement' },
+    { value: 'co2', label: 'CO₂', unit: 'ppm', matterClusterId: 64516, matterClusterName: 'CarbonDioxideMeasurement' },
+    { value: 'pm25', label: 'Feinstaub PM2.5', unit: 'µg/m³', matterClusterId: 64517, matterClusterName: 'PM25Measurement' },
+    { value: 'pm10', label: 'Feinstaub PM10', unit: 'µg/m³', matterClusterId: 64518, matterClusterName: 'PM10Measurement' },
+    { value: 'water_temperature', label: 'Wassertemperatur', unit: '°C', matterClusterId: 64513, matterClusterName: 'WaterTemperature' },
+    { value: 'water_level', label: 'Wasserstand', unit: 'cm', matterClusterId: 64512, matterClusterName: 'WaterLevel' },
+    { value: 'soil_moisture', label: 'Bodenfeuchtigkeit', unit: '%', matterClusterId: 64519, matterClusterName: 'SoilMoisture' },
+    { value: 'uv_index', label: 'UV-Index', unit: 'index', matterClusterId: 64520, matterClusterName: 'UVIndex' },
+    { value: 'wind_speed', label: 'Windgeschwindigkeit', unit: 'm/s', matterClusterId: 64521, matterClusterName: 'WindSpeed' },
+    { value: 'rainfall', label: 'Niederschlag', unit: 'mm', matterClusterId: 64522, matterClusterName: 'Rainfall' },
+    { value: 'battery', label: 'Batterie', unit: '%', matterClusterId: 64523, matterClusterName: 'BatteryLevel' },
+    { value: 'rssi', label: 'Signalstärke', unit: 'dBm', matterClusterId: 64524, matterClusterName: 'RSSI' },
+    { value: 'latitude', label: 'Breitengrad', unit: '°', matterClusterId: null, matterClusterName: null },
+    { value: 'longitude', label: 'Längengrad', unit: '°', matterClusterId: null, matterClusterName: null },
+    { value: 'altitude', label: 'Höhe', unit: 'm', matterClusterId: null, matterClusterName: null },
+    { value: 'speed', label: 'Geschwindigkeit', unit: 'km/h', matterClusterId: null, matterClusterName: null },
+    { value: 'distance', label: 'Entfernung', unit: 'cm', matterClusterId: null, matterClusterName: null },
+    { value: 'ph', label: 'pH-Wert', unit: 'pH', matterClusterId: 64514, matterClusterName: 'PHValue' },
+    { value: 'custom', label: 'Benutzerdefiniert', unit: '', matterClusterId: null, matterClusterName: null }
+  ];
+
+  // Unit options for capabilities
+  readonly unitOptions = [
+    { value: '°C', label: '°C (Celsius)' },
+    { value: '°F', label: '°F (Fahrenheit)' },
+    { value: 'K', label: 'K (Kelvin)' },
+    { value: '%', label: '% (Prozent)' },
+    { value: 'hPa', label: 'hPa (Hektopascal)' },
+    { value: 'mbar', label: 'mbar (Millibar)' },
+    { value: 'lux', label: 'lux (Lux)' },
+    { value: 'ppm', label: 'ppm (Parts per Million)' },
+    { value: 'µg/m³', label: 'µg/m³ (Mikrogramm pro m³)' },
+    { value: 'cm', label: 'cm (Zentimeter)' },
+    { value: 'm', label: 'm (Meter)' },
+    { value: 'mm', label: 'mm (Millimeter)' },
+    { value: 'm/s', label: 'm/s (Meter pro Sekunde)' },
+    { value: 'km/h', label: 'km/h (Kilometer pro Stunde)' },
+    { value: 'dBm', label: 'dBm (Dezibel-Milliwatt)' },
+    { value: 'V', label: 'V (Volt)' },
+    { value: 'mV', label: 'mV (Millivolt)' },
+    { value: 'A', label: 'A (Ampere)' },
+    { value: 'mA', label: 'mA (Milliampere)' },
+    { value: 'W', label: 'W (Watt)' },
+    { value: 'kWh', label: 'kWh (Kilowattstunde)' },
+    { value: '°', label: '° (Grad)' },
+    { value: 'pH', label: 'pH' },
+    { value: 'index', label: 'Index' },
+    { value: 'count', label: 'Anzahl' }
+  ];
+
   // Selected protocol for showing correct pin fields
   readonly selectedProtocol = signal<CommunicationProtocol | null>(null);
 
@@ -110,17 +166,26 @@ export class SensorFormComponent implements OnInit {
 
   form!: FormGroup;
 
+  // Capabilities FormArray getter
+  get capabilitiesFormArray(): FormArray {
+    return this.form.get('capabilities') as FormArray;
+  }
+
   ngOnInit(): void {
     this.initForm();
 
     const id = this.route.snapshot.paramMap.get('id');
+    const url = this.route.snapshot.url.map(s => s.path).join('/');
     const queryMode = this.route.snapshot.queryParamMap.get('mode');
 
-    if (id === 'new') {
+    // Check if this is the 'new' route (no :id parameter)
+    if (!id || id === 'new' || url.includes('new')) {
       this.mode.set('create');
       this.isLoading.set(false);
     } else if (id) {
-      this.mode.set(queryMode === 'edit' ? 'edit' : 'view');
+      // Check if editing (route ends with /edit or query param mode=edit)
+      const isEditRoute = url.endsWith('edit') || queryMode === 'edit';
+      this.mode.set(isEditRoute ? 'edit' : 'view');
       this.loadSensor(id);
     }
   }
@@ -171,7 +236,10 @@ export class SensorFormComponent implements OnInit {
       datasheetUrl: [''],
 
       // Status
-      isActive: [true]
+      isActive: [true],
+
+      // Capabilities FormArray
+      capabilities: this.fb.array([])
     });
 
     // Update selectedProtocol when protocol changes
@@ -240,6 +308,80 @@ export class SensorFormComponent implements OnInit {
     });
 
     this.selectedProtocol.set(sensor.protocol);
+
+    // Load capabilities into FormArray
+    this.capabilitiesFormArray.clear();
+    if (sensor.capabilities) {
+      sensor.capabilities.forEach(cap => {
+        this.capabilitiesFormArray.push(this.createCapabilityFormGroup(cap));
+      });
+    }
+  }
+
+  /**
+   * Creates a FormGroup for a capability
+   */
+  private createCapabilityFormGroup(capability?: SensorCapability): FormGroup {
+    return this.fb.group({
+      id: [capability?.id || null],
+      measurementType: [capability?.measurementType || '', [Validators.required]],
+      displayName: [capability?.displayName || '', [Validators.required]],
+      unit: [capability?.unit || '', [Validators.required]],
+      minValue: [capability?.minValue ?? null],
+      maxValue: [capability?.maxValue ?? null],
+      resolution: [capability?.resolution ?? 0.01],
+      accuracy: [capability?.accuracy ?? 0.5],
+      matterClusterId: [capability?.matterClusterId ?? null],
+      matterClusterName: [capability?.matterClusterName || ''],
+      sortOrder: [capability?.sortOrder ?? 0],
+      isActive: [capability?.isActive ?? true]
+    });
+  }
+
+  /**
+   * Adds a new capability to the FormArray
+   */
+  addCapability(): void {
+    this.capabilitiesFormArray.push(this.createCapabilityFormGroup());
+  }
+
+  /**
+   * Removes a capability from the FormArray
+   */
+  removeCapability(index: number): void {
+    this.capabilitiesFormArray.removeAt(index);
+  }
+
+  /**
+   * Called when measurement type changes - auto-fills related fields
+   */
+  onMeasurementTypeChange(index: number, measurementType: string): void {
+    const option = this.measurementTypeOptions.find(o => o.value === measurementType);
+    if (option && measurementType !== 'custom') {
+      const capGroup = this.capabilitiesFormArray.at(index);
+      capGroup.patchValue({
+        displayName: option.label,
+        unit: option.unit,
+        matterClusterId: option.matterClusterId,
+        matterClusterName: option.matterClusterName
+      });
+    }
+  }
+
+  /**
+   * Gets the label for a measurement type value
+   */
+  getMeasurementTypeLabel(value: string): string {
+    const option = this.measurementTypeOptions.find(o => o.value === value);
+    return option?.label || value;
+  }
+
+  /**
+   * Gets the label for a unit value
+   */
+  getUnitLabel(value: string): string {
+    const option = this.unitOptions.find(o => o.value === value);
+    return option?.label || value;
   }
 
   onSave(): void {
@@ -300,6 +442,22 @@ export class SensorFormComponent implements OnInit {
         }
       });
     } else {
+      // Build capabilities DTOs
+      const capabilitiesDtos: UpdateSensorCapabilityDto[] = formValue.capabilities.map((cap: Record<string, unknown>) => ({
+        id: cap['id'] || undefined,
+        measurementType: cap['measurementType'] || undefined,
+        displayName: cap['displayName'] || undefined,
+        unit: cap['unit'] || undefined,
+        minValue: cap['minValue'] ?? undefined,
+        maxValue: cap['maxValue'] ?? undefined,
+        resolution: cap['resolution'] ?? undefined,
+        accuracy: cap['accuracy'] ?? undefined,
+        matterClusterId: cap['matterClusterId'] ?? undefined,
+        matterClusterName: cap['matterClusterName'] || undefined,
+        sortOrder: cap['sortOrder'] ?? undefined,
+        isActive: cap['isActive'] ?? true
+      }));
+
       const updateDto: UpdateSensorDto = {
         name: formValue.name,
         manufacturer: formValue.manufacturer || undefined,
@@ -333,7 +491,10 @@ export class SensorFormComponent implements OnInit {
         datasheetUrl: formValue.datasheetUrl || undefined,
 
         // Status
-        isActive: formValue.isActive
+        isActive: formValue.isActive,
+
+        // Capabilities
+        capabilities: capabilitiesDtos
       };
 
       const currentId = this.sensor()?.id;

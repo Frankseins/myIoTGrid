@@ -4,6 +4,7 @@
 dist
 tmp
 out-tsc
+build
 
 # dependencies
 node_modules
@@ -31,6 +32,7 @@ node_modules
 /libpeerconnection.log
 npm-debug.log
 yarn-error.log
+pnpm-debug.log*
 testem.log
 /typings
 
@@ -38,9 +40,29 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# NX
 .nx/cache
 .nx/workspace-data
+
+# Cursor / Claude
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
+.claude/
 
+# Angular
 .angular
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# ESLint cache
+.eslintcache
+
+# Storybook
+storybook-static/
+
+# Test results
+test-results/
+playwright-report/

@@ -4,6 +4,7 @@ using Moq;
 using myIoTGrid.Hub.Interface.Controllers;
 using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Shared.DTOs;
+using myIoTGrid.Hub.Shared.DTOs.Common;
 
 namespace myIoTGrid.Hub.Interface.Tests.Controllers;
 
@@ -14,6 +15,7 @@ namespace myIoTGrid.Hub.Interface.Tests.Controllers;
 public class ReadingsControllerTests
 {
     private readonly Mock<IReadingService> _readingServiceMock;
+    private readonly Mock<IChartService> _chartServiceMock;
     private readonly ReadingsController _sut;
 
     private readonly Guid _tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -23,7 +25,8 @@ public class ReadingsControllerTests
     public ReadingsControllerTests()
     {
         _readingServiceMock = new Mock<IReadingService>();
-        _sut = new ReadingsController(_readingServiceMock.Object);
+        _chartServiceMock = new Mock<IChartService>();
+        _sut = new ReadingsController(_readingServiceMock.Object, _chartServiceMock.Object);
     }
 
     #region Create Tests
@@ -71,6 +74,195 @@ public class ReadingsControllerTests
 
         // Assert
         result.Should().BeOfType<CreatedAtActionResult>();
+    }
+
+    [Fact]
+    public async Task Create_WithEmptyDeviceId_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateSensorReadingDto(
+            DeviceId: "",
+            Type: "temperature",
+            Value: 21.5
+        );
+
+        // Act
+        var result = await _sut.Create(dto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequestResult.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("DeviceId");
+    }
+
+    [Fact]
+    public async Task Create_WithNullDeviceId_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateSensorReadingDto(
+            DeviceId: null!,
+            Type: "temperature",
+            Value: 21.5
+        );
+
+        // Act
+        var result = await _sut.Create(dto, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_WithWhitespaceDeviceId_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateSensorReadingDto(
+            DeviceId: "   ",
+            Type: "temperature",
+            Value: 21.5
+        );
+
+        // Act
+        var result = await _sut.Create(dto, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_WithEmptyType_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateSensorReadingDto(
+            DeviceId: "node-01",
+            Type: "",
+            Value: 21.5
+        );
+
+        // Act
+        var result = await _sut.Create(dto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequestResult.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("Type");
+    }
+
+    [Fact]
+    public async Task Create_WithNullType_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateSensorReadingDto(
+            DeviceId: "node-01",
+            Type: null!,
+            Value: 21.5
+        );
+
+        // Act
+        var result = await _sut.Create(dto, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_WithWhitespaceType_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateSensorReadingDto(
+            DeviceId: "node-01",
+            Type: "   ",
+            Value: 21.5
+        );
+
+        // Act
+        var result = await _sut.Create(dto, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    #endregion
+
+    #region GetPaged Tests
+
+    [Fact]
+    public async Task GetPaged_ReturnsOkWithPagedResult()
+    {
+        // Arrange
+        var queryParams = new QueryParamsDto { Page = 0, Size = 10 };
+        var readings = new List<ReadingDto>
+        {
+            CreateReadingDto(1, "temperature", 21.5),
+            CreateReadingDto(2, "humidity", 65.0)
+        };
+        var pagedResult = new PagedResultDto<ReadingDto>
+        {
+            Items = readings,
+            TotalRecords = 2,
+            Page = 0,
+            Size = 10
+        };
+
+        _readingServiceMock.Setup(s => s.GetPagedAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _sut.GetPaged(queryParams, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var returnedResult = okResult.Value.Should().BeOfType<PagedResultDto<ReadingDto>>().Subject;
+        returnedResult.TotalRecords.Should().Be(2);
+        returnedResult.Items.Should().HaveCount(2);
+        returnedResult.TotalPages.Should().Be(1); // Computed property
+    }
+
+    [Fact]
+    public async Task GetPaged_WithDefaultParams_ReturnsOk()
+    {
+        // Arrange
+        var queryParams = new QueryParamsDto();
+        var pagedResult = new PagedResultDto<ReadingDto>
+        {
+            Items = new List<ReadingDto>(),
+            TotalRecords = 0,
+            Page = 0,
+            Size = 10
+        };
+
+        _readingServiceMock.Setup(s => s.GetPagedAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _sut.GetPaged(queryParams, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetPaged_WithSearchFilter_PassesParamsToService()
+    {
+        // Arrange
+        var queryParams = new QueryParamsDto { Search = "temperature", Page = 0, Size = 5 };
+        var pagedResult = new PagedResultDto<ReadingDto>
+        {
+            Items = new List<ReadingDto> { CreateReadingDto(1, "temperature", 21.5) },
+            TotalRecords = 1,
+            Page = 0,
+            Size = 5
+        };
+
+        _readingServiceMock.Setup(s => s.GetPagedAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _sut.GetPaged(queryParams, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        _readingServiceMock.Verify(s => s.GetPagedAsync(queryParams, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
@@ -299,7 +491,13 @@ public class ReadingsControllerTests
             NodeId: _nodeId,
             NodeName: "Test Node",
             AssignmentId: _assignmentId,
+            SensorId: Guid.NewGuid(),
+            SensorCode: "BME280",
+            SensorName: "BME280 Sensor",
+            SensorIcon: "thermostat",
+            SensorColor: "#FF5722",
             MeasurementType: measurementType,
+            DisplayName: measurementType,
             RawValue: value,
             Value: value,
             Unit: measurementType == "temperature" ? "°C" : "%",

@@ -1,0 +1,66 @@
+<div class="setup-wizard-container">
+  <!-- Progress Header -->
+  <header class="wizard-header">
+    <div class="header-content">
+      <div class="wizard-title">
+        <mat-icon>add_circle</mat-icon>
+        <h1>Node Setup-Assistent</h1>
+      </div>
+
+      <div class="step-indicators">
+        @for (step of steps; track step.step; let i = $index) {
+          <div
+            class="step-indicator"
+            [class.completed]="isStepCompleted(step.step)"
+            [class.active]="isStepActive(step.step)"
+          >
+            <div class="step-icon">
+              @if (isStepCompleted(step.step)) {
+                <mat-icon class="completed-icon">check</mat-icon>
+              } @else {
+                <mat-icon>{{ step.icon }}</mat-icon>
+              }
+            </div>
+            <span class="step-label">{{ step.label }}</span>
+          </div>
+          @if (i < steps.length - 1) {
+            <div
+              class="step-connector"
+              [class.completed]="isStepCompleted(steps[i + 1].step)"
+            ></div>
+          }
+        }
+      </div>
+    </div>
+
+    <mat-progress-bar
+      mode="determinate"
+      [value]="progress()"
+      class="progress-bar"
+    ></mat-progress-bar>
+  </header>
+
+  <!-- Step Content -->
+  <main class="wizard-content">
+    @switch (currentStep()) {
+      @case ('welcome') {
+        <myiotgrid-setup-welcome />
+      }
+      @case ('ble-pairing') {
+        <myiotgrid-ble-pairing />
+      }
+      @case ('wifi-setup') {
+        <myiotgrid-wifi-setup />
+      }
+      @case ('node-info') {
+        <myiotgrid-node-info />
+      }
+      @case ('first-sensor') {
+        <myiotgrid-first-sensor />
+      }
+      @case ('success') {
+        <myiotgrid-success />
+      }
+    }
+  </main>
+</div>

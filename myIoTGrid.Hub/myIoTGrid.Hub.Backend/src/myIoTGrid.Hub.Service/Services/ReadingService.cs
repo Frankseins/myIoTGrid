@@ -76,7 +76,7 @@ public class ReadingService : IReadingService
             {
                 TenantId = tenantId,
                 NodeId = node.Id,
-                AssignmentId = Guid.Empty, // No assignment
+                AssignmentId = null, // No assignment
                 MeasurementType = dto.MeasurementType.ToLowerInvariant(),
                 RawValue = dto.RawValue,
                 Value = dto.RawValue, // No calibration without assignment
@@ -131,6 +131,8 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .FirstAsync(r => r.Id == reading.Id, ct);
 
         var readingDto = reading.ToDto();
@@ -149,15 +151,25 @@ public class ReadingService : IReadingService
     {
         var tenantId = _tenantService.GetCurrentTenantId();
 
-        // DeviceId from sensor is the Node's internal GUID (returned from registration)
-        if (!Guid.TryParse(dto.DeviceId, out var nodeGuid))
-        {
-            throw new InvalidOperationException($"Invalid DeviceId format: {dto.DeviceId}. Expected GUID.");
-        }
+        // DeviceId from sensor can be either:
+        // 1. GUID (internal Node ID)
+        // 2. NodeId/SerialNumber (e.g., SIM-8F470D6C-0001 or ESP-AABBCCDD)
+        Node? node = null;
 
-        // Find Node by GUID
-        var node = await _context.Nodes
-            .FirstOrDefaultAsync(n => n.Id == nodeGuid, ct);
+        if (Guid.TryParse(dto.DeviceId, out var nodeGuid))
+        {
+            // Find Node by GUID
+            node = await _context.Nodes
+                .Include(n => n.Hub)
+                .FirstOrDefaultAsync(n => n.Id == nodeGuid && n.Hub!.TenantId == tenantId, ct);
+        }
+        else
+        {
+            // Find Node by NodeId (SerialNumber)
+            node = await _context.Nodes
+                .Include(n => n.Hub)
+                .FirstOrDefaultAsync(n => n.NodeId == dto.DeviceId && n.Hub!.TenantId == tenantId, ct);
+        }
 
         if (node == null)
         {
@@ -169,16 +181,82 @@ public class ReadingService : IReadingService
             ? DateTimeOffset.FromUnixTimeSeconds(dto.Timestamp.Value).UtcDateTime
             : DateTime.UtcNow;
 
-        // Create reading without assignment lookup (simplified sensor flow)
+        var measurementType = dto.Type.ToLowerInvariant();
+
+        // Try to find Assignment - prioritize EndpointId if provided, otherwise match by MeasurementType
+        NodeSensorAssignment? assignment;
+
+        if (dto.EndpointId.HasValue)
+        {
+            // Use EndpointId to find the specific assignment (more precise when multiple sensors have same capability)
+            assignment = await _context.NodeSensorAssignments
+                .Include(a => a.Sensor)
+                    .ThenInclude(s => s.Capabilities)
+                .Where(a => a.NodeId == node.Id && a.IsActive && a.EndpointId == dto.EndpointId.Value)
+                .FirstOrDefaultAsync(ct);
+        }
+        else
+        {
+            // Fallback: match by MeasurementType to Sensor Capabilities
+            assignment = await _context.NodeSensorAssignments
+                .Include(a => a.Sensor)
+                    .ThenInclude(s => s.Capabilities)
+                .Where(a => a.NodeId == node.Id && a.IsActive)
+                .Where(a => a.Sensor.Capabilities.Any(c =>
+                    c.MeasurementType.ToLower() == measurementType))
+                .FirstOrDefaultAsync(ct);
+        }
+
+        Guid? assignmentId = assignment?.Id;
+        var sensor = assignment?.Sensor;
+        var unit = dto.Unit ?? string.Empty;
+        var calibratedValue = dto.Value;
+        SensorCapability? capabilityForMapping = null;
+
+        if (assignment != null && sensor != null)
+        {
+            // Apply calibration if we have an assignment
+            calibratedValue = _effectiveConfigService.ApplyCalibration(dto.Value, sensor);
+
+            // Get unit from capability
+            var capability = sensor.Capabilities
+                .FirstOrDefault(c => c.MeasurementType.Equals(measurementType, StringComparison.OrdinalIgnoreCase));
+            if (capability != null && string.IsNullOrEmpty(dto.Unit))
+            {
+                unit = capability.Unit ?? string.Empty;
+            }
+
+            _logger.LogDebug("Found assignment {AssignmentId} for {NodeId} {MeasurementType}",
+                assignmentId, node.NodeId, measurementType);
+        }
+        else
+        {
+            // No assignment found - try to find a capability from any sensor that matches this measurementType
+            // This allows us to display a proper name like "Temperatur" instead of "temperature"
+            capabilityForMapping = await _context.SensorCapabilities
+                .Include(c => c.Sensor)
+                .Where(c => c.MeasurementType.ToLower() == measurementType)
+                .FirstOrDefaultAsync(ct);
+
+            if (capabilityForMapping != null && string.IsNullOrEmpty(dto.Unit))
+            {
+                unit = capabilityForMapping.Unit ?? string.Empty;
+            }
+
+            _logger.LogDebug("No assignment found for {NodeId} {MeasurementType}, using capability lookup (found: {Found})",
+                node.NodeId, measurementType, capabilityForMapping != null);
+        }
+
+        // Create reading with assignment if found
         var reading = new Reading
         {
             TenantId = tenantId,
             NodeId = node.Id,
-            AssignmentId = null, // Sensor readings without assignments
-            MeasurementType = dto.Type.ToLowerInvariant(),
+            AssignmentId = assignmentId,
+            MeasurementType = measurementType,
             RawValue = dto.Value,
-            Value = dto.Value, // No calibration without assignment
-            Unit = dto.Unit ?? string.Empty,
+            Value = calibratedValue,
+            Unit = unit,
             Timestamp = timestamp,
             IsSyncedToCloud = false
         };
@@ -193,15 +271,19 @@ public class ReadingService : IReadingService
         reading = await _context.Readings
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .FirstAsync(r => r.Id == reading.Id, ct);
 
-        var readingDto = reading.ToDto();
+        // Use capability lookup for mapping if no assignment (to get proper DisplayName)
+        var readingDto = reading.ToDto(capabilityForMapping);
 
         // SignalR Notification
         await _signalRNotificationService.NotifyNewReadingAsync(readingDto, ct);
 
-        _logger.LogDebug("Sensor reading created: {NodeId} {Type}={Value} {Unit}",
-            node.NodeId, dto.Type, dto.Value, dto.Unit ?? "");
+        _logger.LogDebug("Sensor reading created: {NodeId} {Type}={RawValue} -> {CalibratedValue} {Unit} (Assignment: {AssignmentId})",
+            node.NodeId, dto.Type, dto.Value, calibratedValue, unit, assignmentId?.ToString() ?? "none");
 
         return readingDto;
     }
@@ -214,6 +296,8 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
         return reading?.ToDto();
@@ -227,6 +311,8 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .Where(r => r.NodeId == nodeId);
 
         if (filter != null)
@@ -262,6 +348,8 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .Where(r => r.TenantId == tenantId);
 
         // Apply filters
@@ -317,15 +405,20 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .Where(r => r.TenantId == tenantId);
 
-        // Global search (MeasurementType, Unit)
+        // Global search (MeasurementType, Unit, Sensor Name/Code)
         if (!string.IsNullOrWhiteSpace(queryParams.Search))
         {
-            query = query.ApplySearch(
-                queryParams.Search,
-                r => r.MeasurementType,
-                r => r.Unit);
+            var term = queryParams.Search.ToLower();
+            query = query.Where(r =>
+                r.MeasurementType.ToLower().Contains(term) ||
+                r.Unit.ToLower().Contains(term) ||
+                (r.Assignment != null && r.Assignment.Sensor != null &&
+                    (r.Assignment.Sensor.Name.ToLower().Contains(term) ||
+                     r.Assignment.Sensor.Code.ToLower().Contains(term))));
         }
 
         // Filter by NodeId
@@ -400,12 +493,16 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .Where(r => r.NodeId == nodeId)
             .GroupBy(r => r.MeasurementType)
             .Select(g => g.OrderByDescending(r => r.Timestamp).First())
             .ToListAsync(ct);
 
-        return latestReadings.ToDtos();
+        // Get capability lookup for DisplayName resolution
+        var capabilityLookup = await GetCapabilityLookupAsync(ct);
+        return latestReadings.ToDtos(capabilityLookup);
     }
 
     /// <inheritdoc />
@@ -419,12 +516,16 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .Where(r => r.TenantId == tenantId)
             .GroupBy(r => new { r.NodeId, r.MeasurementType })
             .Select(g => g.OrderByDescending(r => r.Timestamp).First())
             .ToListAsync(ct);
 
-        return latestReadings.ToDtos();
+        // Get capability lookup for DisplayName resolution
+        var capabilityLookup = await GetCapabilityLookupAsync(ct);
+        return latestReadings.ToDtos(capabilityLookup);
     }
 
     /// <inheritdoc />
@@ -435,6 +536,8 @@ public class ReadingService : IReadingService
             .Include(r => r.Node)
                 .ThenInclude(n => n!.Location)
             .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
             .Where(r => !r.IsSyncedToCloud)
             .OrderBy(r => r.Timestamp)
             .Take(limit)
@@ -465,5 +568,24 @@ public class ReadingService : IReadingService
 
         // Single-Hub-Architecture: Use the current hub for this tenant
         return await _hubService.GetCurrentHubAsync(ct);
+    }
+
+    /// <summary>
+    /// Builds a dictionary mapping MeasurementType to SensorCapability for DisplayName lookup
+    /// </summary>
+    private async Task<Dictionary<string, SensorCapability>> GetCapabilityLookupAsync(CancellationToken ct)
+    {
+        var capabilities = await _context.SensorCapabilities
+            .AsNoTracking()
+            .Include(c => c.Sensor)
+            .ToListAsync(ct);
+
+        // Group by MeasurementType and take the first one (they should all have the same DisplayName)
+        return capabilities
+            .GroupBy(c => c.MeasurementType.ToLowerInvariant())
+            .ToDictionary(
+                g => g.Key,
+                g => g.First()
+            );
     }
 }

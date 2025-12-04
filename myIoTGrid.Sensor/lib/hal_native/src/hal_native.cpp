@@ -11,6 +11,7 @@
 #include <ctime>
 #include <iomanip>
 #include <cstdlib>
+#include <cstring>
 #include <sys/stat.h>
 
 #include <curl/curl.h>
@@ -42,14 +43,24 @@ std::string getTimestampStr() {
 
 // Get storage file path for a key
 std::string getStoragePath(const std::string& key) {
-    return std::string(config::DATA_DIR) + "/" + key + ".dat";
+    // In Docker container, use /data volume which is writable
+    // Otherwise fall back to config::DATA_DIR
+    const char* dataDir = std::getenv("DATA_DIR");
+    if (!dataDir || strlen(dataDir) == 0) {
+        dataDir = config::DATA_DIR;
+    }
+    return std::string(dataDir) + "/" + key + ".dat";
 }
 
 // Ensure data directory exists
 void ensureDataDir() {
+    const char* dataDir = std::getenv("DATA_DIR");
+    if (!dataDir || strlen(dataDir) == 0) {
+        dataDir = config::DATA_DIR;
+    }
     struct stat st;
-    if (stat(config::DATA_DIR, &st) != 0) {
-        mkdir(config::DATA_DIR, 0755);
+    if (stat(dataDir, &st) != 0) {
+        mkdir(dataDir, 0755);
     }
 }
 
@@ -217,6 +228,13 @@ HttpResponse http_post(const std::string& url, const std::string& json, uint32_t
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, static_cast<long>(timeoutMs));
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, static_cast<long>(timeoutMs / 2));
 
+    // HTTPS: Allow self-signed certificates (for development)
+    const char* insecure = std::getenv("HUB_INSECURE");
+    if (insecure && std::string(insecure) == "true") {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
+
     CURLcode res = curl_easy_perform(curl);
 
     if (res != CURLE_OK) {
@@ -255,6 +273,13 @@ HttpResponse http_get(const std::string& url, uint32_t timeoutMs) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, static_cast<long>(timeoutMs));
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, static_cast<long>(timeoutMs / 2));
+
+    // HTTPS: Allow self-signed certificates (for development)
+    const char* insecure = std::getenv("HUB_INSECURE");
+    if (insecure && std::string(insecure) == "true") {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
 
     CURLcode res = curl_easy_perform(curl);
 

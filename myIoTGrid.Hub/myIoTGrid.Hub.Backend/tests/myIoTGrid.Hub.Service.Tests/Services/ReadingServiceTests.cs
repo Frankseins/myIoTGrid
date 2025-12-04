@@ -684,7 +684,7 @@ public class ReadingServiceTests : IDisposable
         result.Should().NotBeNull();
         result.RawValue.Should().Be(21.5);
         result.Value.Should().Be(21.5); // No calibration applied
-        result.AssignmentId.Should().Be(Guid.Empty);
+        result.AssignmentId.Should().BeNull();
         result.Unit.Should().BeEmpty();
     }
 
@@ -781,6 +781,456 @@ public class ReadingServiceTests : IDisposable
 
     #endregion
 
+    #region CreateFromSensorAsync Tests
+
+    [Fact]
+    public async Task CreateFromSensorAsync_WithGuidDeviceId_FindsNodeByGuid()
+    {
+        // Arrange
+        _nodeServiceMock.Setup(x => x.UpdateLastSeenAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _signalRMock.Setup(x => x.NotifyNewReadingAsync(It.IsAny<ReadingDto>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var dto = new CreateSensorReadingDto(
+            DeviceId: _nodeId.ToString(),
+            Type: "temperature",
+            Value: 21.5,
+            Timestamp: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Unit: "°C"
+        );
+
+        // Act
+        var result = await _sut.CreateFromSensorAsync(dto);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Value.Should().Be(21.5);
+        result.MeasurementType.Should().Be("temperature");
+        result.NodeId.Should().Be(_nodeId);
+    }
+
+    [Fact]
+    public async Task CreateFromSensorAsync_WithNodeIdString_FindsNodeByNodeId()
+    {
+        // Arrange
+        _nodeServiceMock.Setup(x => x.UpdateLastSeenAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _signalRMock.Setup(x => x.NotifyNewReadingAsync(It.IsAny<ReadingDto>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var dto = new CreateSensorReadingDto(
+            DeviceId: "test-node",
+            Type: "humidity",
+            Value: 65.0,
+            Unit: "%"
+        );
+
+        // Act
+        var result = await _sut.CreateFromSensorAsync(dto);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Value.Should().Be(65.0);
+        result.MeasurementType.Should().Be("humidity");
+    }
+
+    [Fact]
+    public async Task CreateFromSensorAsync_WithUnknownDeviceId_ThrowsException()
+    {
+        // Arrange
+        var dto = new CreateSensorReadingDto(
+            DeviceId: "unknown-device",
+            Type: "temperature",
+            Value: 21.5
+        );
+
+        // Act & Assert
+        var act = () => _sut.CreateFromSensorAsync(dto);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
+    }
+
+    [Fact]
+    public async Task CreateFromSensorAsync_WithTimestamp_ConvertsFromUnixTime()
+    {
+        // Arrange
+        var expectedTime = new DateTime(2025, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        var unixTimestamp = new DateTimeOffset(expectedTime).ToUnixTimeSeconds();
+
+        _nodeServiceMock.Setup(x => x.UpdateLastSeenAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _signalRMock.Setup(x => x.NotifyNewReadingAsync(It.IsAny<ReadingDto>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var dto = new CreateSensorReadingDto(
+            DeviceId: _nodeId.ToString(),
+            Type: "temperature",
+            Value: 21.5,
+            Timestamp: unixTimestamp
+        );
+
+        // Act
+        var result = await _sut.CreateFromSensorAsync(dto);
+
+        // Assert
+        result.Timestamp.Should().Be(expectedTime);
+    }
+
+    [Fact]
+    public async Task CreateFromSensorAsync_WithoutTimestamp_UsesCurrentTime()
+    {
+        // Arrange
+        var beforeTest = DateTime.UtcNow;
+
+        _nodeServiceMock.Setup(x => x.UpdateLastSeenAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _signalRMock.Setup(x => x.NotifyNewReadingAsync(It.IsAny<ReadingDto>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var dto = new CreateSensorReadingDto(
+            DeviceId: _nodeId.ToString(),
+            Type: "temperature",
+            Value: 21.5
+        );
+
+        // Act
+        var result = await _sut.CreateFromSensorAsync(dto);
+
+        // Assert
+        result.Timestamp.Should().BeOnOrAfter(beforeTest);
+        result.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task CreateFromSensorAsync_NotifiesSignalR()
+    {
+        // Arrange
+        _nodeServiceMock.Setup(x => x.UpdateLastSeenAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var dto = new CreateSensorReadingDto(
+            DeviceId: _nodeId.ToString(),
+            Type: "temperature",
+            Value: 21.5
+        );
+
+        // Act
+        await _sut.CreateFromSensorAsync(dto);
+
+        // Assert
+        _signalRMock.Verify(x => x.NotifyNewReadingAsync(It.IsAny<ReadingDto>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateFromSensorAsync_UpdatesNodeLastSeen()
+    {
+        // Arrange
+        _signalRMock.Setup(x => x.NotifyNewReadingAsync(It.IsAny<ReadingDto>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var dto = new CreateSensorReadingDto(
+            DeviceId: _nodeId.ToString(),
+            Type: "temperature",
+            Value: 21.5
+        );
+
+        // Act
+        await _sut.CreateFromSensorAsync(dto);
+
+        // Assert
+        _nodeServiceMock.Verify(x => x.UpdateLastSeenAsync(_nodeId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region GetPagedAsync Tests
+
+    [Fact]
+    public async Task GetPagedAsync_ReturnsPaginatedResults()
+    {
+        // Arrange
+        for (int i = 0; i < 15; i++)
+        {
+            _context.Readings.Add(CreateTestReading(20.0 + i));
+        }
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto { Page = 0, Size = 10 };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(10);
+        result.TotalRecords.Should().Be(15);
+        result.TotalPages.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WithSearch_FiltersResults()
+    {
+        // Arrange
+        _context.Readings.Add(CreateTestReading(21.5, "temperature"));
+        _context.Readings.Add(CreateTestReading(65.0, "humidity"));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto { Search = "temperature" };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+        result.Items.First().MeasurementType.Should().Be("temperature");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WithNodeIdFilter_FiltersResults()
+    {
+        // Arrange
+        var otherNodeId = Guid.NewGuid();
+        _context.Nodes.Add(new Node
+        {
+            Id = otherNodeId,
+            HubId = _hubId,
+            NodeId = "other-node",
+            Name = "Other Node",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        _context.Readings.Add(CreateTestReading(21.5));
+        var otherReading = CreateTestReading(22.5);
+        otherReading.NodeId = otherNodeId;
+        _context.Readings.Add(otherReading);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto
+        {
+            Filters = new Dictionary<string, string> { { "nodeId", _nodeId.ToString() } }
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+        result.Items.First().NodeId.Should().Be(_nodeId);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WithMeasurementTypeFilter_FiltersResults()
+    {
+        // Arrange
+        _context.Readings.Add(CreateTestReading(21.5, "temperature"));
+        _context.Readings.Add(CreateTestReading(65.0, "humidity"));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto
+        {
+            Filters = new Dictionary<string, string> { { "measurementType", "humidity" } }
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+        result.Items.First().MeasurementType.Should().Be("humidity");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WithSyncedFilter_FiltersResults()
+    {
+        // Arrange
+        var syncedReading = CreateTestReading(21.5);
+        syncedReading.IsSyncedToCloud = true;
+        var unsyncedReading = CreateTestReading(22.5);
+        unsyncedReading.IsSyncedToCloud = false;
+
+        _context.Readings.Add(syncedReading);
+        _context.Readings.Add(unsyncedReading);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto
+        {
+            Filters = new Dictionary<string, string> { { "isSyncedToCloud", "true" } }
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+        result.Items.First().IsSyncedToCloud.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WithDateFilter_FiltersResults()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        _context.Readings.Add(CreateTestReading(21.5, timestamp: now.AddDays(-5)));
+        _context.Readings.Add(CreateTestReading(22.0, timestamp: now.AddDays(-2)));
+        _context.Readings.Add(CreateTestReading(22.5, timestamp: now));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto
+        {
+            DateFrom = now.AddDays(-3),
+            DateTo = now.AddDays(1)
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_WithSort_SortsResults()
+    {
+        // Arrange
+        _context.Readings.Add(CreateTestReading(25.0, timestamp: DateTime.UtcNow.AddHours(-1)));
+        _context.Readings.Add(CreateTestReading(20.0, timestamp: DateTime.UtcNow));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto { Sort = "Value" };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.First().Value.Should().Be(20.0);
+        result.Items.Last().Value.Should().Be(25.0);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_DefaultSorting_OrdersByTimestampAsc()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        _context.Readings.Add(CreateTestReading(20.0, timestamp: now.AddHours(-1)));
+        _context.Readings.Add(CreateTestReading(25.0, timestamp: now));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto();
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert - Default sorting is ascending (oldest first)
+        result.Items.First().Value.Should().Be(20.0); // Oldest first
+        result.Items.Last().Value.Should().Be(25.0);
+    }
+
+    #endregion
+
+    #region GetFilteredAsync Additional Tests
+
+    [Fact]
+    public async Task GetFilteredAsync_WithNodeIdentifierFilter_FiltersResults()
+    {
+        // Arrange
+        _context.Readings.Add(CreateTestReading(21.5));
+        await _context.SaveChangesAsync();
+
+        var filter = new ReadingFilterDto(NodeIdentifier: "test-node");
+
+        // Act
+        var result = await _sut.GetFilteredAsync(filter);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WithAssignmentIdFilter_FiltersResults()
+    {
+        // Arrange
+        _context.Readings.Add(CreateTestReading(21.5));
+        var otherReading = CreateTestReading(22.0);
+        otherReading.AssignmentId = Guid.NewGuid();
+        _context.Readings.Add(otherReading);
+        await _context.SaveChangesAsync();
+
+        var filter = new ReadingFilterDto(AssignmentId: _assignmentId);
+
+        // Act
+        var result = await _sut.GetFilteredAsync(filter);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+        result.Items.First().Value.Should().Be(21.5);
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WithIsSyncedToCloudFilter_FiltersResults()
+    {
+        // Arrange
+        var syncedReading = CreateTestReading(21.5);
+        syncedReading.IsSyncedToCloud = true;
+        var unsyncedReading = CreateTestReading(22.0);
+        unsyncedReading.IsSyncedToCloud = false;
+
+        _context.Readings.Add(syncedReading);
+        _context.Readings.Add(unsyncedReading);
+        await _context.SaveChangesAsync();
+
+        var filter = new ReadingFilterDto(IsSyncedToCloud: false);
+
+        // Act
+        var result = await _sut.GetFilteredAsync(filter);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+        result.Items.First().IsSyncedToCloud.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WithDateRangeFilter_FiltersResults()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        _context.Readings.Add(CreateTestReading(20.0, timestamp: now.AddDays(-5)));
+        _context.Readings.Add(CreateTestReading(21.5, timestamp: now.AddDays(-2)));
+        _context.Readings.Add(CreateTestReading(22.0, timestamp: now));
+        await _context.SaveChangesAsync();
+
+        var filter = new ReadingFilterDto(From: now.AddDays(-3), To: now.AddDays(-1));
+
+        // Act
+        var result = await _sut.GetFilteredAsync(filter);
+
+        // Assert
+        result.Items.Should().ContainSingle();
+        result.Items.First().Value.Should().Be(21.5);
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_Pagination_WorksCorrectly()
+    {
+        // Arrange
+        for (int i = 0; i < 25; i++)
+        {
+            _context.Readings.Add(CreateTestReading(20.0 + i));
+        }
+        await _context.SaveChangesAsync();
+
+        var filter = new ReadingFilterDto(Page: 2, PageSize: 10);
+
+        // Act
+        var result = await _sut.GetFilteredAsync(filter);
+
+        // Assert
+        result.TotalCount.Should().Be(25);
+        result.Items.Should().HaveCount(10);
+        result.Page.Should().Be(2);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private Reading CreateTestReading(double value, string measurementType = "temperature", DateTime? timestamp = null)
@@ -830,7 +1280,8 @@ public class ReadingServiceTests : IDisposable
             BatteryLevel: null,
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
-            Status: NodeProvisioningStatusDto.Configured
+            Status: NodeProvisioningStatusDto.Configured,
+            IsSimulation: false
         );
     }
 

@@ -56,6 +56,9 @@ public class Node : IEntity
     /// <summary>Current provisioning status of the node</summary>
     public NodeStatus Status { get; set; } = NodeStatus.Unconfigured;
 
+    /// <summary>Whether this node generates simulated sensor values</summary>
+    public bool IsSimulation { get; set; } = false;
+
     // === Navigation Properties ===
 
     /// <summary>Hub managing this node</summary>

@@ -20,8 +20,9 @@ namespace myIoTGrid.Hub.Interface.Tests.Controllers;
 public class NodesControllerTests
 {
     private readonly Mock<INodeService> _nodeServiceMock;
-    private readonly Mock<INodeSensorAssignmentService> _assignmentServiceMock;
     private readonly Mock<IHubService> _hubServiceMock;
+    private readonly Mock<INodeSensorAssignmentService> _assignmentServiceMock;
+    private readonly Mock<ISensorService> _sensorServiceMock;
     private readonly Mock<IHubContext<SensorHub>> _hubContextMock;
     private readonly Mock<IClientProxy> _clientProxyMock;
     private readonly Mock<IConfiguration> _configurationMock;
@@ -36,8 +37,9 @@ public class NodesControllerTests
     public NodesControllerTests()
     {
         _nodeServiceMock = new Mock<INodeService>();
-        _assignmentServiceMock = new Mock<INodeSensorAssignmentService>();
         _hubServiceMock = new Mock<IHubService>();
+        _assignmentServiceMock = new Mock<INodeSensorAssignmentService>();
+        _sensorServiceMock = new Mock<ISensorService>();
         _hubContextMock = new Mock<IHubContext<SensorHub>>();
         _clientProxyMock = new Mock<IClientProxy>();
         _configurationMock = new Mock<IConfiguration>();
@@ -49,8 +51,9 @@ public class NodesControllerTests
 
         _sut = new NodesController(
             _nodeServiceMock.Object,
-            _assignmentServiceMock.Object,
             _hubServiceMock.Object,
+            _assignmentServiceMock.Object,
+            _sensorServiceMock.Object,
             _hubContextMock.Object,
             _configurationMock.Object);
 
@@ -140,81 +143,10 @@ public class NodesControllerTests
 
     #endregion
 
-    #region GetAssignments Tests
-
-    [Fact]
-    public async Task GetAssignments_ReturnsOkWithAssignments()
-    {
-        // Arrange
-        var assignments = new List<NodeSensorAssignmentDto>
-        {
-            CreateAssignmentDto(1, "temperature"),
-            CreateAssignmentDto(2, "humidity")
-        };
-        _assignmentServiceMock.Setup(s => s.GetByNodeAsync(_nodeId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(assignments);
-
-        // Act
-        var result = await _sut.GetAssignments(_nodeId, CancellationToken.None);
-
-        // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedAssignments = okResult.Value.Should().BeAssignableTo<IEnumerable<NodeSensorAssignmentDto>>().Subject;
-        returnedAssignments.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public async Task GetAssignments_WithNoAssignments_ReturnsEmptyList()
-    {
-        // Arrange
-        _assignmentServiceMock.Setup(s => s.GetByNodeAsync(_nodeId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<NodeSensorAssignmentDto>());
-
-        // Act
-        var result = await _sut.GetAssignments(_nodeId, CancellationToken.None);
-
-        // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedAssignments = okResult.Value.Should().BeAssignableTo<IEnumerable<NodeSensorAssignmentDto>>().Subject;
-        returnedAssignments.Should().BeEmpty();
-    }
-
-    #endregion
-
-    #region GetAssignmentByEndpoint Tests
-
-    [Fact]
-    public async Task GetAssignmentByEndpoint_WithExistingAssignment_ReturnsOk()
-    {
-        // Arrange
-        var assignment = CreateAssignmentDto(1, "temperature");
-        _assignmentServiceMock.Setup(s => s.GetByEndpointAsync(_nodeId, 1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(assignment);
-
-        // Act
-        var result = await _sut.GetAssignmentByEndpoint(_nodeId, 1, CancellationToken.None);
-
-        // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedAssignment = okResult.Value.Should().BeOfType<NodeSensorAssignmentDto>().Subject;
-        returnedAssignment.EndpointId.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task GetAssignmentByEndpoint_WithNonExistingAssignment_ReturnsNotFound()
-    {
-        // Arrange
-        _assignmentServiceMock.Setup(s => s.GetByEndpointAsync(_nodeId, 99, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((NodeSensorAssignmentDto?)null);
-
-        // Act
-        var result = await _sut.GetAssignmentByEndpoint(_nodeId, 99, CancellationToken.None);
-
-        // Assert
-        result.Should().BeOfType<NotFoundResult>();
-    }
-
-    #endregion
+    // NOTE: GetAssignments and GetAssignmentByEndpoint tests moved to NodeSensorAssignmentsControllerTests
+    // These endpoints are now in NodeSensorAssignmentsController at:
+    // GET /api/nodes/{nodeId:guid}/assignments
+    // GET /api/nodes/{nodeId:guid}/assignments/endpoint/{endpointId:int}
 
     #region Register Tests
 
@@ -528,6 +460,449 @@ public class NodesControllerTests
 
     #endregion
 
+    #region GetAll Without HubId Tests
+
+    [Fact]
+    public async Task GetAll_WithoutHubId_ReturnsAllNodes()
+    {
+        // Arrange
+        var nodes = new List<NodeDto>
+        {
+            CreateNodeDto("node-01", "Test Node 1"),
+            CreateNodeDto("node-02", "Test Node 2")
+        };
+        _nodeServiceMock.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(nodes);
+
+        // Act
+        var result = await _sut.GetAll(null, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var returnedNodes = okResult.Value.Should().BeAssignableTo<IEnumerable<NodeDto>>().Subject;
+        returnedNodes.Should().HaveCount(2);
+    }
+
+    #endregion
+
+    #region GetPaged Tests
+
+    [Fact]
+    public async Task GetPaged_ReturnsPagedResult()
+    {
+        // Arrange
+        var queryParams = new Shared.DTOs.Common.QueryParamsDto { Page = 1, Size = 10 };
+        var pagedResult = new Shared.DTOs.Common.PagedResultDto<NodeDto>
+        {
+            Items = new List<NodeDto> { CreateNodeDto("node-01", "Test Node") },
+            TotalRecords = 1,
+            Page = 1,
+            Size = 10
+        };
+        _nodeServiceMock.Setup(s => s.GetPagedAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _sut.GetPaged(queryParams, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<Shared.DTOs.Common.PagedResultDto<NodeDto>>();
+    }
+
+    #endregion
+
+    #region GetSensorsLatest Tests
+
+    [Fact]
+    public async Task GetSensorsLatest_WithExistingNode_ReturnsOk()
+    {
+        // Arrange
+        var nodeSensorsLatest = new NodeSensorsLatestDto(
+            NodeId: _nodeId,
+            NodeName: "Test Node",
+            LocationName: "Wohnzimmer",
+            Sensors: new List<SensorLatestReadingDto>()
+        );
+        _nodeServiceMock.Setup(s => s.GetSensorsLatestAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(nodeSensorsLatest);
+
+        // Act
+        var result = await _sut.GetSensorsLatest(_nodeId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeSensorsLatestDto>();
+    }
+
+    [Fact]
+    public async Task GetSensorsLatest_WithNonExistingNode_ReturnsNotFound()
+    {
+        // Arrange
+        _nodeServiceMock.Setup(s => s.GetSensorsLatestAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeSensorsLatestDto?)null);
+
+        // Act
+        var result = await _sut.GetSensorsLatest(_nodeId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    #endregion
+
+    #region Provision Tests
+
+    [Fact]
+    public async Task Provision_WithValidMacAddress_ReturnsOk()
+    {
+        // Arrange
+        var dto = new NodeRegistrationDto(
+            MacAddress: "AA:BB:CC:DD:EE:FF",
+            FirmwareVersion: "1.0.0",
+            Name: "Test Node"
+        );
+        var config = new NodeConfigurationDto(
+            NodeId: "node-01",
+            ApiKey: "mig_key_testkey",
+            WifiSsid: "TestWiFi",
+            WifiPassword: "password",
+            HubApiUrl: "http://localhost:5000"
+        );
+
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiSsid"]).Returns("TestWiFi");
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiPassword"]).Returns("password");
+        _configurationMock.Setup(c => c["NodeProvisioning:HubApiUrl"]).Returns((string?)null);
+        _nodeServiceMock.Setup(s => s.RegisterNodeAsync(
+                dto, "TestWiFi", "password", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        // Act
+        var result = await _sut.Provision(dto, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeConfigurationDto>();
+        _clientProxyMock.Verify(
+            c => c.SendCoreAsync("NodeProvisioned", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Provision_WithEmptyMacAddress_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new NodeRegistrationDto(
+            MacAddress: "",
+            FirmwareVersion: "1.0.0",
+            Name: null
+        );
+
+        // Act
+        var result = await _sut.Provision(dto, CancellationToken.None);
+
+        // Assert
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequest.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("MacAddress");
+    }
+
+    [Fact]
+    public async Task Provision_WhenServiceThrows_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new NodeRegistrationDto(
+            MacAddress: "AA:BB:CC:DD:EE:FF",
+            FirmwareVersion: "1.0.0",
+            Name: null
+        );
+
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiSsid"]).Returns("TestWiFi");
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiPassword"]).Returns("password");
+        _nodeServiceMock.Setup(s => s.RegisterNodeAsync(
+                dto, "TestWiFi", "password", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Node already registered"));
+
+        // Act
+        var result = await _sut.Provision(dto, CancellationToken.None);
+
+        // Assert
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequest.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("already registered");
+    }
+
+    #endregion
+
+    #region Heartbeat Tests
+
+    [Fact]
+    public async Task Heartbeat_WithValidApiKey_ReturnsOk()
+    {
+        // Arrange
+        var dto = new NodeHeartbeatDto(
+            NodeId: "node-01",
+            FirmwareVersion: "1.0.0",
+            BatteryLevel: 85
+        );
+        var node = CreateNodeDto("node-01", "Test Node");
+        var response = new NodeHeartbeatResponseDto(
+            Success: true,
+            ServerTime: DateTime.UtcNow,
+            NextHeartbeatSeconds: 60
+        );
+
+        SetAuthorizationHeader("Bearer mig_key_validkey");
+        _nodeServiceMock.Setup(s => s.ValidateApiKeyAsync("node-01", "mig_key_validkey", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(node);
+        _nodeServiceMock.Setup(s => s.ProcessHeartbeatAsync(dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
+
+        // Act
+        var result = await _sut.Heartbeat(dto, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeHeartbeatResponseDto>();
+        _clientProxyMock.Verify(
+            c => c.SendCoreAsync("NodeHeartbeat", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Heartbeat_WithoutAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        var dto = new NodeHeartbeatDto(
+            NodeId: "node-01",
+            FirmwareVersion: "1.0.0",
+            BatteryLevel: 85
+        );
+
+        SetAuthorizationHeader(null);
+
+        // Act
+        var result = await _sut.Heartbeat(dto, CancellationToken.None);
+
+        // Assert
+        var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+        var problemDetails = unauthorized.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("API key required");
+    }
+
+    [Fact]
+    public async Task Heartbeat_WithInvalidApiKey_ReturnsUnauthorized()
+    {
+        // Arrange
+        var dto = new NodeHeartbeatDto(
+            NodeId: "node-01",
+            FirmwareVersion: "1.0.0",
+            BatteryLevel: 85
+        );
+
+        SetAuthorizationHeader("Bearer mig_key_invalidkey");
+        _nodeServiceMock.Setup(s => s.ValidateApiKeyAsync("node-01", "mig_key_invalidkey", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeDto?)null);
+
+        // Act
+        var result = await _sut.Heartbeat(dto, CancellationToken.None);
+
+        // Assert
+        var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+        var problemDetails = unauthorized.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("Invalid API key");
+    }
+
+    #endregion
+
+    #region ValidateApiKey Tests
+
+    [Fact]
+    public async Task ValidateApiKey_WithValidKey_ReturnsOk()
+    {
+        // Arrange
+        var node = CreateNodeDto("node-01", "Test Node");
+        SetAuthorizationHeader("Bearer mig_key_validkey");
+        _nodeServiceMock.Setup(s => s.ValidateApiKeyAsync("node-01", "mig_key_validkey", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(node);
+
+        // Act
+        var result = await _sut.ValidateApiKey("node-01", CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeDto>();
+    }
+
+    [Fact]
+    public async Task ValidateApiKey_WithoutAuthHeader_ReturnsUnauthorized()
+    {
+        // Arrange
+        SetAuthorizationHeader(null);
+
+        // Act
+        var result = await _sut.ValidateApiKey("node-01", CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task ValidateApiKey_WithInvalidKey_ReturnsUnauthorized()
+    {
+        // Arrange
+        SetAuthorizationHeader("Bearer mig_key_invalidkey");
+        _nodeServiceMock.Setup(s => s.ValidateApiKeyAsync("node-01", "mig_key_invalidkey", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeDto?)null);
+
+        // Act
+        var result = await _sut.ValidateApiKey("node-01", CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    #endregion
+
+    #region RegenerateApiKey Tests
+
+    [Fact]
+    public async Task RegenerateApiKey_WithExistingNode_ReturnsOk()
+    {
+        // Arrange
+        var config = new NodeConfigurationDto(
+            NodeId: "node-01",
+            ApiKey: "mig_key_newkey",
+            WifiSsid: "TestWiFi",
+            WifiPassword: "password",
+            HubApiUrl: "http://localhost:5000"
+        );
+
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiSsid"]).Returns("TestWiFi");
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiPassword"]).Returns("password");
+        _configurationMock.Setup(c => c["NodeProvisioning:HubApiUrl"]).Returns((string?)null);
+        _nodeServiceMock.Setup(s => s.RegenerateApiKeyAsync(
+                _nodeId, "TestWiFi", "password", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        // Act
+        var result = await _sut.RegenerateApiKey(_nodeId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeConfigurationDto>();
+    }
+
+    [Fact]
+    public async Task RegenerateApiKey_WithNonExistingNode_ReturnsNotFound()
+    {
+        // Arrange
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiSsid"]).Returns("TestWiFi");
+        _configurationMock.Setup(c => c["NodeProvisioning:WifiPassword"]).Returns("password");
+        _nodeServiceMock.Setup(s => s.RegenerateApiKeyAsync(
+                _nodeId, "TestWiFi", "password", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeConfigurationDto?)null);
+
+        // Act
+        var result = await _sut.RegenerateApiKey(_nodeId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    #endregion
+
+    #region GetByMacAddress Tests
+
+    [Fact]
+    public async Task GetByMacAddress_WithExistingNode_ReturnsOk()
+    {
+        // Arrange
+        var node = CreateNodeDto("node-01", "Test Node");
+        _nodeServiceMock.Setup(s => s.GetByMacAddressAsync("AA:BB:CC:DD:EE:FF", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(node);
+
+        // Act
+        var result = await _sut.GetByMacAddress("AA:BB:CC:DD:EE:FF", CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeDto>();
+    }
+
+    [Fact]
+    public async Task GetByMacAddress_WithNonExistingNode_ReturnsNotFound()
+    {
+        // Arrange
+        _nodeServiceMock.Setup(s => s.GetByMacAddressAsync("AA:BB:CC:DD:EE:FF", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeDto?)null);
+
+        // Act
+        var result = await _sut.GetByMacAddress("AA:BB:CC:DD:EE:FF", CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    #endregion
+
+    #region GetConfiguration Tests
+
+    [Fact]
+    public async Task GetConfiguration_WithExistingNode_ReturnsOk()
+    {
+        // Arrange
+        var nodes = new List<NodeDto> { CreateNodeDto("node-01", "Test Node") };
+        var assignments = new List<NodeSensorAssignmentDto>
+        {
+            CreateAssignmentDto(1, "temperature")
+        };
+
+        _nodeServiceMock.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(nodes);
+        _assignmentServiceMock.Setup(s => s.GetByNodeAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(assignments);
+
+        // Act
+        var result = await _sut.GetConfiguration("node-01", CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeSensorConfigurationDto>();
+    }
+
+    [Fact]
+    public async Task GetConfiguration_WithNonExistingNode_ReturnsNotFound()
+    {
+        // Arrange
+        _nodeServiceMock.Setup(s => s.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<NodeDto>());
+
+        // Act
+        var result = await _sut.GetConfiguration("unknown-node", CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private void SetAuthorizationHeader(string? value)
+    {
+        if (value != null)
+        {
+            _sut.ControllerContext.HttpContext.Request.Headers.Authorization = value;
+        }
+        else
+        {
+            _sut.ControllerContext.HttpContext.Request.Headers.Remove("Authorization");
+        }
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private NodeDto CreateNodeDto(string nodeId, string name)
@@ -546,7 +921,8 @@ public class NodesControllerTests
             BatteryLevel: 100,
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
-            Status: NodeProvisioningStatusDto.Configured
+            Status: NodeProvisioningStatusDto.Configured,
+            IsSimulation: false
         );
     }
 

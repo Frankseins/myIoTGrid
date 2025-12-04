@@ -5,7 +5,7 @@
 
 // Firmware Version
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.2.0"
 #endif
 
 // Hardware Type
@@ -23,8 +23,8 @@ namespace config {
 
 // Hub API Configuration
 constexpr const char* DEFAULT_HUB_HOST = "localhost";
-constexpr int DEFAULT_HUB_PORT = 5001;
-constexpr const char* DEFAULT_HUB_PROTOCOL = "http";
+constexpr int DEFAULT_HUB_PORT = 5001;           // HTTPS port
+constexpr const char* DEFAULT_HUB_PROTOCOL = "https";
 
 // WiFi Configuration (ESP32 only)
 constexpr const char* DEFAULT_WIFI_SSID = "";
@@ -35,6 +35,12 @@ constexpr uint32_t DEFAULT_INTERVAL_SECONDS = 60;
 constexpr uint32_t REGISTRATION_RETRY_DELAY_MS = 5000;
 constexpr uint32_t HTTP_TIMEOUT_MS = 10000;
 constexpr int HTTP_RETRY_COUNT = 3;
+
+// Discovery Configuration
+constexpr int DISCOVERY_PORT = 5001;
+constexpr int DISCOVERY_TIMEOUT_MS = 5000;
+constexpr int DISCOVERY_RETRY_COUNT = 3;
+constexpr int DISCOVERY_RETRY_DELAY_MS = 2000;
 
 // Storage Keys
 constexpr const char* STORAGE_KEY_SERIAL = "serial";
@@ -55,8 +61,11 @@ constexpr const char* DATA_DIR = "./data";
 // Environment variable names
 constexpr const char* ENV_HUB_HOST = "HUB_HOST";
 constexpr const char* ENV_HUB_PORT = "HUB_PORT";
+constexpr const char* ENV_HUB_PROTOCOL = "HUB_PROTOCOL";
 constexpr const char* ENV_WIFI_SSID = "WIFI_SSID";
 constexpr const char* ENV_WIFI_PASSWORD = "WIFI_PASSWORD";
+constexpr const char* ENV_DISCOVERY_ENABLED = "DISCOVERY_ENABLED";
+constexpr const char* ENV_DISCOVERY_PORT = "DISCOVERY_PORT";
 
 } // namespace config
 

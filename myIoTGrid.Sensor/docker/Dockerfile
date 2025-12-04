@@ -38,10 +38,11 @@ RUN pio run -e native
 # ============================================
 FROM ubuntu:24.04
 
-# Install runtime dependencies
+# Install runtime dependencies (including ca-certificates for HTTPS)
 RUN apt-get update && apt-get install -y \
     libcurl4 \
     libuuid1 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -61,9 +62,11 @@ RUN chown sensor:sensor /app/sensor
 # Switch to non-root user
 USER sensor
 
-# Environment variables for Hub connection
+# Environment variables for Hub connection (HTTPS)
 ENV HUB_HOST=hub-api
-ENV HUB_PORT=5000
+ENV HUB_PORT=5001
+ENV HUB_PROTOCOL=https
+ENV HUB_INSECURE=true
 
 # Data volume
 VOLUME ["/data"]

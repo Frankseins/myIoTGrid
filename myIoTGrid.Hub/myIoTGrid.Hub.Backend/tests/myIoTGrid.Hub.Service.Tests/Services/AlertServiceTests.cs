@@ -773,4 +773,179 @@ public class AlertServiceTests : IDisposable
             true, // isOpen = true for active alert
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task AcknowledgeAsync_UpdatesMatterBridge()
+    {
+        // Arrange
+        var alert = new Alert
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            AlertTypeId = _alertTypeId,
+            Level = AlertLevel.Warning,
+            Message = "Test",
+            Source = AlertSource.Cloud,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Alerts.Add(alert);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _sut.AcknowledgeAsync(alert.Id);
+
+        // Allow async fire-and-forget to complete
+        await Task.Delay(100);
+
+        // Assert - verify Matter Bridge was called with isOpen = false (alert resolved)
+        _matterBridgeMock.Verify(m => m.SetContactSensorStateAsync(
+            It.IsAny<string>(),
+            false, // isOpen = false when alert resolved
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateFromCloudAsync_WithHubId_AssociatesWithHub()
+    {
+        // Arrange
+        var uniqueHubId = $"hub-unique-{Guid.NewGuid():N}";
+        var hub = new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            HubId = uniqueHubId,
+            Name = "Test Hub for Alert",
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Hubs.Add(hub);
+        await _context.SaveChangesAsync();
+
+        var dto = new CreateAlertDto(
+            AlertTypeCode: "mold_risk",
+            HubId: uniqueHubId,
+            NodeId: null,
+            Message: "Hub alert"
+        );
+
+        // Act
+        var result = await _sut.CreateFromCloudAsync(dto);
+
+        // Assert
+        result.HubId.Should().Be(hub.Id);
+        result.HubName.Should().Be("Test Hub for Alert");
+    }
+
+    [Fact]
+    public async Task CreateFromCloudAsync_WithNodeId_AssociatesWithNode()
+    {
+        // Arrange
+        var uniqueHubId = $"hub-node-{Guid.NewGuid():N}";
+        var hub = new myIoTGrid.Hub.Domain.Entities.Hub
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            HubId = uniqueHubId,
+            Name = "Test Hub for Node",
+            CreatedAt = DateTime.UtcNow
+        };
+        var uniqueNodeId = $"node-{Guid.NewGuid():N}";
+        var node = new Node
+        {
+            Id = Guid.NewGuid(),
+            HubId = hub.Id,
+            NodeId = uniqueNodeId,
+            Name = "Test Node for Alert",
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Hubs.Add(hub);
+        _context.Nodes.Add(node);
+        await _context.SaveChangesAsync();
+
+        var dto = new CreateAlertDto(
+            AlertTypeCode: "mold_risk",
+            HubId: null,
+            NodeId: uniqueNodeId,
+            Message: "Node alert"
+        );
+
+        // Act
+        var result = await _sut.CreateFromCloudAsync(dto);
+
+        // Assert
+        result.NodeId.Should().Be(node.Id);
+        result.NodeName.Should().Be("Test Node for Alert");
+    }
+
+    [Fact]
+    public async Task CreateFromCloudAsync_WithUnknownHubId_DoesNotAssociate()
+    {
+        // Arrange
+        var dto = new CreateAlertDto(
+            AlertTypeCode: "mold_risk",
+            HubId: "unknown-hub",
+            NodeId: null,
+            Message: "Unknown hub alert"
+        );
+
+        // Act
+        var result = await _sut.CreateFromCloudAsync(dto);
+
+        // Assert
+        result.HubId.Should().BeNull();
+        result.HubName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateFromCloudAsync_WithUnknownNodeId_DoesNotAssociate()
+    {
+        // Arrange
+        var dto = new CreateAlertDto(
+            AlertTypeCode: "mold_risk",
+            HubId: null,
+            NodeId: "unknown-node",
+            Message: "Unknown node alert"
+        );
+
+        // Act
+        var result = await _sut.CreateFromCloudAsync(dto);
+
+        // Assert
+        result.NodeId.Should().BeNull();
+        result.NodeName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AcknowledgeAsync_WithAlertType_UpdatesMatterContact()
+    {
+        // Arrange
+        var alert = new Alert
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            AlertTypeId = _alertTypeId,
+            Level = AlertLevel.Critical,
+            Message = "Critical test",
+            Source = AlertSource.Cloud,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Alerts.Add(alert);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.AcknowledgeAsync(alert.Id);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.AcknowledgedAt.Should().NotBeNull();
+
+        // Allow async fire-and-forget to complete
+        await Task.Delay(100);
+
+        _matterBridgeMock.Verify(m => m.SetContactSensorStateAsync(
+            It.IsAny<string>(),
+            false,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

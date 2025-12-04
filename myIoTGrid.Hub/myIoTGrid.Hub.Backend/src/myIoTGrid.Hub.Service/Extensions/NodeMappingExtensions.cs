@@ -29,7 +29,8 @@ public static class NodeMappingExtensions
             BatteryLevel: node.BatteryLevel,
             CreatedAt: node.CreatedAt,
             MacAddress: node.MacAddress,
-            Status: node.Status.ToDto()
+            Status: node.Status.ToDto(),
+            IsSimulation: node.IsSimulation
         );
     }
 
@@ -79,10 +80,24 @@ public static class NodeMappingExtensions
             IsOnline = true,
             LastSeen = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
-            MacAddress = string.Empty, // Will be set during provisioning
+            MacAddress = GenerateMacFromNodeId(dto.NodeId), // Generate MAC from NodeId for simulated nodes
             ApiKeyHash = string.Empty, // Will be set during provisioning
             Status = NodeStatus.Unconfigured
         };
+    }
+
+    /// <summary>
+    /// Generates a pseudo-MAC address from NodeId for simulated/non-BLE registered nodes
+    /// </summary>
+    private static string GenerateMacFromNodeId(string nodeId)
+    {
+        // Create a hash-based MAC address from the nodeId
+        // Format: SIM-XX:XX:XX:XX:XX:XX where XX are hex digits derived from nodeId
+        var hash = nodeId.GetHashCode();
+        var bytes = BitConverter.GetBytes(hash);
+        var extraBytes = BitConverter.GetBytes(nodeId.Length + nodeId.Sum(c => c));
+
+        return $"SIM-{bytes[0]:X2}:{bytes[1]:X2}:{bytes[2]:X2}:{bytes[3]:X2}:{extraBytes[0]:X2}:{extraBytes[1]:X2}";
     }
 
     /// <summary>
@@ -141,6 +156,9 @@ public static class NodeMappingExtensions
 
         if (!string.IsNullOrEmpty(dto.FirmwareVersion))
             node.FirmwareVersion = dto.FirmwareVersion;
+
+        if (dto.IsSimulation.HasValue)
+            node.IsSimulation = dto.IsSimulation.Value;
     }
 
     /// <summary>

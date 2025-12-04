@@ -1,0 +1,147 @@
+<div class="node-info-container">
+  <mat-card class="info-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="step-icon">settings</mat-icon>
+      <mat-card-title>Node-Informationen</mat-card-title>
+      <mat-card-subtitle>Schritt 3 von 5 - Namen und Standort festlegen</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="device-info">
+        <mat-icon>memory</mat-icon>
+        <span>Gerät: <strong>{{ bleDevice()?.name }}</strong></span>
+        <span class="mac-address">{{ bleDevice()?.macAddress }}</span>
+      </div>
+
+      <form [formGroup]="form">
+        <!-- Name Section -->
+        <div class="form-section">
+          <h3>
+            <mat-icon>label</mat-icon>
+            Name
+          </h3>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Node-Name</mat-label>
+            <input
+              matInput
+              formControlName="name"
+              placeholder="z.B. Wohnzimmer Sensor"
+              maxlength="50"
+            >
+            <mat-hint align="end">{{ form.value.name?.length || 0 }}/50</mat-hint>
+            @if (form.get('name')?.hasError('required') && form.get('name')?.touched) {
+              <mat-error>Name ist erforderlich</mat-error>
+            }
+            @if (form.get('name')?.hasError('minlength')) {
+              <mat-error>Mindestens 2 Zeichen erforderlich</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Location Section -->
+        <div class="form-section">
+          <h3>
+            <mat-icon>place</mat-icon>
+            Standort
+          </h3>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Standort / Raum</mat-label>
+            <input
+              matInput
+              formControlName="location"
+              placeholder="z.B. Wohnzimmer"
+            >
+            <mat-icon matSuffix>place</mat-icon>
+          </mat-form-field>
+
+          <div class="location-suggestions">
+            <span class="suggestion-label">Vorschläge:</span>
+            <div class="suggestion-chips">
+              @for (suggestion of locationSuggestions; track suggestion.name) {
+                <button
+                  type="button"
+                  mat-stroked-button
+                  class="suggestion-chip"
+                  [class.selected]="form.value.location === suggestion.name"
+                  (click)="selectLocation(suggestion)"
+                >
+                  <mat-icon>{{ suggestion.icon }}</mat-icon>
+                  {{ suggestion.name }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Icon Section -->
+        <div class="form-section">
+          <h3>
+            <mat-icon>category</mat-icon>
+            Symbol
+          </h3>
+          <p class="section-description">
+            Wählen Sie ein Symbol zur schnellen Identifikation
+          </p>
+
+          <div class="icon-grid">
+            @for (icon of icons; track icon.value) {
+              <button
+                type="button"
+                class="icon-button"
+                [class.selected]="selectedIcon() === icon.value"
+                (click)="selectIcon(icon.value)"
+                [matTooltip]="icon.label"
+              >
+                <mat-icon>{{ icon.value }}</mat-icon>
+              </button>
+            }
+          </div>
+        </div>
+      </form>
+
+      <!-- Preview -->
+      <div class="preview-section">
+        <h3>Vorschau</h3>
+        <div class="node-preview">
+          <mat-icon class="preview-icon">{{ selectedIcon() }}</mat-icon>
+          <div class="preview-info">
+            <span class="preview-name">{{ form.value.name || 'Node-Name' }}</span>
+            <span class="preview-location">
+              <mat-icon>place</mat-icon>
+              {{ form.value.location || 'Kein Standort' }}
+            </span>
+          </div>
+          <div class="preview-status">
+            <span class="status-indicator online"></span>
+            Online
+          </div>
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-divider></mat-divider>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="onCancel()">
+        Abbrechen
+      </button>
+      <button mat-button (click)="onBack()">
+        <mat-icon>arrow_back</mat-icon>
+        Zurück
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        [disabled]="form.invalid"
+        (click)="onSave()"
+      >
+        <mat-icon>arrow_forward</mat-icon>
+        Weiter
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

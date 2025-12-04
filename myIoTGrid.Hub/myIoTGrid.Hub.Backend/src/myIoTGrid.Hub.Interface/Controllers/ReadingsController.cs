@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Shared.DTOs;
+using myIoTGrid.Hub.Shared.DTOs.Chart;
 using myIoTGrid.Hub.Shared.DTOs.Common;
 
 namespace myIoTGrid.Hub.Interface.Controllers;
@@ -15,10 +16,12 @@ namespace myIoTGrid.Hub.Interface.Controllers;
 public class ReadingsController : ControllerBase
 {
     private readonly IReadingService _readingService;
+    private readonly IChartService _chartService;
 
-    public ReadingsController(IReadingService readingService)
+    public ReadingsController(IReadingService readingService, IChartService chartService)
     {
         _readingService = readingService;
+        _chartService = chartService;
     }
 
     /// <summary>
@@ -145,5 +148,95 @@ public class ReadingsController : ControllerBase
     {
         var result = await _readingService.GetByNodeAsync(nodeId, filter, ct);
         return Ok(result);
+    }
+
+    // ==================== CHART ENDPOINTS ====================
+
+    /// <summary>
+    /// Returns chart data for a specific widget (node + assignment + measurement type)
+    /// </summary>
+    /// <param name="nodeId">Node-ID</param>
+    /// <param name="assignmentId">Sensor assignment ID</param>
+    /// <param name="measurementType">Measurement type (e.g., temperature, humidity)</param>
+    /// <param name="interval">Time interval for aggregation</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Chart data with aggregated points, stats, and trend</returns>
+    /// <response code="200">Chart data found</response>
+    /// <response code="404">No data found for the specified parameters</response>
+    [HttpGet("chart/{nodeId:guid}/{assignmentId:guid}/{measurementType}")]
+    [ProducesResponseType(typeof(ChartDataDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetChartData(
+        Guid nodeId,
+        Guid assignmentId,
+        string measurementType,
+        [FromQuery] ChartInterval interval = ChartInterval.OneDay,
+        CancellationToken ct = default)
+    {
+        var result = await _chartService.GetChartDataAsync(nodeId, assignmentId, measurementType, interval, ct);
+
+        if (result == null)
+            return NotFound(new ProblemDetails
+            {
+                Title = "No Data Found",
+                Detail = $"No readings found for node {nodeId}, assignment {assignmentId}, type {measurementType}"
+            });
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Returns paginated readings list for a specific widget
+    /// </summary>
+    /// <param name="nodeId">Node-ID</param>
+    /// <param name="assignmentId">Sensor assignment ID</param>
+    /// <param name="measurementType">Measurement type</param>
+    /// <param name="page">Page number (1-based)</param>
+    /// <param name="pageSize">Page size (default 20)</param>
+    /// <param name="from">Optional start date filter</param>
+    /// <param name="to">Optional end date filter</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Paginated list of readings</returns>
+    [HttpGet("list/{nodeId:guid}/{assignmentId:guid}/{measurementType}")]
+    [ProducesResponseType(typeof(ReadingsListDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetReadingsList(
+        Guid nodeId,
+        Guid assignmentId,
+        string measurementType,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        CancellationToken ct = default)
+    {
+        var request = new ReadingsListRequestDto(page, pageSize, from, to);
+        var result = await _chartService.GetReadingsListAsync(nodeId, assignmentId, measurementType, request, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Exports readings to CSV file
+    /// </summary>
+    /// <param name="nodeId">Node-ID</param>
+    /// <param name="assignmentId">Sensor assignment ID</param>
+    /// <param name="measurementType">Measurement type</param>
+    /// <param name="from">Optional start date filter</param>
+    /// <param name="to">Optional end date filter</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>CSV file download</returns>
+    [HttpGet("list/{nodeId:guid}/{assignmentId:guid}/{measurementType}/csv")]
+    [Produces("text/csv")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportToCsv(
+        Guid nodeId,
+        Guid assignmentId,
+        string measurementType,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        CancellationToken ct = default)
+    {
+        var csvData = await _chartService.ExportToCsvAsync(nodeId, assignmentId, measurementType, from, to, ct);
+        var fileName = $"readings_{measurementType}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+        return File(csvData, "text/csv", fileName);
     }
 }

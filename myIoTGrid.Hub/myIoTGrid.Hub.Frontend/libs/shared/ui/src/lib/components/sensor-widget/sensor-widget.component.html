@@ -1,0 +1,48 @@
+<mat-card class="sensor-widget" [class.hero]="isHero" (click)="onWidgetClick()" role="button" tabindex="0">
+  <div class="widget-header">
+    <mat-icon class="header-icon" [style.color]="widget.color">{{ getLocationIcon() }}</mat-icon>
+    <div class="header-text">
+      <span class="measurement-type">{{ getMeasurementLabel() }}</span>
+      <span class="sensor-name">{{ widget.sensorName }}</span>
+    </div>
+  </div>
+
+  <div class="widget-body">
+    <div class="value-section">
+      <span class="value">{{ formattedValue() }}</span>
+      <span class="unit">{{ widget.unit }}</span>
+    </div>
+
+    <div class="sparkline-section">
+      <myiotgrid-sparkline-chart
+        [series]="sparklineSeries()"
+        [height]="sparklineHeight()"
+      />
+    </div>
+  </div>
+
+  <div class="widget-footer">
+    <div class="widget-minmax">
+      <div class="minmax-item">
+        <span class="minmax-label">Min</span>
+        <span class="minmax-value">{{ widget.minMax.minValue | number:'1.1-1' }}{{ widget.unit }}</span>
+        <span class="minmax-time">{{ widget.minMax.minTimestamp | date:'HH:mm' }}</span>
+      </div>
+      <div class="minmax-item">
+        <span class="minmax-label">Max</span>
+        <span class="minmax-value">{{ widget.minMax.maxValue | number:'1.1-1' }}{{ widget.unit }}</span>
+        <span class="minmax-time">{{ widget.minMax.maxTimestamp | date:'HH:mm' }}</span>
+      </div>
+    </div>
+    <div class="footer-right">
+      <div class="location-info">
+        <mat-icon>location_on</mat-icon>
+        <span>{{ widget.locationName }}</span>
+      </div>
+      <div class="last-update">
+        <mat-icon>schedule</mat-icon>
+        <span>{{ widget.lastUpdate | date:'HH:mm:ss' }}</span>
+      </div>
+    </div>
+  </div>
+</mat-card>

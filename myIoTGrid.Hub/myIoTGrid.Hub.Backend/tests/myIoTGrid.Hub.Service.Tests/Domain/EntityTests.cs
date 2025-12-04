@@ -961,4 +961,275 @@ public class EntityTests
     }
 
     #endregion
+
+    #region SyncedNode Entity Tests
+
+    [Fact]
+    public void SyncedNode_DefaultValues_ShouldBeCorrect()
+    {
+        // Arrange & Act
+        var syncedNode = new SyncedNode();
+
+        // Assert
+        syncedNode.Id.Should().Be(Guid.Empty);
+        syncedNode.CloudNodeId.Should().Be(Guid.Empty);
+        syncedNode.NodeId.Should().BeEmpty();
+        syncedNode.Name.Should().BeEmpty();
+        syncedNode.Source.Should().Be(SyncedNodeSource.Direct);
+        syncedNode.SourceDetails.Should().BeNull();
+        syncedNode.Location.Should().BeNull();
+        syncedNode.IsOnline.Should().BeFalse();
+        syncedNode.LastSyncAt.Should().Be(default);
+        syncedNode.CreatedAt.Should().Be(default);
+        syncedNode.SyncedReadings.Should().NotBeNull();
+        syncedNode.SyncedReadings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SyncedNode_ShouldSetAllProperties()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var cloudNodeId = Guid.NewGuid();
+        var lastSyncAt = DateTime.UtcNow;
+        var createdAt = DateTime.UtcNow.AddDays(-1);
+        var location = new Location("Köln", 50.9375, 6.9603);
+
+        // Act
+        var syncedNode = new SyncedNode
+        {
+            Id = id,
+            CloudNodeId = cloudNodeId,
+            NodeId = "dwd-cologne-01",
+            Name = "DWD Köln Station",
+            Source = SyncedNodeSource.Virtual,
+            SourceDetails = "DWD Station: 10513",
+            Location = location,
+            IsOnline = true,
+            LastSyncAt = lastSyncAt,
+            CreatedAt = createdAt
+        };
+
+        // Assert
+        syncedNode.Id.Should().Be(id);
+        syncedNode.CloudNodeId.Should().Be(cloudNodeId);
+        syncedNode.NodeId.Should().Be("dwd-cologne-01");
+        syncedNode.Name.Should().Be("DWD Köln Station");
+        syncedNode.Source.Should().Be(SyncedNodeSource.Virtual);
+        syncedNode.SourceDetails.Should().Be("DWD Station: 10513");
+        syncedNode.Location.Should().Be(location);
+        syncedNode.IsOnline.Should().BeTrue();
+        syncedNode.LastSyncAt.Should().Be(lastSyncAt);
+        syncedNode.CreatedAt.Should().Be(createdAt);
+    }
+
+    [Fact]
+    public void SyncedNode_NavigationProperties_ShouldAllowAddingReadings()
+    {
+        // Arrange
+        var syncedNode = new SyncedNode
+        {
+            Id = Guid.NewGuid(),
+            NodeId = "test-synced-node"
+        };
+        var reading = new SyncedReading
+        {
+            Id = 1,
+            SyncedNodeId = syncedNode.Id,
+            SensorCode = "dht22",
+            MeasurementType = "temperature",
+            Value = 21.5
+        };
+
+        // Act
+        syncedNode.SyncedReadings.Add(reading);
+
+        // Assert
+        syncedNode.SyncedReadings.Should().HaveCount(1);
+        syncedNode.SyncedReadings.First().Should().Be(reading);
+    }
+
+    [Theory]
+    [InlineData(SyncedNodeSource.Direct)]
+    [InlineData(SyncedNodeSource.Virtual)]
+    [InlineData(SyncedNodeSource.OtherHub)]
+    public void SyncedNode_Source_ShouldAcceptAllValidValues(SyncedNodeSource source)
+    {
+        // Arrange & Act
+        var syncedNode = new SyncedNode { Source = source };
+
+        // Assert
+        syncedNode.Source.Should().Be(source);
+    }
+
+    [Fact]
+    public void SyncedNode_WithOtherHubSource_ShouldHaveSourceDetails()
+    {
+        // Arrange & Act
+        var syncedNode = new SyncedNode
+        {
+            NodeId = "hub-office-node-01",
+            Name = "Office Temperature Sensor",
+            Source = SyncedNodeSource.OtherHub,
+            SourceDetails = "Hub: Office Gateway"
+        };
+
+        // Assert
+        syncedNode.Source.Should().Be(SyncedNodeSource.OtherHub);
+        syncedNode.SourceDetails.Should().Be("Hub: Office Gateway");
+    }
+
+    #endregion
+
+    #region SyncedReading Entity Tests
+
+    [Fact]
+    public void SyncedReading_DefaultValues_ShouldBeCorrect()
+    {
+        // Arrange & Act
+        var syncedReading = new SyncedReading();
+
+        // Assert
+        syncedReading.Id.Should().Be(0);
+        syncedReading.SyncedNodeId.Should().Be(Guid.Empty);
+        syncedReading.SensorCode.Should().BeEmpty();
+        syncedReading.MeasurementType.Should().BeEmpty();
+        syncedReading.Value.Should().Be(0);
+        syncedReading.Unit.Should().BeEmpty();
+        syncedReading.Timestamp.Should().Be(default);
+        syncedReading.SyncedAt.Should().Be(default);
+        syncedReading.SyncedNode.Should().BeNull();
+    }
+
+    [Fact]
+    public void SyncedReading_ShouldSetAllProperties()
+    {
+        // Arrange
+        var syncedNodeId = Guid.NewGuid();
+        var timestamp = DateTime.UtcNow.AddMinutes(-5);
+        var syncedAt = DateTime.UtcNow;
+
+        // Act
+        var syncedReading = new SyncedReading
+        {
+            Id = 12345,
+            SyncedNodeId = syncedNodeId,
+            SensorCode = "bme280",
+            MeasurementType = "humidity",
+            Value = 65.3,
+            Unit = "%",
+            Timestamp = timestamp,
+            SyncedAt = syncedAt
+        };
+
+        // Assert
+        syncedReading.Id.Should().Be(12345);
+        syncedReading.SyncedNodeId.Should().Be(syncedNodeId);
+        syncedReading.SensorCode.Should().Be("bme280");
+        syncedReading.MeasurementType.Should().Be("humidity");
+        syncedReading.Value.Should().Be(65.3);
+        syncedReading.Unit.Should().Be("%");
+        syncedReading.Timestamp.Should().Be(timestamp);
+        syncedReading.SyncedAt.Should().Be(syncedAt);
+    }
+
+    [Fact]
+    public void SyncedReading_NavigationProperty_ShouldWork()
+    {
+        // Arrange
+        var syncedNode = new SyncedNode
+        {
+            Id = Guid.NewGuid(),
+            NodeId = "test-synced-node",
+            Name = "Test Synced Node"
+        };
+
+        // Act
+        var syncedReading = new SyncedReading
+        {
+            Id = 1,
+            SyncedNodeId = syncedNode.Id,
+            SyncedNode = syncedNode,
+            SensorCode = "dht22",
+            MeasurementType = "temperature",
+            Value = 22.5
+        };
+
+        // Assert
+        syncedReading.SyncedNode.Should().NotBeNull();
+        syncedReading.SyncedNode.Should().Be(syncedNode);
+        syncedReading.SyncedNodeId.Should().Be(syncedNode.Id);
+    }
+
+    [Fact]
+    public void SyncedReading_ShouldSupportMultipleMeasurementTypes()
+    {
+        // Arrange & Act
+        var syncedNodeId = Guid.NewGuid();
+        var readings = new List<SyncedReading>
+        {
+            new SyncedReading
+            {
+                Id = 1,
+                SyncedNodeId = syncedNodeId,
+                SensorCode = "bme280",
+                MeasurementType = "temperature",
+                Value = 21.5,
+                Unit = "°C"
+            },
+            new SyncedReading
+            {
+                Id = 2,
+                SyncedNodeId = syncedNodeId,
+                SensorCode = "bme280",
+                MeasurementType = "humidity",
+                Value = 65.0,
+                Unit = "%"
+            },
+            new SyncedReading
+            {
+                Id = 3,
+                SyncedNodeId = syncedNodeId,
+                SensorCode = "bme280",
+                MeasurementType = "pressure",
+                Value = 1013.25,
+                Unit = "hPa"
+            }
+        };
+
+        // Assert
+        readings.Should().HaveCount(3);
+        readings.Select(r => r.MeasurementType).Should().Contain(new[] { "temperature", "humidity", "pressure" });
+    }
+
+    [Fact]
+    public void SyncedReading_ShouldHaveLongIdForTimeSeries()
+    {
+        // Arrange & Act - Testing that Id is long type for high-performance time-series storage
+        var reading = new SyncedReading { Id = long.MaxValue };
+
+        // Assert
+        reading.Id.Should().Be(long.MaxValue);
+    }
+
+    [Fact]
+    public void SyncedReading_ShouldTrackSyncDelay()
+    {
+        // Arrange
+        var originalTimestamp = DateTime.UtcNow.AddMinutes(-10);
+        var syncedAt = DateTime.UtcNow;
+
+        // Act
+        var reading = new SyncedReading
+        {
+            Timestamp = originalTimestamp,
+            SyncedAt = syncedAt
+        };
+
+        // Assert - Sync delay should be calculable
+        var syncDelay = reading.SyncedAt - reading.Timestamp;
+        syncDelay.Should().BeCloseTo(TimeSpan.FromMinutes(10), TimeSpan.FromSeconds(1));
+    }
+
+    #endregion
 }

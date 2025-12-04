@@ -1,0 +1,120 @@
+<mat-card class="node-card"
+          [class.deleting]="isDeleting"
+          [class.unconfigured]="isUnconfigured()"
+          (click)="onCardClick()">
+  <!-- Unconfigured Banner -->
+  @if (isUnconfigured()) {
+    <div class="unconfigured-banner">
+      <mat-icon>{{ getStatusIcon() }}</mat-icon>
+      <span>{{ getStatusLabel() }}</span>
+      @if (showConfigureButton) {
+        <button mat-stroked-button color="primary" (click)="onConfigureClick($event)">
+          Jetzt konfigurieren
+        </button>
+      }
+    </div>
+  }
+
+  <!-- Card Header mit Status-Indikator -->
+  <div class="card-header">
+    <div class="status-indicator"
+         [class.online]="node.isOnline && !isUnconfigured()"
+         [class.offline]="!node.isOnline && !isUnconfigured()"
+         [class.unconfigured]="isUnconfigured()">
+      <mat-icon>{{ isUnconfigured() ? getStatusIcon() : getNodeIcon() }}</mat-icon>
+    </div>
+    <div class="node-info">
+      <h3 class="node-name">{{ node.name }}</h3>
+      @if (node.location?.name) {
+        <span class="node-location">
+          <mat-icon>location_on</mat-icon>
+          {{ node.location.name }}
+        </span>
+      } @else {
+        <code class="node-id">{{ node.nodeId }}</code>
+      }
+    </div>
+  </div>
+
+  <!-- Sensoren (ein-/ausklappbar) -->
+  <div class="sensors-content">
+    @if (sensorsLatest) {
+      @if (sensorsLatest.sensors.length > 0) {
+        <!-- Klappbarer Header -->
+        <div class="sensors-header" (click)="toggleSensorsExpanded($event)">
+          <mat-icon class="expand-icon" [class.expanded]="isExpanded">
+            chevron_right
+          </mat-icon>
+          <span class="sensors-count">{{ sensorsLatest.sensors.length }} Sensoren</span>
+        </div>
+
+        <!-- Sensoren-Grid (nur wenn ausgeklappt) -->
+        @if (isExpanded) {
+          <div class="sensors-latest-grid">
+            @for (sensor of sensorsLatest.sensors; track sensor.assignmentId) {
+              <div class="sensor-latest-card" [class.inactive]="!sensor.isActive">
+                <div class="sensor-latest-header">
+                  <div class="sensor-icon-sm" [style.background-color]="sensor.color || '#607d8b'">
+                    <mat-icon>{{ sensor.icon || 'sensors' }}</mat-icon>
+                  </div>
+                  <div class="sensor-name-container">
+                    <span class="sensor-display-name"
+                          [matTooltip]="sensor.fullName"
+                          matTooltipPosition="above">
+                      {{ sensor.displayName }}
+                    </span>
+                    <span class="sensor-model">{{ sensor.sensorModel }}</span>
+                  </div>
+                </div>
+                <div class="sensor-measurements">
+                  @for (m of sensor.measurements; track m.measurementType) {
+                    <div class="measurement-row">
+                      <span class="measurement-label">{{ m.displayName }}</span>
+                      <span class="measurement-value">{{ m.value | number:'1.1-1' }} {{ m.unit }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+      } @else {
+        <div class="no-sensors">
+          <mat-icon>sensors_off</mat-icon>
+          <span>Keine Sensoren</span>
+        </div>
+      }
+    } @else {
+      <div class="no-sensors">
+        <mat-icon>sensors_off</mat-icon>
+        <span>Keine Sensoren</span>
+      </div>
+    }
+  </div>
+
+  <!-- Card Footer -->
+  <div class="card-footer">
+    <div class="status-badge" [class.online]="node.isOnline" [class.offline]="!node.isOnline">
+      <mat-icon>{{ node.isOnline ? 'wifi' : 'wifi_off' }}</mat-icon>
+      <span>{{ node.isOnline ? 'Online' : 'Offline' }}</span>
+    </div>
+    @if (node.isSimulation) {
+      <div class="simulation-badge" matTooltip="Simulationsmodus">
+        <mat-icon>science</mat-icon>
+      </div>
+    }
+    @if (node.batteryLevel !== null && node.batteryLevel !== undefined) {
+      <span class="battery">
+        <mat-icon>battery_{{ node.batteryLevel > 80 ? 'full' : node.batteryLevel > 20 ? 'std' : 'alert' }}</mat-icon>
+        {{ node.batteryLevel }}%
+      </span>
+    }
+    <span class="spacer"></span>
+    @if (getNodeTimestamp(); as timestamp) {
+      <span class="last-updated">
+        <mat-icon>update</mat-icon>
+        {{ getRelativeTime(timestamp) }}
+      </span>
+    }
+  </div>
+</mat-card>

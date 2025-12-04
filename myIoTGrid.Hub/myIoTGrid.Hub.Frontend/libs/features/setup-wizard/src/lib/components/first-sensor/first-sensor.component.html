@@ -1,0 +1,190 @@
+<div class="first-sensor-container">
+  <mat-card class="sensor-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="step-icon">sensors</mat-icon>
+      <mat-card-title>Ersten Sensor zuordnen</mat-card-title>
+      <mat-card-subtitle>Schritt 4 von 5 - Optional</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="node-info-summary">
+        <mat-icon>{{ nodeInfo()?.icon || 'memory' }}</mat-icon>
+        <div class="summary-text">
+          <strong>{{ nodeInfo()?.name }}</strong>
+          @if (nodeInfo()?.location) {
+            <span class="location">{{ nodeInfo()?.location }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="sensor-selection">
+        <!-- Sensor Templates -->
+        <div class="section">
+          <h3>Sensor-Vorlage wählen</h3>
+          <p class="section-description">
+            Wählen Sie einen vordefinierten Sensor-Typ
+          </p>
+
+          <div class="template-grid">
+            @for (template of sensorTemplates; track template.code) {
+              <div
+                class="template-card"
+                [class.selected]="selectedTemplate()?.code === template.code"
+                (click)="selectTemplate(template)"
+                (keydown.enter)="selectTemplate(template)"
+                tabindex="0"
+                role="option"
+              >
+                <mat-icon class="template-icon">{{ template.icon }}</mat-icon>
+                <span class="template-name">{{ template.name }}</span>
+                <span class="template-protocol">{{ getProtocolLabel(template.protocol) }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Existing Sensors -->
+        @if (existingSensors().length > 0) {
+          <div class="section">
+            <h3>Oder existierenden Sensor verwenden</h3>
+            <div class="existing-sensors">
+              @if (isLoadingSensors()) {
+                <mat-spinner diameter="24"></mat-spinner>
+              } @else {
+                @for (sensor of existingSensors(); track sensor.id) {
+                  <button
+                    mat-stroked-button
+                    class="existing-sensor-btn"
+                    [class.selected]="useExisting() && form.value.code === sensor.code"
+                    (click)="selectExistingSensor(sensor)"
+                  >
+                    <mat-icon>{{ sensor.icon || 'sensors' }}</mat-icon>
+                    {{ sensor.name }}
+                  </button>
+                }
+              }
+            </div>
+          </div>
+
+          <mat-divider></mat-divider>
+        }
+
+        <!-- Configuration Form -->
+        @if (selectedTemplate() || useExisting()) {
+          <div class="section">
+            <h3>Konfiguration</h3>
+
+            <form [formGroup]="form">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="flex-1">
+                  <mat-label>Sensor-Name</mat-label>
+                  <input matInput formControlName="name" placeholder="z.B. Wohnzimmer Temperatur">
+                  @if (form.get('name')?.hasError('required') && form.get('name')?.touched) {
+                    <mat-error>Name ist erforderlich</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="interval-field">
+                  <mat-label>Intervall</mat-label>
+                  <input matInput type="number" formControlName="intervalSeconds" min="1" max="3600">
+                  <span matSuffix>Sek.</span>
+                </mat-form-field>
+              </div>
+
+              <!-- Advanced Options -->
+              <mat-expansion-panel [expanded]="showAdvanced()">
+                <mat-expansion-panel-header (click)="toggleAdvanced()">
+                  <mat-panel-title>
+                    <mat-icon>tune</mat-icon>
+                    Erweiterte Optionen
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+
+                <div class="advanced-options">
+                  @switch (form.value.protocol) {
+                    @case (1) {
+                      <!-- I2C -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>I²C-Adresse</mat-label>
+                        <input matInput formControlName="i2cAddress" placeholder="0x76">
+                        <mat-hint>Hex-Format, z.B. 0x76</mat-hint>
+                      </mat-form-field>
+                    }
+                    @case (3) {
+                      <!-- OneWire -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>1-Wire Pin</mat-label>
+                        <input matInput type="number" formControlName="oneWirePin" placeholder="4">
+                      </mat-form-field>
+                    }
+                    @case (4) {
+                      <!-- Analog -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Analog Pin</mat-label>
+                        <input matInput type="number" formControlName="analogPin" placeholder="34">
+                      </mat-form-field>
+                    }
+                    @case (6) {
+                      <!-- Digital -->
+                      <mat-form-field appearance="outline">
+                        <mat-label>Digital Pin</mat-label>
+                        <input matInput type="number" formControlName="digitalPin" placeholder="4">
+                      </mat-form-field>
+                    }
+                    @case (7) {
+                      <!-- UltraSonic -->
+                      <div class="form-row">
+                        <mat-form-field appearance="outline" class="flex-1">
+                          <mat-label>Trigger Pin</mat-label>
+                          <input matInput type="number" formControlName="triggerPin" placeholder="5">
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" class="flex-1">
+                          <mat-label>Echo Pin</mat-label>
+                          <input matInput type="number" formControlName="echoPin" placeholder="18">
+                        </mat-form-field>
+                      </div>
+                    }
+                  }
+                </div>
+              </mat-expansion-panel>
+            </form>
+          </div>
+        }
+      </div>
+
+      @if (isCreating()) {
+        <div class="creating-overlay">
+          <mat-spinner diameter="48"></mat-spinner>
+          <h3>Node wird erstellt...</h3>
+          <p>Bitte warten Sie einen Moment</p>
+        </div>
+      }
+    </mat-card-content>
+
+    <mat-divider></mat-divider>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="onCancel()">
+        Abbrechen
+      </button>
+      <button mat-button (click)="onBack()">
+        <mat-icon>arrow_back</mat-icon>
+        Zurück
+      </button>
+      <button mat-button (click)="onSkip()">
+        Überspringen
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        [disabled]="(!selectedTemplate() && !useExisting()) || form.invalid || isCreating()"
+        (click)="onComplete()"
+      >
+        <mat-icon>check</mat-icon>
+        Abschließen
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

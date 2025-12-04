@@ -4,6 +4,9 @@
 
 #include "ble_service.h"
 #include <ArduinoJson.h>
+#ifdef PLATFORM_NATIVE
+#include "ArduinoJsonString.h"
+#endif
 
 BLEProvisioningService::BLEProvisioningService()
     : _initialized(false)

@@ -5,16 +5,16 @@ namespace myIoTGrid.Hub.Service.Helpers;
 
 /// <summary>
 /// Helper class for generating and validating API keys.
-/// Format: sk_live_{32 random chars}
+/// Format: mig_key_{32 random chars}
 /// </summary>
 public static class ApiKeyGenerator
 {
-    private const string Prefix = "sk_live_";
+    private const string Prefix = "mig_key_";
     private const int RandomPartLength = 32;
     private const string AllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     /// <summary>
-    /// Generates a new API key with format: sk_live_{32 random chars}
+    /// Generates a new API key with format: mig_key_{32 random chars}
     /// </summary>
     public static string GenerateApiKey()
     {

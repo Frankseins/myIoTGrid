@@ -9,7 +9,22 @@
           <mat-icon>arrow_back</mat-icon>
         </button>
 
-        <span class="toolbar-title">{{ pageTitle() }}</span>
+        <span class="toolbar-title">Node Details</span>
+
+        <!-- Node ID und Firmware im Header (nur wenn nicht Create-Modus) -->
+        @if (!isCreateMode()) {
+          <span class="header-info">
+            <span class="header-label">ID:</span>
+            <code class="header-value">{{ form.get('nodeId')?.value }}</code>
+          </span>
+          @if (form.get('firmwareVersion')?.value) {
+            <span class="header-info">
+              <span class="header-label">Firmware:</span>
+              <span class="header-value">{{ form.get('firmwareVersion')?.value }}</span>
+            </span>
+          }
+        }
+
         <span class="spacer"></span>
 
         <!-- Lock/Unlock Button (nur bei vorhandenen Datensätzen, nicht bei Create) -->
@@ -19,6 +34,16 @@
                   [matTooltip]="isViewMode() ? 'Bearbeiten aktivieren' : 'Bearbeitung aktiv'"
                   (click)="toggleEditMode()">
             <mat-icon>{{ isViewMode() ? 'lock' : 'lock_open' }}</mat-icon>
+          </button>
+        }
+
+        <!-- Delete Button (nur im Edit-Modus sichtbar) -->
+        @if (isEditMode()) {
+          <button mat-icon-button class="tbar-icon warn"
+                  matTooltip="Node löschen"
+                  [disabled]="isDeleting()"
+                  (click)="deleteNode()">
+            <mat-icon>{{ isDeleting() ? 'sync' : 'delete' }}</mat-icon>
           </button>
         }
       </div>
@@ -31,19 +56,12 @@
           <section class="form-section">
             <h3>Allgemein</h3>
 
-            <div class="form-row">
-              <mat-form-field class="full"
-                              [appearance]="isViewMode() ? 'fill' : 'outline'"
-                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+            <!-- Node-ID nur im Create-Modus anzeigen -->
+            @if (isCreateMode()) {
+              <mat-form-field class="full-width" appearance="outline">
                 <mat-label>Node-ID</mat-label>
-                <input matInput formControlName="nodeId"
-                       [readonly]="isViewMode() || isEditMode()"
-                       placeholder="z.B. sensor-wohnzimmer-01">
-                @if (isCreateMode()) {
-                  <mat-hint>Eindeutige ID (Buchstaben, Zahlen, Bindestriche, Unterstriche)</mat-hint>
-                } @else if (isEditMode()) {
-                  <mat-hint>Node-ID kann nicht geändert werden</mat-hint>
-                }
+                <input matInput formControlName="nodeId" placeholder="z.B. sensor-wohnzimmer-01">
+                <mat-hint>Eindeutige ID (Buchstaben, Zahlen, Bindestriche, Unterstriche)</mat-hint>
                 @if (form.get('nodeId')?.hasError('required')) {
                   <mat-error>Node-ID ist erforderlich</mat-error>
                 }
@@ -51,7 +69,9 @@
                   <mat-error>Nur Buchstaben, Zahlen, Bindestriche und Unterstriche erlaubt</mat-error>
                 }
               </mat-form-field>
+            }
 
+            <div class="form-row">
               <mat-form-field class="full"
                               [appearance]="isViewMode() ? 'fill' : 'outline'"
                               [floatLabel]="isViewMode() ? 'always' : 'auto'">
@@ -64,43 +84,14 @@
                   <mat-error>Name muss mindestens 2 Zeichen haben</mat-error>
                 }
               </mat-form-field>
-            </div>
-
-            <div class="form-row">
-              <mat-form-field class="full"
-                              [appearance]="isViewMode() ? 'fill' : 'outline'"
-                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
-                <mat-label>Hub</mat-label>
-                @if (isViewMode() || isEditMode()) {
-                  <!-- Display-only input that shows hub name, hidden select maintains form value -->
-                  <input matInput [value]="getHubName(form.get('hubId')?.value)" readonly>
-                  <input type="hidden" [formControl]="$any(form.get('hubId'))">
-                  @if (isEditMode()) {
-                    <mat-hint>Hub kann nicht geändert werden</mat-hint>
-                  }
-                } @else {
-                  <mat-select formControlName="hubId">
-                    @for (hub of hubs(); track hub.id) {
-                      <mat-option [value]="hub.id">{{ hub.name }} ({{ hub.hubId }})</mat-option>
-                    }
-                  </mat-select>
-                }
-                @if (form.get('hubId')?.hasError('required')) {
-                  <mat-error>Hub ist erforderlich</mat-error>
-                }
-              </mat-form-field>
 
               <mat-form-field class="full"
                               [appearance]="isViewMode() ? 'fill' : 'outline'"
                               [floatLabel]="isViewMode() ? 'always' : 'auto'">
                 <mat-label>Protokoll</mat-label>
                 @if (isViewMode() || isEditMode()) {
-                  <!-- Display-only input that shows protocol name, hidden select maintains form value -->
                   <input matInput [value]="getProtocolLabel(form.get('protocol')?.value)" readonly>
                   <input type="hidden" [formControl]="$any(form.get('protocol'))">
-                  @if (isEditMode()) {
-                    <mat-hint>Protokoll kann nicht geändert werden</mat-hint>
-                  }
                 } @else {
                   <mat-select formControlName="protocol">
                     @for (proto of protocols; track proto.value) {
@@ -113,38 +104,96 @@
                 }
               </mat-form-field>
             </div>
-          </section>
 
-          <mat-divider></mat-divider>
+            <div class="form-row">
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Standort</mat-label>
+                <input matInput formControlName="locationName" [readonly]="isViewMode()" placeholder="z.B. Wohnzimmer">
+              </mat-form-field>
 
-          <!-- Location -->
-          <section class="form-section">
-            <h3>Standort</h3>
+              <mat-form-field class="full"
+                              [appearance]="isViewMode() ? 'fill' : 'outline'"
+                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                <mat-label>Sensorart</mat-label>
+                @if (isViewMode() || isEditMode()) {
+                  <input matInput [value]="getNodeTypeLabel(form.get('nodeType')?.value)" readonly>
+                  <input type="hidden" [formControl]="$any(form.get('nodeType'))">
+                } @else {
+                  <mat-select formControlName="nodeType">
+                    @for (type of nodeTypes; track type.value) {
+                      <mat-option [value]="type.value">{{ type.label }}</mat-option>
+                    }
+                  </mat-select>
+                }
+              </mat-form-field>
+            </div>
 
-            <mat-form-field class="full-width"
-                            [appearance]="isViewMode() ? 'fill' : 'outline'"
-                            [floatLabel]="isViewMode() ? 'always' : 'auto'">
-              <mat-label>Standort-Name</mat-label>
-              <input matInput formControlName="locationName" [readonly]="isViewMode()" placeholder="z.B. Wohnzimmer">
-              @if (!isViewMode()) {
-                <mat-hint>Optionaler Name für den Standort des Sensors</mat-hint>
-              }
-            </mat-form-field>
+            <div class="simulation-toggle">
+              <mat-slide-toggle formControlName="isSimulation"
+                                [disabled]="isViewMode()"
+                                color="primary">
+                Simulationsmodus
+              </mat-slide-toggle>
+              <p class="toggle-hint">
+                Im Simulationsmodus generiert der Node automatisch Sensor-Werte zum Testen.
+              </p>
+            </div>
           </section>
 
           @if (!isCreateMode()) {
             <mat-divider></mat-divider>
 
-            <!-- Firmware -->
+            <!-- Sensor Latest Readings (US-8.5.2) -->
             <section class="form-section">
-              <h3>Firmware</h3>
+              <h3>Aktuelle Messwerte</h3>
 
-              <mat-form-field class="full-width"
-                              [appearance]="isViewMode() ? 'fill' : 'outline'"
-                              [floatLabel]="isViewMode() ? 'always' : 'auto'">
-                <mat-label>Firmware-Version</mat-label>
-                <input matInput formControlName="firmwareVersion" [readonly]="isViewMode()" placeholder="z.B. 1.0.0">
-              </mat-form-field>
+              @if (isLoadingSensorsLatest()) {
+                <div class="loading-assignments">
+                  <mat-icon class="spin">sync</mat-icon>
+                  <span>Lade Messwerte...</span>
+                </div>
+              } @else if (!sensorsLatest() || sensorsLatest()!.sensors.length === 0) {
+                <div class="no-assignments">
+                  <mat-icon>sensors_off</mat-icon>
+                  <p>Keine Messwerte vorhanden</p>
+                  <span class="hint">Sobald Sensoren Daten senden, werden sie hier angezeigt.</span>
+                </div>
+              } @else {
+                <div class="sensors-latest-grid">
+                  @for (sensor of sensorsLatest()!.sensors; track sensor.assignmentId) {
+                    <div class="sensor-latest-card" [class.inactive]="!sensor.isActive">
+                      <div class="sensor-latest-header">
+                        <div class="sensor-icon-sm" [style.background-color]="sensor.color || '#607d8b'">
+                          <mat-icon>{{ sensor.icon || 'sensors' }}</mat-icon>
+                        </div>
+                        <div class="sensor-name-container">
+                          <span class="sensor-display-name"
+                                [matTooltip]="sensor.fullName"
+                                matTooltipPosition="above">
+                            {{ sensor.displayName }}
+                          </span>
+                          <span class="sensor-model">{{ sensor.sensorModel }}</span>
+                        </div>
+                      </div>
+                      <div class="sensor-measurements">
+                        @for (m of sensor.measurements; track m.measurementType) {
+                          <div class="measurement-row">
+                            <span class="measurement-label">{{ m.displayName }}</span>
+                            <span class="measurement-value">{{ m.value | number:'1.1-1' }} {{ m.unit }}</span>
+                          </div>
+                        }
+                      </div>
+                      <div class="sensor-timestamp">
+                        @if (sensor.measurements.length > 0) {
+                          {{ getRelativeTime(sensor.measurements[0].timestamp) }}
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
             </section>
 
             <mat-divider></mat-divider>
@@ -191,6 +240,9 @@
                           </div>
                         </mat-panel-title>
                         <mat-panel-description>
+                          @for (cap of getSensorCapabilities(assignment.sensorCode); track cap) {
+                            <mat-chip class="capability-chip">{{ cap }}</mat-chip>
+                          }
                           <mat-chip [class.active]="assignment.isActive" [class.inactive]="!assignment.isActive">
                             {{ assignment.isActive ? 'Aktiv' : 'Inaktiv' }}
                           </mat-chip>
@@ -311,149 +363,75 @@
                 </div>
               }
 
-              <!-- Assignment Form Dialog -->
-              @if (showAssignmentForm()) {
-                <div class="assignment-form-overlay">
-                  <mat-card class="assignment-form-card">
-                    <mat-card-header>
-                      <mat-card-title>
-                        {{ editingAssignment() ? 'Zuordnung bearbeiten' : 'Sensor zuordnen' }}
-                      </mat-card-title>
-                    </mat-card-header>
-                    <mat-card-content>
-                      <form [formGroup]="assignmentForm">
-                        <div class="form-row">
-                          <mat-form-field appearance="outline">
-                            <mat-label>Sensor</mat-label>
-                            <mat-select formControlName="sensorId">
-                              @if (editingAssignment()) {
-                                <mat-option [value]="editingAssignment()!.sensorId">
-                                  {{ editingAssignment()!.sensorName }}
-                                </mat-option>
-                              } @else {
-                                @for (sensor of getUnassignedSensors(); track sensor.id) {
-                                  <mat-option [value]="sensor.id">
-                                    {{ sensor.name }} ({{ sensor.code }})
-                                  </mat-option>
-                                }
-                              }
-                            </mat-select>
-                            @if (assignmentForm.get('sensorId')?.hasError('required')) {
-                              <mat-error>Sensor ist erforderlich</mat-error>
-                            }
-                          </mat-form-field>
+            </section>
 
-                          <mat-form-field appearance="outline">
-                            <mat-label>Endpoint-ID</mat-label>
-                            <input matInput type="number" formControlName="endpointId" min="1" max="254">
-                            <mat-hint>Matter-konform: 1-254</mat-hint>
-                            @if (assignmentForm.get('endpointId')?.hasError('required')) {
-                              <mat-error>Endpoint-ID ist erforderlich</mat-error>
-                            }
-                            @if (assignmentForm.get('endpointId')?.hasError('min') || assignmentForm.get('endpointId')?.hasError('max')) {
-                              <mat-error>Muss zwischen 1 und 254 liegen</mat-error>
-                            }
-                          </mat-form-field>
-                        </div>
+            <mat-divider></mat-divider>
 
-                        <mat-form-field appearance="outline" class="full-width">
-                          <mat-label>Alias (optional)</mat-label>
-                          <input matInput formControlName="alias" placeholder="z.B. Außentemperatur">
-                          <mat-hint>Optionaler Anzeigename für diese Zuordnung</mat-hint>
-                        </mat-form-field>
+            <!-- Reading History (Generic List) -->
+            <section class="form-section reading-history-section">
+              <myiotgrid-generic-list
+                title="Messwert-Verlauf"
+                [data]="readingHistory()"
+                [columns]="historyColumns"
+                [totalRecords]="historyTotalRecords()"
+                [loading]="isLoadingHistory()"
+                [showFilter]="true"
+                filterTitle="Messwerte filtern"
+                stateKey="node-reading-history"
+                dataKey="id"
+                (lazyLoad)="loadReadingsLazy($event)"
+                (filterChange)="onHistoryFilterChange($event)">
 
-                        <mat-divider></mat-divider>
-                        <h4>Pin-Überschreibungen (optional)</h4>
-                        <p class="hint-text">Leer lassen, um die Sensor-Standardwerte zu verwenden</p>
+                <!-- Filter Template -->
+                <ng-template #filterTemplate let-filters>
+                  <div class="filter-fields">
+                    <!-- Sensor Filter -->
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Sensor</mat-label>
+                      <mat-select [ngModel]="filters['sensorCode']"
+                                  [ngModelOptions]="{standalone: true}"
+                                  (ngModelChange)="filters['sensorCode'] = $event">
+                        <mat-option [value]="''">Alle Sensoren</mat-option>
+                        @for (sensor of getAssignedSensorNames(); track sensor.value) {
+                          <mat-option [value]="sensor.value">{{ sensor.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
 
-                        <div class="form-row">
-                          <mat-form-field appearance="outline">
-                            <mat-label>I2C-Adresse</mat-label>
-                            <input matInput formControlName="i2cAddressOverride" placeholder="z.B. 0x77">
-                          </mat-form-field>
+                    <!-- Measurement Type Filter -->
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Messtyp</mat-label>
+                      <mat-select [ngModel]="filters['measurementType']"
+                                  [ngModelOptions]="{standalone: true}"
+                                  (ngModelChange)="filters['measurementType'] = $event">
+                        <mat-option [value]="''">Alle Messtypen</mat-option>
+                        @for (type of getMeasurementTypes(); track type.value) {
+                          <mat-option [value]="type.value">{{ type.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                </ng-template>
 
-                          <mat-form-field appearance="outline">
-                            <mat-label>Intervall (Sekunden)</mat-label>
-                            <input matInput type="number" formControlName="intervalSecondsOverride" min="1">
-                          </mat-form-field>
-                        </div>
+                <!-- Custom timestamp column -->
+                <ng-template myiotgridListColumnTemplate="timestamp" let-row>
+                  {{ formatTimestamp(row.timestamp) }}
+                </ng-template>
 
-                        <div class="form-row">
-                          <mat-form-field appearance="outline">
-                            <mat-label>SDA Pin</mat-label>
-                            <input matInput type="number" formControlName="sdaPinOverride">
-                          </mat-form-field>
+                <!-- Custom sensor name column -->
+                <ng-template myiotgridListColumnTemplate="sensorName" let-row>
+                  {{ row.sensorName || row.sensorCode || '-' }}
+                </ng-template>
 
-                          <mat-form-field appearance="outline">
-                            <mat-label>SCL Pin</mat-label>
-                            <input matInput type="number" formControlName="sclPinOverride">
-                          </mat-form-field>
-                        </div>
+                <!-- Custom value column with unit -->
+                <ng-template myiotgridListColumnTemplate="value" let-row>
+                  <span class="reading-value">{{ row.value | number:'1.1-2' }} {{ row.unit }}</span>
+                </ng-template>
 
-                        <div class="form-row">
-                          <mat-form-field appearance="outline">
-                            <mat-label>OneWire Pin</mat-label>
-                            <input matInput type="number" formControlName="oneWirePinOverride">
-                          </mat-form-field>
-
-                          <mat-form-field appearance="outline">
-                            <mat-label>Analog Pin</mat-label>
-                            <input matInput type="number" formControlName="analogPinOverride">
-                          </mat-form-field>
-                        </div>
-
-                        <div class="form-row">
-                          <mat-form-field appearance="outline">
-                            <mat-label>Digital Pin</mat-label>
-                            <input matInput type="number" formControlName="digitalPinOverride">
-                          </mat-form-field>
-
-                          <mat-form-field appearance="outline">
-                            <mat-label>Trigger Pin</mat-label>
-                            <input matInput type="number" formControlName="triggerPinOverride">
-                          </mat-form-field>
-                        </div>
-
-                        <div class="form-row">
-                          <mat-form-field appearance="outline">
-                            <mat-label>Echo Pin</mat-label>
-                            <input matInput type="number" formControlName="echoPinOverride">
-                          </mat-form-field>
-                        </div>
-                      </form>
-                    </mat-card-content>
-                    <mat-card-actions align="end">
-                      <button mat-button type="button" (click)="cancelAssignmentForm()">Abbrechen</button>
-                      <button mat-raised-button color="primary" type="button"
-                              (click)="saveAssignment()"
-                              [disabled]="assignmentForm.invalid">
-                        {{ editingAssignment() ? 'Speichern' : 'Zuordnen' }}
-                      </button>
-                    </mat-card-actions>
-                  </mat-card>
-                </div>
-              }
+              </myiotgrid-generic-list>
             </section>
           }
 
-          <mat-divider></mat-divider>
-
-          <!-- Preview -->
-          <section class="form-section">
-            <h3>Vorschau</h3>
-            <div class="preview">
-              <div class="preview-icon" [style.background-color]="'#1976d2'">
-                <mat-icon>{{ getProtocolIcon() }}</mat-icon>
-              </div>
-              <div class="preview-info">
-                <span class="preview-name">{{ form.get('name')?.value || 'Node Name' }}</span>
-                <code class="preview-id">{{ form.get('nodeId')?.value || 'node-id' }}</code>
-                @if (form.get('locationName')?.value) {
-                  <span class="preview-location">{{ form.get('locationName')?.value }}</span>
-                }
-              </div>
-            </div>
-          </section>
         </form>
       </div>
 
@@ -477,3 +455,149 @@
     </div>
   }
 </div>
+
+<!-- Assignment Drawer Template -->
+<ng-template #assignmentDrawer>
+  <div class="gt-drawer">
+    <div class="gt-drawer__header">
+      <h2 class="gt-drawer__title">
+        {{ editingAssignment() ? 'Zuordnung bearbeiten' : 'Sensor zuordnen' }}
+      </h2>
+      <button mat-icon-button (click)="closeAssignmentDrawer()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="gt-drawer__body">
+      <form [formGroup]="assignmentForm" class="drawer-form">
+        <!-- Sensor Selection -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Sensor</mat-label>
+          <mat-select formControlName="sensorId">
+            @if (editingAssignment()) {
+              <mat-option [value]="editingAssignment()!.sensorId">
+                {{ editingAssignment()!.sensorName }}
+              </mat-option>
+            } @else {
+              @for (sensor of getUnassignedSensors(); track sensor.id) {
+                <mat-option [value]="sensor.id">
+                  {{ sensor.name }} ({{ sensor.code }})
+                </mat-option>
+              }
+            }
+          </mat-select>
+          @if (assignmentForm.get('sensorId')?.hasError('required')) {
+            <mat-error>Sensor ist erforderlich</mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Sensor Preview (when selected) -->
+        @if (getSelectedSensor(); as sensor) {
+          <div class="sensor-defaults-info">
+            <div class="sensor-preview">
+              <div class="sensor-icon-lg" [style.background-color]="sensor.color || '#607d8b'">
+                <mat-icon>{{ sensor.icon || 'sensors' }}</mat-icon>
+              </div>
+              <div class="sensor-details">
+                <span class="sensor-name">{{ sensor.name }}</span>
+                <span class="sensor-category">{{ sensor.category }} &bull; {{ sensor.manufacturer || 'Unbekannt' }}</span>
+              </div>
+            </div>
+            <p class="info-text">
+              <mat-icon>info</mat-icon>
+              Standardwerte wurden übernommen.
+            </p>
+          </div>
+        }
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Endpoint-ID</mat-label>
+            <input matInput type="number" formControlName="endpointId" min="1" max="254">
+            <mat-hint>Matter: 1-254</mat-hint>
+            @if (assignmentForm.get('endpointId')?.hasError('required')) {
+              <mat-error>Erforderlich</mat-error>
+            }
+            @if (assignmentForm.get('endpointId')?.hasError('min') || assignmentForm.get('endpointId')?.hasError('max')) {
+              <mat-error>1-254</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Alias (optional)</mat-label>
+            <input matInput formControlName="alias" placeholder="z.B. Außentemperatur">
+          </mat-form-field>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <h4 class="section-title">Pin-Konfiguration</h4>
+        <p class="hint-text">Überschreibt die Sensor-Standardwerte</p>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>I2C-Adresse</mat-label>
+            <input matInput formControlName="i2cAddressOverride" placeholder="0x77">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Intervall (s)</mat-label>
+            <input matInput type="number" formControlName="intervalSecondsOverride" min="1">
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>SDA Pin</mat-label>
+            <input matInput type="number" formControlName="sdaPinOverride">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>SCL Pin</mat-label>
+            <input matInput type="number" formControlName="sclPinOverride">
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>OneWire Pin</mat-label>
+            <input matInput type="number" formControlName="oneWirePinOverride">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Analog Pin</mat-label>
+            <input matInput type="number" formControlName="analogPinOverride">
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Digital Pin</mat-label>
+            <input matInput type="number" formControlName="digitalPinOverride">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Trigger Pin</mat-label>
+            <input matInput type="number" formControlName="triggerPinOverride">
+          </mat-form-field>
+        </div>
+
+        <div class="form-row single">
+          <mat-form-field appearance="outline">
+            <mat-label>Echo Pin</mat-label>
+            <input matInput type="number" formControlName="echoPinOverride">
+          </mat-form-field>
+        </div>
+      </form>
+    </div>
+
+    <div class="drawer-buttons">
+      <button mat-button type="button" (click)="closeAssignmentDrawer()">Abbrechen</button>
+      <button mat-flat-button color="primary" type="button"
+              (click)="saveAssignment()"
+              [disabled]="assignmentForm.invalid">
+        {{ editingAssignment() ? 'Speichern' : 'Zuordnen' }}
+      </button>
+    </div>
+  </div>
+</ng-template>

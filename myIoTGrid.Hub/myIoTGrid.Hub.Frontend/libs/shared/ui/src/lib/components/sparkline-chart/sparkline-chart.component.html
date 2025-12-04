@@ -1,0 +1,30 @@
+<div class="sparkline-container">
+  <svg
+    [attr.viewBox]="viewBox()"
+    [attr.height]="height"
+    preserveAspectRatio="none"
+    class="sparkline-svg"
+  >
+    @for (s of normalizedSeries(); track s.label || $index) {
+      <path
+        [attr.d]="s.path"
+        fill="none"
+        [attr.stroke]="s.color"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    }
+  </svg>
+
+  @if (showLegend && series.length > 1) {
+    <div class="sparkline-legend">
+      @for (s of series; track s.label || $index) {
+        <div class="legend-item">
+          <span class="legend-dot" [style.background-color]="s.color"></span>
+          <span class="legend-label">{{ s.label }}</span>
+        </div>
+      }
+    </div>
+  }
+</div>

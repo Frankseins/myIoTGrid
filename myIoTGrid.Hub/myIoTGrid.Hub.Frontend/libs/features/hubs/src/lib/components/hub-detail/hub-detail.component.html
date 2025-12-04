@@ -83,7 +83,7 @@
                 </div>
                 <div class="sensor-count">
                   <mat-icon>memory</mat-icon>
-                  <span>{{ node.sensors?.length || 0 }} Sensoren</span>
+                  <span>{{ (node.sensors?.length ?? node.assignmentCount) || 0 }} Sensoren</span>
                 </div>
               </mat-card-content>
             </mat-card>

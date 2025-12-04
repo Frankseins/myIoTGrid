@@ -9,11 +9,15 @@ export interface Reading {
   id: number;
   tenantId: string;
   nodeId: string;
-  sensorId: string;
+  assignmentId?: string;
+  sensorId?: string;
   sensorCode: string;
   sensorName: string;
+  sensorIcon?: string;
+  sensorColor?: string;
   measurementType: string;
   displayName: string;
+  rawValue: number;
   value: number;
   unit: string;
   timestamp: string;

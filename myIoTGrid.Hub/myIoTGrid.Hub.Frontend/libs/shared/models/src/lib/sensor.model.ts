@@ -186,6 +186,28 @@ export interface CreateSensorDto {
 }
 
 /**
+ * DTO for updating a SensorCapability
+ * Matches backend UpdateSensorCapabilityDto
+ * - If id is null/undefined, a new capability will be created.
+ * - If id is set, the existing capability will be updated.
+ * - Capabilities not included in the list will be deleted.
+ */
+export interface UpdateSensorCapabilityDto {
+  id?: string;
+  measurementType?: string;
+  displayName?: string;
+  unit?: string;
+  minValue?: number;
+  maxValue?: number;
+  resolution?: number;
+  accuracy?: number;
+  matterClusterId?: number;
+  matterClusterName?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+/**
  * DTO for updating a Sensor (v3.0)
  * Matches backend UpdateSensorDto
  */
@@ -223,6 +245,9 @@ export interface UpdateSensorDto {
 
   // Status
   isActive?: boolean;
+
+  // Capabilities (full replacement if provided)
+  capabilities?: UpdateSensorCapabilityDto[];
 }
 
 /**

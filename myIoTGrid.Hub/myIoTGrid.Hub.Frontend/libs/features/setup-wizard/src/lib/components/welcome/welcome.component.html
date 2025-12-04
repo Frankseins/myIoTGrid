@@ -1,0 +1,96 @@
+<div class="welcome-container">
+  <mat-card class="welcome-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="wizard-icon">add_circle</mat-icon>
+      <mat-card-title>Neuen Node einrichten</mat-card-title>
+      <mat-card-subtitle>Setup-Assistent</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="intro-section">
+        <p class="intro-text">
+          Willkommen zum Setup-Assistenten. In wenigen Schritten wird Ihr neuer
+          Sensor-Node mit dem myIoTGrid Hub verbunden.
+        </p>
+
+        <div class="steps-overview">
+          <div class="step-preview">
+            <mat-icon>bluetooth_searching</mat-icon>
+            <span>1. BLE-Pairing</span>
+          </div>
+          <mat-icon class="step-arrow">arrow_forward</mat-icon>
+          <div class="step-preview">
+            <mat-icon>wifi</mat-icon>
+            <span>2. WiFi-Setup</span>
+          </div>
+          <mat-icon class="step-arrow">arrow_forward</mat-icon>
+          <div class="step-preview">
+            <mat-icon>settings</mat-icon>
+            <span>3. Konfiguration</span>
+          </div>
+          <mat-icon class="step-arrow">arrow_forward</mat-icon>
+          <div class="step-preview">
+            <mat-icon>check_circle</mat-icon>
+            <span>4. Fertig</span>
+          </div>
+        </div>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="checklist-section">
+        <h3 class="checklist-title">
+          <mat-icon>checklist</mat-icon>
+          Voraussetzungen
+        </h3>
+        <p class="checklist-subtitle">
+          Bitte stellen Sie sicher, dass folgende Punkte erfüllt sind:
+        </p>
+
+        <div class="checklist">
+          @for (item of checklistItems(); track item.id) {
+            <div
+              class="checklist-item"
+              [class.checked]="item.checked"
+              (click)="toggleItem(item.id)"
+              (keydown.enter)="toggleItem(item.id)"
+              (keydown.space)="toggleItem(item.id)"
+              tabindex="0"
+              role="checkbox"
+              [attr.aria-checked]="item.checked"
+            >
+              <mat-checkbox
+                [checked]="item.checked"
+                (change)="toggleItem(item.id)"
+                color="primary"
+              ></mat-checkbox>
+              <mat-icon class="item-icon">{{ item.icon }}</mat-icon>
+              <div class="item-content">
+                <span class="item-label">{{ item.label }}</span>
+                <span class="item-description">{{ item.description }}</span>
+              </div>
+              @if (item.checked) {
+                <mat-icon class="check-icon">check_circle</mat-icon>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="onCancel()">
+        Abbrechen
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        [disabled]="!allChecked()"
+        (click)="onStart()"
+      >
+        <mat-icon>arrow_forward</mat-icon>
+        Setup starten
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

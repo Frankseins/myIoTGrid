@@ -1,0 +1,79 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Build artifacts
+.build/
+build/
+
+# IDE - CLion / JetBrains
+.idea/
+*.iml
+cmake-build-*/
+
+# IDE - VSCode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# IDE - Eclipse
+.project
+.cproject
+.settings/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Compiled files
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Library dependencies (downloaded by PlatformIO)
+lib/*/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+*.log
+
+# Credentials and secrets
+credentials.h
+secrets.h
+config_local.h
+*.env
+.env.local
+
+# WiFi configuration (contains passwords)
+wifi_credentials.h
+
+# Data directory with device-specific config
+data/config.json
+
+# Coverage and test reports
+coverage/
+test-results/
+
+# Claude Code
+.claude/
+
+# Firmware binary outputs (optional - remove if you want to track releases)
+firmware/

@@ -18,13 +18,13 @@ Diese Dokumentation beschreibt das Standard-Pattern für CRUD-Features im myIoTG
 │                        FEATURE PATTERN                          │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   ┌─────────────────────┐        ┌─────────────────────┐       │
-│   │    List Component   │───────▶│   Form Component    │       │
-│   │  (Master-Ansicht)   │        │  (Detail-Ansicht)   │       │
-│   └──────────┬──────────┘        └──────────┬──────────┘       │
+│   ┌─────────────────────┐        ┌─────────────────────┐        │
+│   │    List Component   │───────▶│   Form Component    │        │
+│   │  (Master-Ansicht)   │        │  (Detail-Ansicht)   │        │
+│   └──────────┬──────────┘        └──────────┬──────────┘        │
 │              │                              │                   │
 │              ▼                              ▼                   │
-│   ┌─────────────────────────────────────────────────────────┐  │
+│   ┌─────────────────────────────────────────────────────────┐   │
 │   │              GenericTableComponent                       │  │
 │   │  • Server-side Pagination  • Sorting  • Filtering        │  │
 │   │  • State Persistence       • Custom Templates            │  │

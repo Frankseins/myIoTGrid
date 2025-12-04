@@ -8,6 +8,7 @@ using myIoTGrid.Hub.Infrastructure.Repositories;
 using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Service.Services;
 using myIoTGrid.Hub.Shared.DTOs;
+using myIoTGrid.Hub.Shared.DTOs.Common;
 using myIoTGrid.Hub.Shared.Enums;
 
 namespace myIoTGrid.Hub.Service.Tests.Services;
@@ -548,6 +549,434 @@ public class SensorServiceTests : IDisposable
         var act = () => _sut.DeleteAsync(sensor.Id);
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*assignments*");
+    }
+
+    #endregion
+
+    #region GetPagedAsync Tests
+
+    [Fact]
+    public async Task GetPagedAsync_ReturnsPaginatedResults()
+    {
+        // Arrange
+        for (int i = 0; i < 15; i++)
+        {
+            _context.Sensors.Add(CreateTestSensor(name: $"Sensor {i:D2}", code: $"sensor-{i:D2}"));
+        }
+        await _context.SaveChangesAsync();
+
+        // Page is 0-based: Page 0 = first page
+        var queryParams = new QueryParamsDto { Page = 0, Size = 10 };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(10);
+        result.TotalRecords.Should().Be(15);
+        result.TotalPages.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SecondPage_ReturnsRemainingItems()
+    {
+        // Arrange
+        for (int i = 0; i < 15; i++)
+        {
+            _context.Sensors.Add(CreateTestSensor(name: $"Sensor {i:D2}", code: $"sensor-{i:D2}"));
+        }
+        await _context.SaveChangesAsync();
+
+        // Page is 0-based: Page 1 = second page
+        var queryParams = new QueryParamsDto { Page = 1, Size = 10 };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(5);
+        result.Page.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchByName_FiltersResults()
+    {
+        // Arrange
+        _context.Sensors.Add(CreateTestSensor(name: "Temperature Sensor", code: "temp"));
+        _context.Sensors.Add(CreateTestSensor(name: "Humidity Sensor", code: "humidity"));
+        _context.Sensors.Add(CreateTestSensor(name: "Pressure Sensor", code: "pressure"));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto { Search = "Temperature" };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Name.Should().Contain("Temperature");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchByCode_FiltersResults()
+    {
+        // Arrange
+        _context.Sensors.Add(CreateTestSensor(name: "Sensor 1", code: "dht22"));
+        _context.Sensors.Add(CreateTestSensor(name: "Sensor 2", code: "bme280"));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto { Search = "bme" };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Code.Should().Contain("bme280");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchByDescription_FiltersResults()
+    {
+        // Arrange
+        var sensor1 = CreateTestSensor(name: "Sensor 1", code: "s1");
+        sensor1.Description = "Measures temperature in kitchen";
+        var sensor2 = CreateTestSensor(name: "Sensor 2", code: "s2");
+        sensor2.Description = "Outdoor sensor";
+        _context.Sensors.AddRange(sensor1, sensor2);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto { Search = "kitchen" };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Description.Should().Contain("kitchen");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchBySerialNumber_FiltersResults()
+    {
+        // Arrange
+        var sensor1 = CreateTestSensor(name: "Sensor 1", code: "s1");
+        sensor1.SerialNumber = "SN-12345";
+        var sensor2 = CreateTestSensor(name: "Sensor 2", code: "s2");
+        sensor2.SerialNumber = "SN-67890";
+        _context.Sensors.AddRange(sensor1, sensor2);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto { Search = "12345" };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().SerialNumber.Should().Contain("12345");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SearchByManufacturer_FiltersResults()
+    {
+        // Arrange
+        var sensor1 = CreateTestSensor(name: "Sensor 1", code: "s1");
+        sensor1.Manufacturer = "Bosch";
+        var sensor2 = CreateTestSensor(name: "Sensor 2", code: "s2");
+        sensor2.Manufacturer = "Sensirion";
+        _context.Sensors.AddRange(sensor1, sensor2);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto { Search = "Bosch" };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Manufacturer.Should().Be("Bosch");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_FilterByCategory_FiltersResults()
+    {
+        // Arrange
+        _context.Sensors.Add(CreateTestSensor(name: "Climate Sensor", code: "climate1", category: "climate"));
+        _context.Sensors.Add(CreateTestSensor(name: "Water Sensor", code: "water1", category: "water"));
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto
+        {
+            Filters = new Dictionary<string, string> { { "category", "water" } }
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Category.Should().Be("water");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_FilterByProtocol_FiltersResults()
+    {
+        // Arrange
+        var sensor1 = CreateTestSensor(name: "I2C Sensor", code: "i2c1");
+        var sensor2 = CreateTestSensor(name: "OneWire Sensor", code: "ow1");
+        sensor2.Protocol = CommunicationProtocol.I2C;
+        _context.Sensors.AddRange(sensor1, sensor2);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto
+        {
+            Filters = new Dictionary<string, string> { { "protocol", "I2C" } }
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Code.Should().Contain("ow1");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_FilterByManufacturer_FiltersResults()
+    {
+        // Arrange
+        var sensor1 = CreateTestSensor(name: "Sensor 1", code: "s1");
+        sensor1.Manufacturer = "Bosch";
+        var sensor2 = CreateTestSensor(name: "Sensor 2", code: "s2");
+        sensor2.Manufacturer = "Sensirion";
+        _context.Sensors.AddRange(sensor1, sensor2);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto
+        {
+            Filters = new Dictionary<string, string> { { "manufacturer", "bosch" } }
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().Manufacturer.Should().Be("Bosch");
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_FilterByIsActive_FiltersResults()
+    {
+        // Arrange
+        var sensor1 = CreateTestSensor(name: "Active Sensor", code: "active");
+        sensor1.IsActive = true;
+        var sensor2 = CreateTestSensor(name: "Inactive Sensor", code: "inactive");
+        sensor2.IsActive = false;
+        _context.Sensors.AddRange(sensor1, sensor2);
+        await _context.SaveChangesAsync();
+
+        var queryParams = new QueryParamsDto
+        {
+            Filters = new Dictionary<string, string> { { "isActive", "false" } }
+        };
+
+        // Act
+        var result = await _sut.GetPagedAsync(queryParams);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items.First().IsActive.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region GetCapabilitiesAsync Tests
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_ReturnsCapabilitiesForSensor()
+    {
+        // Arrange
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
+
+        var cap1 = new SensorCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorId = sensor.Id,
+            MeasurementType = "temperature",
+            DisplayName = "Temperature",
+            Unit = "°C",
+            SortOrder = 1,
+            IsActive = true
+        };
+        var cap2 = new SensorCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorId = sensor.Id,
+            MeasurementType = "humidity",
+            DisplayName = "Humidity",
+            Unit = "%",
+            SortOrder = 0,
+            IsActive = true
+        };
+        _context.SensorCapabilities.AddRange(cap1, cap2);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = (await _sut.GetCapabilitiesAsync(sensor.Id)).ToList();
+
+        // Assert
+        result.Should().HaveCount(2);
+        result[0].MeasurementType.Should().Be("humidity"); // SortOrder 0
+        result[1].MeasurementType.Should().Be("temperature"); // SortOrder 1
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_ExcludesInactiveCapabilities()
+    {
+        // Arrange
+        var sensor = CreateTestSensor();
+        _context.Sensors.Add(sensor);
+
+        var cap1 = new SensorCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorId = sensor.Id,
+            MeasurementType = "temperature",
+            DisplayName = "Temperature",
+            Unit = "°C",
+            IsActive = true
+        };
+        var cap2 = new SensorCapability
+        {
+            Id = Guid.NewGuid(),
+            SensorId = sensor.Id,
+            MeasurementType = "humidity",
+            DisplayName = "Humidity",
+            Unit = "%",
+            IsActive = false
+        };
+        _context.SensorCapabilities.AddRange(cap1, cap2);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetCapabilitiesAsync(sensor.Id);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().MeasurementType.Should().Be("temperature");
+    }
+
+    [Fact]
+    public async Task GetCapabilitiesAsync_ReturnsEmptyForNonExistingSensor()
+    {
+        // Act
+        var result = await _sut.GetCapabilitiesAsync(Guid.NewGuid());
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    #endregion
+
+    #region SeedDefaultSensorsAsync Tests
+
+    [Fact]
+    public async Task SeedDefaultSensorsAsync_CreatesDefaultSensors()
+    {
+        // Act
+        await _sut.SeedDefaultSensorsAsync();
+
+        // Assert
+        var sensors = await _sut.GetAllAsync();
+        sensors.Should().NotBeEmpty();
+        sensors.Should().Contain(s => s.Code == "dht22");
+        sensors.Should().Contain(s => s.Code == "bme280");
+        sensors.Should().Contain(s => s.Code == "bh1750");
+        sensors.Should().Contain(s => s.Code == "ds18b20");
+    }
+
+    [Fact]
+    public async Task SeedDefaultSensorsAsync_DoesNotDuplicateExisting()
+    {
+        // Arrange - Add existing sensor with same code
+        var existingSensor = new Sensor
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantId,
+            Code = "dht22",
+            Name = "Existing DHT22",
+            Protocol = CommunicationProtocol.Digital,
+            Category = "climate",
+            IntervalSeconds = 60,
+            MinIntervalSeconds = 2,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.Sensors.Add(existingSensor);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _sut.SeedDefaultSensorsAsync();
+
+        // Assert
+        var dht22Sensors = (await _sut.GetAllAsync()).Where(s => s.Code == "dht22").ToList();
+        dht22Sensors.Should().HaveCount(1);
+        dht22Sensors.First().Name.Should().Be("Existing DHT22"); // Original name preserved
+    }
+
+    [Fact]
+    public async Task SeedDefaultSensorsAsync_CreatesCapabilitiesForNewSensors()
+    {
+        // Act
+        await _sut.SeedDefaultSensorsAsync();
+
+        // Assert
+        var dht22 = (await _sut.GetAllAsync()).FirstOrDefault(s => s.Code == "dht22");
+        dht22.Should().NotBeNull();
+        dht22!.Capabilities.Should().NotBeEmpty();
+        dht22.Capabilities.Should().Contain(c => c.MeasurementType == "temperature");
+        dht22.Capabilities.Should().Contain(c => c.MeasurementType == "humidity");
+    }
+
+    [Fact]
+    public async Task SeedDefaultSensorsAsync_SetsCorrectProtocols()
+    {
+        // Act
+        await _sut.SeedDefaultSensorsAsync();
+
+        // Assert
+        var sensors = (await _sut.GetAllAsync()).ToList();
+
+        var dht22 = sensors.FirstOrDefault(s => s.Code == "dht22");
+        dht22?.Protocol.Should().Be(CommunicationProtocolDto.Digital);
+
+        var bme280 = sensors.FirstOrDefault(s => s.Code == "bme280");
+        bme280?.Protocol.Should().Be(CommunicationProtocolDto.I2C);
+
+        var ds18b20 = sensors.FirstOrDefault(s => s.Code == "ds18b20");
+        ds18b20?.Protocol.Should().Be(CommunicationProtocolDto.OneWire);
+    }
+
+    [Fact]
+    public async Task SeedDefaultSensorsAsync_SetsCorrectCategories()
+    {
+        // Act
+        await _sut.SeedDefaultSensorsAsync();
+
+        // Assert
+        var sensors = (await _sut.GetAllAsync()).ToList();
+
+        var climateSensors = sensors.Where(s => s.Category == "climate").ToList();
+        climateSensors.Should().Contain(s => s.Code == "dht22");
+        climateSensors.Should().Contain(s => s.Code == "bme280");
+        climateSensors.Should().Contain(s => s.Code == "bh1750");
+
+        var waterSensors = sensors.Where(s => s.Category == "water").ToList();
+        waterSensors.Should().Contain(s => s.Code == "ds18b20");
     }
 
     #endregion

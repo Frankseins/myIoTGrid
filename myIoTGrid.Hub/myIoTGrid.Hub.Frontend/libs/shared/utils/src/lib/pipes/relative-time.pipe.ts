@@ -9,9 +9,29 @@ export class RelativeTimePipe implements PipeTransform {
   transform(value: string | Date | null | undefined): string {
     if (!value) return '';
 
-    const date = typeof value === 'string' ? new Date(value) : value;
+    // Parse date - handle both ISO strings (with Z suffix) and local dates
+    let date: Date;
+    if (typeof value === 'string') {
+      // If the string doesn't end with Z or timezone offset, treat as UTC
+      // Backend sends ISO 8601 format which should have Z suffix
+      date = new Date(value);
+    } else {
+      date = value;
+    }
+
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
+
+    // Handle future dates (shouldn't happen, but be defensive)
+    if (diffMs < 0) {
+      return 'gerade eben';
+    }
+
     const diffSeconds = Math.floor(diffMs / 1000);
     const diffMinutes = Math.floor(diffSeconds / 60);
     const diffHours = Math.floor(diffMinutes / 60);

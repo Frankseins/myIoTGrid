@@ -1,0 +1,35 @@
+.interval-selector {
+  ::ng-deep {
+    .mat-button-toggle-group {
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .mat-button-toggle {
+      border: none !important;
+
+      .mat-button-toggle-label-content {
+        padding: 0 12px;
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 36px;
+      }
+    }
+
+    .mat-button-toggle-checked {
+      background-color: #1976d2;
+
+      .mat-button-toggle-label-content {
+        color: white;
+      }
+    }
+
+    .mat-button-toggle:not(.mat-button-toggle-checked) {
+      background-color: #fafafa;
+
+      &:hover {
+        background-color: #f0f0f0;
+      }
+    }
+  }
+}

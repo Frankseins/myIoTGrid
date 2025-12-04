@@ -1,0 +1,152 @@
+<div class="card gl-scroll outlook">
+    <!-- Toolbar mit Titel und Buttons -->
+    <mat-toolbar class="toolbar outlook-toolbar gl-header">
+        <!-- Titel links -->
+        <h3 class="gl-title">{{ title }}</h3>
+
+        <span class="spacer"></span>
+
+        <!-- Refresh Button (1. von links) -->
+        <button type="button" mat-icon-button class="tbar-icon"
+                aria-label="Aktualisieren" (click)="onRefresh()"
+                matTooltip="Aktualisieren">
+            <mat-icon>refresh</mat-icon>
+        </button>
+
+        <!-- Filter Button (2. von links) -->
+        @if (showFilter) {
+            <button type="button" mat-icon-button class="tbar-icon"
+                    [class.on]="isFilterOpen"
+                    [class.active]="hasActiveFilters"
+                    aria-label="Filter" (click)="toggleFilter()"
+                    [matTooltip]="hasActiveFilters ? 'Filter (aktiv)' : 'Filter'">
+                <mat-icon>filter_list</mat-icon>
+            </button>
+        }
+
+        <!-- Suche (3. von links, ganz rechts) -->
+        @if (showSearch) {
+            <div class="o365-search" [class.open]="isSearchOpen">
+                <button type="button" mat-icon-button class="tbar-icon o365-search__btn"
+                        aria-label="Suche öffnen" (click)="toggleSearch()">
+                    <mat-icon>search</mat-icon>
+                </button>
+
+                <div class="o365-search__field">
+                    <input #searchInput matInput class="o365-search__input"
+                           type="text" placeholder="Suche…"
+                           [(ngModel)]="globalFilter"
+                           (ngModelChange)="onFilterInput($event)"
+                           (keydown.escape)="closeSearch()" (blur)="onSearchBlur()" />
+                    @if (globalFilter?.length) {
+                        <button type="button"
+                                mat-icon-button class="tbar-icon o365-search__clear"
+                                aria-label="Suche leeren" (click)="clearSearch()">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </mat-toolbar>
+
+    <!-- Loading Indicator -->
+    @if (loading) {
+        <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
+    }
+
+    <!-- Tabelle -->
+    <div class="table-wrap" #scrollWrap (scroll)="onScroll($event)">
+        <table mat-table [dataSource]="data" matSort (matSortChange)="onSortChange($event)" class="gl-table outlook-table">
+
+            <!-- Dynamische Spalten -->
+            @for (col of columns; track col.field) {
+                <ng-container [matColumnDef]="col.field">
+                    <th mat-header-cell *matHeaderCellDef
+                        [style.width]="col.width"
+                        [mat-sort-header]="col.sortable ? col.field : ''">
+                        {{ col.header }}
+                    </th>
+                    <td mat-cell *matCellDef="let row">
+                        <!-- Custom Template hat Prioritaet -->
+                        @if (getColumnTemplate(col.field); as customTemplate) {
+                            <ng-container *ngTemplateOutlet="customTemplate; context: { $implicit: row, row: row }"></ng-container>
+                        } @else {
+                            <!-- Default Renderer basierend auf Type -->
+                            @switch (col.type) {
+                                @case ('date') {
+                                    <span class="cell-ellipsis">
+                                        {{ $any(getFieldValue(row, col.field)) | date:'short' }}
+                                    </span>
+                                }
+                                @case ('number') {
+                                    <span class="cell-ellipsis" style="text-align: right; display: block;">
+                                        {{ getFieldValue(row, col.field) }}
+                                    </span>
+                                }
+                                @default {
+                                    <span class="cell-ellipsis">{{ getFieldValue(row, col.field) }}</span>
+                                }
+                            }
+                        }
+                    </td>
+                </ng-container>
+            }
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns" class="outlook-header-row"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns" class="outlook-row"></tr>
+        </table>
+    </div>
+
+    <!-- Footer -->
+    <mat-toolbar class="toolbar outlook-toolbar outlook-footer">
+        @if (hasState) {
+            <button mat-icon-button class="tbar-icon"
+                    (click)="clearAllState()"
+                    aria-label="Zustand zuruecksetzen"
+                    matTooltip="Zustand zuruecksetzen">
+                <mat-icon>restore</mat-icon>
+            </button>
+        }
+
+        <span class="spacer"></span>
+
+        <!-- Paginator -->
+        <mat-paginator [length]="totalRecords" [pageSize]="10"
+                       [pageSizeOptions]="[10,25,50,100]"
+                       (page)="onPageChange($event)">
+        </mat-paginator>
+    </mat-toolbar>
+</div>
+
+<!-- Filter-Sidebar Template -->
+<ng-template #filterHost let-filters>
+    <div class="gl-drawer gl-filter-drawer">
+        <div class="gl-drawer__header">
+            <h3 class="gl-drawer__title">{{ filterTitle }}</h3>
+
+            <!-- Schliessen -->
+            <button mat-icon-button (click)="closeFilter()" aria-label="Schliessen">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+
+        <div class="gl-drawer__body">
+            <div class="gl-drawer__inner">
+                @if (filterTemplate) {
+                    <ng-container *ngTemplateOutlet="filterTemplate; context: { $implicit: currentFilters }">
+                    </ng-container>
+                }
+            </div>
+        </div>
+
+        <div class="drawer-buttons">
+            <button mat-button (click)="clearFilters()">
+                <mat-icon>clear</mat-icon> Zuruecksetzen
+            </button>
+            <button mat-flat-button color="primary" (click)="applyFilters()">
+                <mat-icon>check</mat-icon> Anwenden
+            </button>
+        </div>
+    </div>
+</ng-template>

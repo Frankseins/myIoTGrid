@@ -1,21 +1,40 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, ViewChild, TemplateRef, ViewContainerRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDividerModule } from '@angular/material/divider';
+import { FormsModule } from '@angular/forms';
+import { Overlay, OverlayRef, OverlayModule } from '@angular/cdk/overlay';
+import { TemplatePortal } from '@angular/cdk/portal';
 import {
   SignalRService,
-  HubApiService,
-  NodeApiService,
-  ReadingApiService,
+  DashboardApiService,
   AlertApiService
 } from '@myiotgrid/shared/data-access';
-import { Hub, Node, Reading, Alert, AlertLevel } from '@myiotgrid/shared/models';
-import { LoadingSpinnerComponent, ConnectionStatusComponent, EmptyStateComponent } from '@myiotgrid/shared/ui';
-import { NodeCardComponent } from '../node-card/node-card.component';
+import {
+  LocationDashboard,
+  LocationGroup,
+  SensorWidget,
+  SparklinePeriod,
+  Alert,
+  AlertLevel,
+  Reading,
+  DashboardFilterOptions
+} from '@myiotgrid/shared/models';
+import {
+  LoadingSpinnerComponent,
+  ConnectionStatusComponent,
+  EmptyStateComponent,
+  SensorWidgetComponent
+} from '@myiotgrid/shared/ui';
 import { AlertBannerComponent } from '../alert-banner/alert-banner.component';
 
 @Component({
@@ -24,32 +43,53 @@ import { AlertBannerComponent } from '../alert-banner/alert-banner.component';
   imports: [
     CommonModule,
     RouterModule,
+    FormsModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatToolbarModule,
     MatChipsModule,
+    MatCheckboxModule,
     MatTooltipModule,
+    MatDividerModule,
+    OverlayModule,
     LoadingSpinnerComponent,
     ConnectionStatusComponent,
     EmptyStateComponent,
-    NodeCardComponent,
+    SensorWidgetComponent,
     AlertBannerComponent
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  @ViewChild('filterDrawer') filterDrawerTemplate!: TemplateRef<unknown>;
+  @ViewChild('periodDrawer') periodDrawerTemplate!: TemplateRef<unknown>;
+
+  private readonly router = inject(Router);
+  private readonly overlay = inject(Overlay);
+  private readonly viewContainerRef = inject(ViewContainerRef);
   private readonly signalRService = inject(SignalRService);
-  private readonly hubApiService = inject(HubApiService);
-  private readonly nodeApiService = inject(NodeApiService);
-  private readonly readingApiService = inject(ReadingApiService);
+  private readonly dashboardApiService = inject(DashboardApiService);
   private readonly alertApiService = inject(AlertApiService);
 
+  private filterOverlayRef: OverlayRef | null = null;
+  private periodOverlayRef: OverlayRef | null = null;
+
   readonly isLoading = signal(true);
-  readonly hubs = signal<Hub[]>([]);
-  readonly nodes = signal<Node[]>([]);
-  readonly latestReadings = signal<Map<string, Reading[]>>(new Map());
+  readonly initialLoadDone = signal(false);
+  readonly dashboard = signal<LocationDashboard | null>(null);
   readonly activeAlerts = signal<Alert[]>([]);
+  readonly filterOptions = signal<DashboardFilterOptions | null>(null);
+
+  // Filter State
+  readonly selectedPeriod = signal<SparklinePeriod>(SparklinePeriod.Day);
+  readonly selectedLocations = signal<string[]>([]);
+  readonly selectedMeasurementTypes = signal<string[]>([]);
+  isFilterOpen = false;
+  isPeriodOpen = false;
 
   readonly criticalAlerts = computed(() =>
     this.activeAlerts().filter(a => a.level === AlertLevel.Critical)
@@ -59,23 +99,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.activeAlerts().filter(a => a.level === AlertLevel.Warning)
   );
 
-  readonly onlineHubs = computed(() =>
-    this.hubs().filter(h => h.isOnline)
+  readonly heroLocations = computed(() =>
+    this.dashboard()?.locations.filter(l => l.isHero) || []
   );
 
-  readonly offlineHubs = computed(() =>
-    this.hubs().filter(h => !h.isOnline)
+  readonly regularLocations = computed(() =>
+    this.dashboard()?.locations.filter(l => !l.isHero) || []
   );
 
-  readonly onlineNodes = computed(() =>
-    this.nodes().filter(n => n.isOnline)
+  readonly totalWidgets = computed(() =>
+    this.dashboard()?.locations.reduce((sum, l) => sum + l.widgets.length, 0) || 0
   );
 
-  readonly offlineNodes = computed(() =>
-    this.nodes().filter(n => !n.isOnline)
+  readonly hasActiveFilters = computed(() =>
+    this.selectedLocations().length > 0 || this.selectedMeasurementTypes().length > 0
   );
+
+  readonly periodOptions = [
+    { value: SparklinePeriod.Hour, label: 'Letzte Stunde', shortLabel: '1h' },
+    { value: SparklinePeriod.Day, label: 'Heute', shortLabel: '24h' },
+    { value: SparklinePeriod.Week, label: 'Diese Woche', shortLabel: '7d' }
+  ];
+
+  readonly selectedPeriodLabel = computed(() => {
+    const option = this.periodOptions.find(o => o.value === this.selectedPeriod());
+    return option?.label || 'Heute';
+  });
 
   async ngOnInit(): Promise<void> {
+    await this.loadFilterOptions();
     await this.loadData();
     await this.setupSignalR();
   }
@@ -83,39 +135,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.signalRService.off('NewReading');
     this.signalRService.off('AlertReceived');
-    this.signalRService.off('HubStatusChanged');
-    this.signalRService.off('NodeStatusChanged');
+    this.closeFilter();
+    this.closePeriod();
+  }
+
+  private async loadFilterOptions(): Promise<void> {
+    try {
+      const options = await this.dashboardApiService.getFilterOptions().toPromise();
+      this.filterOptions.set(options || null);
+    } catch (error) {
+      console.error('Error loading filter options:', error);
+    }
   }
 
   private async loadData(): Promise<void> {
     this.isLoading.set(true);
     try {
-      // Load hubs, nodes, alerts, and latest readings
-      const [hubs, nodes, alerts, latestReadings] = await Promise.all([
-        this.hubApiService.getAll().toPromise(),
-        this.nodeApiService.getAll().toPromise(),
-        this.alertApiService.getActive().toPromise(),
-        this.readingApiService.getLatest().toPromise()
+      const filter = {
+        locations: this.selectedLocations().length > 0 ? this.selectedLocations() : undefined,
+        measurementTypes: this.selectedMeasurementTypes().length > 0 ? this.selectedMeasurementTypes() : undefined,
+        period: this.selectedPeriod()
+      };
+
+      const [dashboard, alerts] = await Promise.all([
+        this.dashboardApiService.getFilteredDashboard(filter).toPromise(),
+        this.alertApiService.getActive().toPromise()
       ]);
 
-      this.hubs.set(hubs || []);
-      this.nodes.set(nodes || []);
+      this.dashboard.set(dashboard || null);
       this.activeAlerts.set(alerts || []);
-
-      if (latestReadings) {
-        const readingMap = new Map<string, Reading[]>();
-        latestReadings.forEach(reading => {
-          const nodeId = reading.nodeId;
-          const existing = readingMap.get(nodeId) || [];
-          existing.push(reading);
-          readingMap.set(nodeId, existing);
-        });
-        this.latestReadings.set(readingMap);
-      }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       this.isLoading.set(false);
+      this.initialLoadDone.set(true);
     }
   }
 
@@ -124,40 +177,203 @@ export class DashboardComponent implements OnInit, OnDestroy {
       await this.signalRService.startConnection();
 
       this.signalRService.onNewReading((reading: Reading) => {
-        this.latestReadings.update(map => {
-          const newMap = new Map(map);
-          const nodeId = reading.nodeId;
-          const existing = newMap.get(nodeId) || [];
-          // Update or add the reading for this measurement type
-          const index = existing.findIndex(r => r.measurementType === reading.measurementType);
-          if (index >= 0) {
-            existing[index] = reading;
-          } else {
-            existing.push(reading);
-          }
-          newMap.set(nodeId, [...existing]);
-          return newMap;
-        });
+        this.updateWidgetWithReading(reading);
       });
 
       this.signalRService.onAlertReceived((alert: Alert) => {
         this.activeAlerts.update(alerts => [alert, ...alerts]);
       });
-
-      this.signalRService.onHubStatusChanged((hub: Hub) => {
-        this.hubs.update(hubs =>
-          hubs.map(h => h.id === hub.id ? { ...h, ...hub } : h)
-        );
-      });
-
-      this.signalRService.onNodeStatusChanged((node: Node) => {
-        this.nodes.update(nodes =>
-          nodes.map(n => n.id === node.id ? { ...n, ...node } : n)
-        );
-      });
     } catch (error) {
       console.error('Error connecting to SignalR:', error);
     }
+  }
+
+  private updateWidgetWithReading(reading: Reading): void {
+    const currentDashboard = this.dashboard();
+    if (!currentDashboard) return;
+
+    const updatedLocations = currentDashboard.locations.map(location => ({
+      ...location,
+      widgets: location.widgets.map(widget => {
+        if (widget.nodeId === reading.nodeId &&
+            widget.measurementType === reading.measurementType) {
+          return {
+            ...widget,
+            currentValue: reading.value,
+            lastUpdate: reading.timestamp,
+            minMax: this.updateMinMax(widget.minMax, reading.value, reading.timestamp)
+          };
+        }
+        return widget;
+      })
+    }));
+
+    this.dashboard.set({ locations: updatedLocations });
+  }
+
+  private updateMinMax(minMax: SensorWidget['minMax'], value: number, timestamp: string): SensorWidget['minMax'] {
+    let updated = { ...minMax };
+
+    if (value < minMax.minValue) {
+      updated = { ...updated, minValue: value, minTimestamp: timestamp };
+    }
+    if (value > minMax.maxValue) {
+      updated = { ...updated, maxValue: value, maxTimestamp: timestamp };
+    }
+
+    return updated;
+  }
+
+  // Filter Drawer
+  toggleFilter(): void {
+    if (this.isFilterOpen) {
+      this.closeFilter();
+    } else {
+      this.openFilter();
+    }
+  }
+
+  openFilter(): void {
+    if (this.filterOverlayRef) return;
+
+    this.isFilterOpen = true;
+
+    const positionStrategy = this.overlay.position()
+      .global()
+      .right('0')
+      .top('0');
+
+    this.filterOverlayRef = this.overlay.create({
+      positionStrategy,
+      hasBackdrop: true,
+      backdropClass: 'gt-drawer-backdrop',
+      panelClass: ['gt-drawer-panel'],
+      width: '380px',
+      height: '100vh',
+      scrollStrategy: this.overlay.scrollStrategies.block()
+    });
+
+    this.filterOverlayRef.backdropClick().subscribe(() => this.closeFilter());
+
+    const portal = new TemplatePortal(this.filterDrawerTemplate, this.viewContainerRef);
+    this.filterOverlayRef.attach(portal);
+
+    requestAnimationFrame(() => {
+      this.filterOverlayRef?.addPanelClass('open');
+    });
+  }
+
+  closeFilter(): void {
+    if (this.filterOverlayRef) {
+      this.filterOverlayRef.removePanelClass('open');
+      setTimeout(() => {
+        this.filterOverlayRef?.dispose();
+        this.filterOverlayRef = null;
+      }, 200);
+    }
+    this.isFilterOpen = false;
+  }
+
+  // Period Drawer
+  togglePeriod(): void {
+    if (this.isPeriodOpen) {
+      this.closePeriod();
+    } else {
+      this.openPeriod();
+    }
+  }
+
+  openPeriod(): void {
+    if (this.periodOverlayRef) return;
+
+    this.isPeriodOpen = true;
+
+    const positionStrategy = this.overlay.position()
+      .global()
+      .right('0')
+      .top('0');
+
+    this.periodOverlayRef = this.overlay.create({
+      positionStrategy,
+      hasBackdrop: true,
+      backdropClass: 'gt-drawer-backdrop',
+      panelClass: ['gt-drawer-panel'],
+      width: '320px',
+      height: '100vh',
+      scrollStrategy: this.overlay.scrollStrategies.block()
+    });
+
+    this.periodOverlayRef.backdropClick().subscribe(() => this.closePeriod());
+
+    const portal = new TemplatePortal(this.periodDrawerTemplate, this.viewContainerRef);
+    this.periodOverlayRef.attach(portal);
+
+    requestAnimationFrame(() => {
+      this.periodOverlayRef?.addPanelClass('open');
+    });
+  }
+
+  closePeriod(): void {
+    if (this.periodOverlayRef) {
+      this.periodOverlayRef.removePanelClass('open');
+      setTimeout(() => {
+        this.periodOverlayRef?.dispose();
+        this.periodOverlayRef = null;
+      }, 200);
+    }
+    this.isPeriodOpen = false;
+  }
+
+  // Filter Actions
+  isLocationSelected(location: string): boolean {
+    return this.selectedLocations().includes(location);
+  }
+
+  toggleLocation(location: string): void {
+    this.selectedLocations.update(locations => {
+      if (locations.includes(location)) {
+        return locations.filter(l => l !== location);
+      }
+      return [...locations, location];
+    });
+  }
+
+  isMeasurementTypeSelected(type: string): boolean {
+    return this.selectedMeasurementTypes().includes(type);
+  }
+
+  toggleMeasurementType(type: string): void {
+    this.selectedMeasurementTypes.update(types => {
+      if (types.includes(type)) {
+        return types.filter(t => t !== type);
+      }
+      return [...types, type];
+    });
+  }
+
+  clearFilters(): void {
+    this.selectedLocations.set([]);
+    this.selectedMeasurementTypes.set([]);
+  }
+
+  async applyFilters(): Promise<void> {
+    this.closeFilter();
+    await this.loadData();
+  }
+
+  // Period Actions
+  selectPeriod(period: SparklinePeriod): void {
+    this.selectedPeriod.set(period);
+  }
+
+  async applyPeriod(): Promise<void> {
+    this.closePeriod();
+    await this.loadData();
+  }
+
+  // Other Actions
+  async refresh(): Promise<void> {
+    await this.loadData();
   }
 
   async acknowledgeAlert(alertId: string): Promise<void> {
@@ -171,7 +387,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  getLatestReadingsForNode(nodeId: string): Reading[] {
-    return this.latestReadings().get(nodeId) || [];
+  getLocationIcon(location: LocationGroup): string {
+    return location.locationIcon || 'location_on';
+  }
+
+  getMeasurementTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'temperature': 'Temperatur',
+      'water_temperature': 'Wassertemperatur',
+      'humidity': 'Luftfeuchtigkeit',
+      'pressure': 'Luftdruck',
+      'illuminance': 'Helligkeit',
+      'light': 'Helligkeit',
+      'co2': 'CO2',
+      'pm25': 'Feinstaub PM2.5',
+      'pm10': 'Feinstaub PM10',
+      'soil_moisture': 'Bodenfeuchtigkeit',
+      'uv': 'UV-Index',
+      'wind_speed': 'Windgeschwindigkeit',
+      'rainfall': 'Niederschlag',
+      'water_level': 'Wasserstand',
+      'battery': 'Batterie',
+      'rssi': 'Signalstärke'
+    };
+    return labels[type.toLowerCase()] || type;
+  }
+
+  getMeasurementTypeIcon(type: string): string {
+    const icons: Record<string, string> = {
+      'temperature': 'thermostat',
+      'water_temperature': 'thermostat',
+      'humidity': 'water_drop',
+      'pressure': 'speed',
+      'illuminance': 'light_mode',
+      'light': 'light_mode',
+      'co2': 'air',
+      'pm25': 'blur_on',
+      'pm10': 'blur_on',
+      'soil_moisture': 'grass',
+      'uv': 'wb_sunny',
+      'wind_speed': 'air',
+      'rainfall': 'water',
+      'water_level': 'waves',
+      'battery': 'battery_full',
+      'rssi': 'signal_cellular_alt'
+    };
+    return icons[type.toLowerCase()] || 'sensors';
+  }
+
+  navigateToNodes(): void {
+    this.router.navigate(['/nodes']);
+  }
+
+  onWidgetClick(widget: SensorWidget): void {
+    if (widget.assignmentId) {
+      this.router.navigate(['/dashboard/widget', widget.nodeId, widget.assignmentId, widget.measurementType]);
+    }
   }
 }

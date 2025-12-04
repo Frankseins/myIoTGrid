@@ -212,6 +212,9 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsSimulation")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("LastSeen")
                         .HasColumnType("TEXT");
 

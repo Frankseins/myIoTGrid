@@ -1,0 +1,90 @@
+<div class="widget-detail-page">
+  <!-- Header -->
+  <header class="detail-header">
+    <button mat-icon-button (click)="goBack()" class="back-button">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
+    <div class="header-content">
+      <div class="header-icon" [style.background-color]="color()">
+        <mat-icon>{{ getMeasurementIcon() }}</mat-icon>
+      </div>
+      <div class="header-text">
+        <h1>{{ measurementLabel() }}</h1>
+        <span class="subtitle">{{ sensorName() }} - {{ nodeName() }}</span>
+        <span class="location">
+          <mat-icon>location_on</mat-icon>
+          {{ locationName() }}
+        </span>
+      </div>
+    </div>
+
+    <div class="current-value">
+      <span class="value" [style.color]="color()">{{ currentValue() | number:'1.1-1' }}</span>
+      <span class="unit">{{ unit() }}</span>
+      <div class="last-update">
+        <mat-icon>schedule</mat-icon>
+        {{ lastUpdate() | date:'HH:mm:ss' }}
+      </div>
+    </div>
+  </header>
+
+  @if (error()) {
+    <mat-card class="error-card">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error() }}</span>
+      <button mat-button (click)="loadChartData()">Erneut versuchen</button>
+    </mat-card>
+  }
+
+  <!-- Chart Section -->
+  <mat-card class="chart-section">
+    <div class="chart-header">
+      <h2>Verlauf</h2>
+      <myiotgrid-interval-selector
+        [selectedInterval]="selectedInterval()"
+        (intervalChange)="onIntervalChange($event)"
+      />
+    </div>
+
+    @if (chartLoading()) {
+      <div class="chart-loading">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+    } @else if (chartData()?.dataPoints?.length) {
+      <myiotgrid-line-chart
+        [dataPoints]="chartData()!.dataPoints"
+        [color]="color()"
+        [unit]="unit()"
+        [height]="350"
+        [interval]="selectedInterval()"
+      />
+    } @else {
+      <div class="no-data">
+        <mat-icon>show_chart</mat-icon>
+        <p>Keine Daten f&uuml;r den ausgew&auml;hlten Zeitraum</p>
+      </div>
+    }
+  </mat-card>
+
+  <!-- Stats Section -->
+  @if (chartData()?.stats) {
+    <myiotgrid-stats-cards
+      [stats]="chartData()!.stats"
+      [trend]="chartData()!.trend"
+      [unit]="unit()"
+      [color]="color()"
+    />
+  }
+
+  <!-- Readings Table Section -->
+  <mat-card class="readings-section">
+    <myiotgrid-readings-table
+      [data]="readingsList()"
+      [loading]="tableLoading()"
+      [unit]="unit()"
+      (pageChange)="onPageChange($event)"
+      (exportCsv)="onExportCsv()"
+    />
+  </mat-card>
+</div>

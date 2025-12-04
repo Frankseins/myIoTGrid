@@ -352,6 +352,139 @@ public class NodeService : INodeService
         return true;
     }
 
+    /// <inheritdoc />
+    public async Task<NodeSensorsLatestDto?> GetSensorsLatestAsync(Guid nodeId, CancellationToken ct = default)
+    {
+        var node = await _context.Nodes
+            .AsNoTracking()
+            .Include(n => n.SensorAssignments)
+                .ThenInclude(a => a.Sensor)
+                    .ThenInclude(s => s.Capabilities)
+            .FirstOrDefaultAsync(n => n.Id == nodeId, ct);
+
+        if (node == null)
+        {
+            _logger.LogWarning("Node not found: {NodeId}", nodeId);
+            return null;
+        }
+
+        var sensorReadings = new List<SensorLatestReadingDto>();
+
+        foreach (var assignment in node.SensorAssignments.Where(a => a.IsActive))
+        {
+            var sensor = assignment.Sensor;
+
+            // Get latest readings for this specific assignment, grouped by measurement type
+            var latestReadings = await _context.Readings
+                .AsNoTracking()
+                .Where(r => r.NodeId == nodeId && r.AssignmentId == assignment.Id)
+                .GroupBy(r => r.MeasurementType)
+                .Select(g => g.OrderByDescending(r => r.Timestamp).First())
+                .ToListAsync(ct);
+
+            // If no readings with AssignmentId, try to find by NodeId and capability measurement types
+            // The simulator sends measurementType matching capability types (e.g., "temperature", "humidity", "pressure")
+            if (latestReadings.Count == 0 && sensor.Capabilities.Any())
+            {
+                // Get all measurement types from this sensor's capabilities
+                var capabilityTypes = sensor.Capabilities
+                    .Select(c => c.MeasurementType.ToLowerInvariant())
+                    .ToList();
+
+                // Find latest reading for each capability measurement type
+                latestReadings = await _context.Readings
+                    .AsNoTracking()
+                    .Where(r => r.NodeId == nodeId && capabilityTypes.Contains(r.MeasurementType.ToLower()))
+                    .GroupBy(r => r.MeasurementType.ToLower())
+                    .Select(g => g.OrderByDescending(r => r.Timestamp).First())
+                    .ToListAsync(ct);
+            }
+
+            // Build measurements list
+            var measurements = latestReadings.Select(reading =>
+            {
+                // Try to find matching capability for display name and unit
+                var capability = sensor.Capabilities
+                    .FirstOrDefault(c => c.MeasurementType.Equals(reading.MeasurementType, StringComparison.OrdinalIgnoreCase));
+
+                return new LatestMeasurementDto(
+                    ReadingId: reading.Id,
+                    MeasurementType: reading.MeasurementType,
+                    DisplayName: capability?.DisplayName ?? FormatMeasurementType(reading.MeasurementType),
+                    RawValue: reading.RawValue,
+                    Value: reading.Value,
+                    Unit: !string.IsNullOrEmpty(reading.Unit) ? reading.Unit : (capability?.Unit ?? ""),
+                    Timestamp: reading.Timestamp
+                );
+            }).ToList();
+
+            // Build display name: Alias > Sensor.Name > "SensorCode #EndpointId"
+            var displayName = assignment.Alias
+                ?? sensor.Name
+                ?? $"{sensor.Code} #{assignment.EndpointId}";
+
+            var fullName = sensor.Name ?? $"{sensor.Model ?? sensor.Code} (Endpoint {assignment.EndpointId})";
+
+            sensorReadings.Add(new SensorLatestReadingDto(
+                AssignmentId: assignment.Id,
+                SensorId: sensor.Id,
+                DisplayName: displayName,
+                FullName: fullName,
+                Alias: assignment.Alias,
+                SensorCode: sensor.Code,
+                SensorModel: sensor.Model ?? sensor.Code,
+                EndpointId: assignment.EndpointId,
+                Icon: sensor.Icon,
+                Color: sensor.Color,
+                IsActive: assignment.IsActive,
+                Measurements: measurements
+            ));
+        }
+
+        // Sort by display name
+        var sortedSensors = sensorReadings.OrderBy(s => s.DisplayName).ToList();
+
+        return new NodeSensorsLatestDto(
+            NodeId: node.Id,
+            NodeName: node.Name,
+            LocationName: node.Location?.Name,
+            Sensors: sortedSensors
+        );
+    }
+
+    /// <summary>
+    /// Formats a measurement type string to a readable display name.
+    /// </summary>
+    private static string FormatMeasurementType(string measurementType)
+    {
+        if (string.IsNullOrEmpty(measurementType)) return "Unknown";
+
+        // Common mappings
+        var mappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "temperature", "Temperatur" },
+            { "humidity", "Luftfeuchtigkeit" },
+            { "pressure", "Luftdruck" },
+            { "co2", "CO₂" },
+            { "pm25", "Feinstaub PM2.5" },
+            { "pm10", "Feinstaub PM10" },
+            { "light", "Helligkeit" },
+            { "lux", "Lux" },
+            { "bh1750", "Helligkeit" },
+            { "ds18b20", "Temperatur" },
+            { "dht22", "Temperatur/Feuchte" },
+            { "bme280", "Klima" },
+            { "bme680", "Luftqualität" },
+            { "soil_moisture", "Bodenfeuchtigkeit" },
+            { "battery", "Batterie" },
+            { "rssi", "Signalstärke" }
+        };
+
+        return mappings.TryGetValue(measurementType, out var displayName)
+            ? displayName
+            : char.ToUpperInvariant(measurementType[0]) + measurementType[1..].ToLowerInvariant();
+    }
+
     /// <summary>
     /// Generates a name from the NodeId
     /// </summary>

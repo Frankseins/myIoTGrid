@@ -1,0 +1,56 @@
+<div class="stats-cards">
+  @if (stats) {
+    <!-- MIN Card -->
+    <mat-card class="stat-card">
+      <div class="stat-icon min">
+        <mat-icon>arrow_downward</mat-icon>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">Minimum</span>
+        <span class="stat-value">{{ stats.minValue | number:'1.1-1' }} {{ unit }}</span>
+        <span class="stat-time">{{ stats.minTimestamp | date:'dd.MM. HH:mm' }}</span>
+      </div>
+    </mat-card>
+
+    <!-- MAX Card -->
+    <mat-card class="stat-card">
+      <div class="stat-icon max">
+        <mat-icon>arrow_upward</mat-icon>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">Maximum</span>
+        <span class="stat-value">{{ stats.maxValue | number:'1.1-1' }} {{ unit }}</span>
+        <span class="stat-time">{{ stats.maxTimestamp | date:'dd.MM. HH:mm' }}</span>
+      </div>
+    </mat-card>
+
+    <!-- AVG Card -->
+    <mat-card class="stat-card">
+      <div class="stat-icon avg" [style.background-color]="color">
+        <mat-icon>functions</mat-icon>
+      </div>
+      <div class="stat-content">
+        <span class="stat-label">Durchschnitt</span>
+        <span class="stat-value">{{ stats.avgValue | number:'1.1-1' }} {{ unit }}</span>
+      </div>
+    </mat-card>
+
+    <!-- TREND Card -->
+    @if (trend) {
+      <mat-card class="stat-card">
+        <div class="stat-icon trend" [style.background-color]="getTrendColor()">
+          <mat-icon>{{ getTrendIcon() }}</mat-icon>
+        </div>
+        <div class="stat-content">
+          <span class="stat-label">Trend</span>
+          <span class="stat-value" [style.color]="getTrendColor()">
+            @if (trend.change >= 0) { + }{{ trend.change | number:'1.1-1' }} {{ unit }}
+          </span>
+          <span class="stat-time" [style.color]="getTrendColor()">
+            {{ trend.changePercent | number:'1.1-1' }}%
+          </span>
+        </div>
+      </mat-card>
+    }
+  }
+</div>

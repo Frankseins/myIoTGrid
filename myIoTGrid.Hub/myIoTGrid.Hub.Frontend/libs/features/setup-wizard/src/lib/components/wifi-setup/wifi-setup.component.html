@@ -1,0 +1,153 @@
+<div class="wifi-setup-container">
+  <mat-card class="wifi-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="step-icon">wifi</mat-icon>
+      <mat-card-title>WiFi-Konfiguration</mat-card-title>
+      <mat-card-subtitle>Schritt 2 von 5 - Netzwerk einrichten</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="device-info">
+        <mat-icon>memory</mat-icon>
+        <span>Konfiguriere: <strong>{{ bleDevice()?.name }}</strong></span>
+      </div>
+
+      <div class="wifi-form">
+        <form [formGroup]="form">
+          <div class="network-selection">
+            <div class="section-header">
+              <h3>Verfügbare Netzwerke</h3>
+              <button
+                mat-icon-button
+                (click)="scanNetworks()"
+                [disabled]="configState() === 'scanning' || configState() === 'configuring'"
+                matTooltip="Erneut scannen"
+              >
+                <mat-icon [class.spinning]="configState() === 'scanning'">refresh</mat-icon>
+              </button>
+            </div>
+
+            @if (configState() === 'scanning') {
+              <div class="scanning-indicator">
+                <mat-spinner diameter="24"></mat-spinner>
+                <span>Suche nach Netzwerken...</span>
+              </div>
+            } @else {
+              <div class="network-list">
+                @for (network of networks(); track network.ssid) {
+                  <div
+                    class="network-item"
+                    [class.selected]="form.value.ssid === network.ssid"
+                    (click)="selectNetwork(network)"
+                    (keydown.enter)="selectNetwork(network)"
+                    tabindex="0"
+                    role="option"
+                    [attr.aria-selected]="form.value.ssid === network.ssid"
+                  >
+                    <mat-icon class="wifi-icon">{{ getSignalStrengthIcon(network.rssi) }}</mat-icon>
+                    <span class="network-name">{{ network.ssid }}</span>
+                    @if (network.secured) {
+                      <mat-icon class="lock-icon">lock</mat-icon>
+                    }
+                  </div>
+                } @empty {
+                  <div class="no-networks">
+                    <mat-icon>wifi_off</mat-icon>
+                    <span>Keine Netzwerke gefunden</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <div class="credentials-section">
+            <h3>Zugangsdaten</h3>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Netzwerkname (SSID)</mat-label>
+              <input matInput formControlName="ssid" placeholder="WLAN-Name eingeben">
+              <mat-icon matSuffix>wifi</mat-icon>
+              @if (form.get('ssid')?.hasError('required') && form.get('ssid')?.touched) {
+                <mat-error>Netzwerkname ist erforderlich</mat-error>
+              }
+              @if (form.get('ssid')?.hasError('maxlength')) {
+                <mat-error>Maximal 32 Zeichen erlaubt</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Passwort</mat-label>
+              <input
+                matInput
+                formControlName="password"
+                [type]="showPassword() ? 'text' : 'password'"
+                placeholder="WLAN-Passwort eingeben"
+              >
+              <button
+                mat-icon-button
+                matSuffix
+                type="button"
+                (click)="togglePasswordVisibility()"
+                [attr.aria-label]="showPassword() ? 'Passwort verbergen' : 'Passwort anzeigen'"
+              >
+                <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              @if (form.get('password')?.hasError('required') && form.get('password')?.touched) {
+                <mat-error>Passwort ist erforderlich</mat-error>
+              }
+              @if (form.get('password')?.hasError('minlength')) {
+                <mat-error>Mindestens 8 Zeichen erforderlich</mat-error>
+              }
+            </mat-form-field>
+          </div>
+        </form>
+
+        @if (errorMessage()) {
+          <div class="error-message">
+            <mat-icon>error</mat-icon>
+            <span>{{ errorMessage() }}</span>
+          </div>
+        }
+      </div>
+
+      @if (configState() === 'configuring') {
+        <div class="configuring-overlay">
+          <mat-spinner diameter="48"></mat-spinner>
+          <h3>Konfiguriere WiFi...</h3>
+          <p>Node wird mit "{{ form.value.ssid }}" verbunden</p>
+        </div>
+      }
+
+      @if (configState() === 'success') {
+        <div class="success-overlay">
+          <mat-icon class="success-icon">wifi</mat-icon>
+          <h3>WiFi konfiguriert!</h3>
+          <p>Node ist mit "{{ form.value.ssid }}" verbunden</p>
+        </div>
+      }
+    </mat-card-content>
+
+    <mat-divider></mat-divider>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="onCancel()">
+        Abbrechen
+      </button>
+      <button mat-button (click)="onBack()">
+        <mat-icon>arrow_back</mat-icon>
+        Zurück
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        [disabled]="form.invalid || configState() === 'configuring'"
+        (click)="onConfigure()"
+      >
+        <mat-icon>settings</mat-icon>
+        Konfigurieren
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

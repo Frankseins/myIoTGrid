@@ -260,7 +260,110 @@ public static class SensorMappingExtensions
         if (dto.IsActive.HasValue)
             sensor.IsActive = dto.IsActive.Value;
 
+        // === Capabilities (full replacement if provided) ===
+        if (dto.Capabilities != null)
+        {
+            ApplyCapabilitiesUpdate(sensor, dto.Capabilities);
+        }
+
         sensor.UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Applies capability updates to a Sensor entity.
+    /// - If Id is null, a new capability will be created.
+    /// - If Id is set, the existing capability will be updated.
+    /// - Capabilities not included in the list will be deleted.
+    /// </summary>
+    private static void ApplyCapabilitiesUpdate(Sensor sensor, IEnumerable<UpdateSensorCapabilityDto> capabilityDtos)
+    {
+        var dtoList = capabilityDtos.ToList();
+        var existingCapabilities = sensor.Capabilities.ToList();
+        var updatedIds = new HashSet<Guid>();
+
+        var sortOrder = 0;
+        foreach (var capDto in dtoList)
+        {
+            if (capDto.Id.HasValue)
+            {
+                // Update existing capability
+                var existing = existingCapabilities.FirstOrDefault(c => c.Id == capDto.Id.Value);
+                if (existing != null)
+                {
+                    ApplyCapabilityUpdate(existing, capDto, sortOrder++);
+                    updatedIds.Add(existing.Id);
+                }
+            }
+            else
+            {
+                // Create new capability
+                var newCapability = new SensorCapability
+                {
+                    Id = Guid.NewGuid(),
+                    SensorId = sensor.Id,
+                    MeasurementType = capDto.MeasurementType?.ToLowerInvariant() ?? "unknown",
+                    DisplayName = capDto.DisplayName ?? "Unknown",
+                    Unit = capDto.Unit ?? "",
+                    MinValue = capDto.MinValue,
+                    MaxValue = capDto.MaxValue,
+                    Resolution = capDto.Resolution ?? 0.01,
+                    Accuracy = capDto.Accuracy ?? 0.5,
+                    MatterClusterId = capDto.MatterClusterId,
+                    MatterClusterName = capDto.MatterClusterName,
+                    SortOrder = capDto.SortOrder ?? sortOrder++,
+                    IsActive = capDto.IsActive ?? true
+                };
+                sensor.Capabilities.Add(newCapability);
+            }
+        }
+
+        // Remove capabilities not in the updated list
+        var toRemove = existingCapabilities.Where(c => !updatedIds.Contains(c.Id)).ToList();
+        foreach (var cap in toRemove)
+        {
+            sensor.Capabilities.Remove(cap);
+        }
+    }
+
+    /// <summary>
+    /// Applies an UpdateSensorCapabilityDto to a SensorCapability entity
+    /// </summary>
+    private static void ApplyCapabilityUpdate(SensorCapability capability, UpdateSensorCapabilityDto dto, int defaultSortOrder)
+    {
+        if (!string.IsNullOrEmpty(dto.MeasurementType))
+            capability.MeasurementType = dto.MeasurementType.ToLowerInvariant();
+
+        if (!string.IsNullOrEmpty(dto.DisplayName))
+            capability.DisplayName = dto.DisplayName;
+
+        if (!string.IsNullOrEmpty(dto.Unit))
+            capability.Unit = dto.Unit;
+
+        if (dto.MinValue.HasValue)
+            capability.MinValue = dto.MinValue;
+
+        if (dto.MaxValue.HasValue)
+            capability.MaxValue = dto.MaxValue;
+
+        if (dto.Resolution.HasValue)
+            capability.Resolution = dto.Resolution.Value;
+
+        if (dto.Accuracy.HasValue)
+            capability.Accuracy = dto.Accuracy.Value;
+
+        if (dto.MatterClusterId.HasValue)
+            capability.MatterClusterId = dto.MatterClusterId;
+
+        if (dto.MatterClusterName != null)
+            capability.MatterClusterName = dto.MatterClusterName;
+
+        if (dto.SortOrder.HasValue)
+            capability.SortOrder = dto.SortOrder.Value;
+        else
+            capability.SortOrder = defaultSortOrder;
+
+        if (dto.IsActive.HasValue)
+            capability.IsActive = dto.IsActive.Value;
     }
 
     /// <summary>

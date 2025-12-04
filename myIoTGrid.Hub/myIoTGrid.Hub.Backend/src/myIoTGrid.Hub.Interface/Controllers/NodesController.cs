@@ -19,21 +19,24 @@ namespace myIoTGrid.Hub.Interface.Controllers;
 public class NodesController : ControllerBase
 {
     private readonly INodeService _nodeService;
-    private readonly INodeSensorAssignmentService _assignmentService;
     private readonly IHubService _hubService;
+    private readonly INodeSensorAssignmentService _assignmentService;
+    private readonly ISensorService _sensorService;
     private readonly IHubContext<SensorHub> _hubContext;
     private readonly IConfiguration _configuration;
 
     public NodesController(
         INodeService nodeService,
-        INodeSensorAssignmentService assignmentService,
         IHubService hubService,
+        INodeSensorAssignmentService assignmentService,
+        ISensorService sensorService,
         IHubContext<SensorHub> hubContext,
         IConfiguration configuration)
     {
         _nodeService = nodeService;
-        _assignmentService = assignmentService;
         _hubService = hubService;
+        _assignmentService = assignmentService;
+        _sensorService = sensorService;
         _hubContext = hubContext;
         _configuration = configuration;
     }
@@ -91,38 +94,28 @@ public class NodesController : ControllerBase
         return Ok(node);
     }
 
-    /// <summary>
-    /// Returns all Sensor Assignments for a Node with effective configuration
-    /// </summary>
-    /// <param name="id">Node-ID</param>
-    /// <param name="ct">Cancellation Token</param>
-    /// <returns>List of Assignments with effective config (pins, intervals, calibration)</returns>
-    [HttpGet("{id:guid}/assignments")]
-    [ProducesResponseType(typeof(IEnumerable<NodeSensorAssignmentDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAssignments(Guid id, CancellationToken ct)
-    {
-        var assignments = await _assignmentService.GetByNodeAsync(id, ct);
-        return Ok(assignments);
-    }
+    // NOTE: Assignments endpoints moved to NodeSensorAssignmentsController
+    // GET /api/nodes/{nodeId:guid}/assignments
+    // GET /api/nodes/{nodeId:guid}/assignments/endpoint/{endpointId:int}
 
     /// <summary>
-    /// Returns an Assignment by EndpointId for a Node
+    /// Returns the latest readings for each sensor assigned to a node.
+    /// Groups by sensor (not by measurement type) to show unique sensors with their last values.
     /// </summary>
     /// <param name="id">Node-ID</param>
-    /// <param name="endpointId">Matter-konformer EndpointId (1-254)</param>
     /// <param name="ct">Cancellation Token</param>
-    /// <returns>The Assignment with effective configuration</returns>
-    [HttpGet("{id:guid}/assignments/endpoint/{endpointId:int}")]
-    [ProducesResponseType(typeof(NodeSensorAssignmentDto), StatusCodes.Status200OK)]
+    /// <returns>Node with sensors and their latest readings</returns>
+    [HttpGet("{id:guid}/sensors/latest")]
+    [ProducesResponseType(typeof(NodeSensorsLatestDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetAssignmentByEndpoint(Guid id, int endpointId, CancellationToken ct)
+    public async Task<IActionResult> GetSensorsLatest(Guid id, CancellationToken ct)
     {
-        var assignment = await _assignmentService.GetByEndpointAsync(id, endpointId, ct);
+        var result = await _nodeService.GetSensorsLatestAsync(id, ct);
 
-        if (assignment == null)
+        if (result == null)
             return NotFound();
 
-        return Ok(assignment);
+        return Ok(result);
     }
 
     /// <summary>
@@ -465,5 +458,82 @@ public class NodesController : ControllerBase
             return NotFound();
 
         return Ok(node);
+    }
+
+    /// <summary>
+    /// Gets the full sensor configuration for a node.
+    /// Called by sensor devices to retrieve their assigned sensors and pin configurations.
+    /// </summary>
+    /// <param name="serialNumber">Serial number / NodeId of the sensor device</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Full sensor configuration for the node</returns>
+    [HttpGet("{serialNumber}/configuration")]
+    [ProducesResponseType(typeof(NodeSensorConfigurationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetConfiguration(string serialNumber, CancellationToken ct)
+    {
+        // Find node by serialNumber (NodeId)
+        var nodes = await _nodeService.GetAllAsync(ct);
+        var node = nodes.FirstOrDefault(n => n.NodeId == serialNumber);
+
+        if (node == null)
+            return NotFound(new ProblemDetails
+            {
+                Title = "Node Not Found",
+                Detail = $"No node found with serial number '{serialNumber}'"
+            });
+
+        // Get sensor assignments for this node
+        var assignments = await _assignmentService.GetByNodeAsync(node.Id, ct);
+
+        // Build sensor configuration list with capabilities
+        var sensorConfigs = new List<SensorAssignmentConfigDto>();
+
+        foreach (var a in assignments.Where(a => a.IsActive))
+        {
+            // Get the full sensor with capabilities
+            var sensor = await _sensorService.GetByIdAsync(a.SensorId, ct);
+            var capabilities = sensor?.Capabilities?
+                .Where(c => c.IsActive)
+                .Select(c => new SensorCapabilityConfigDto(
+                    MeasurementType: c.MeasurementType,
+                    DisplayName: c.DisplayName,
+                    Unit: c.Unit
+                ))
+                .ToList() ?? new List<SensorCapabilityConfigDto>();
+
+            sensorConfigs.Add(new SensorAssignmentConfigDto(
+                EndpointId: a.EndpointId,
+                SensorCode: a.SensorCode,
+                SensorName: a.SensorName,
+                Icon: sensor?.Icon,
+                Color: sensor?.Color,
+                IsActive: a.IsActive,
+                IntervalSeconds: a.EffectiveConfig.IntervalSeconds,
+                I2CAddress: a.EffectiveConfig.I2CAddress,
+                SdaPin: a.EffectiveConfig.SdaPin,
+                SclPin: a.EffectiveConfig.SclPin,
+                OneWirePin: a.EffectiveConfig.OneWirePin,
+                AnalogPin: a.EffectiveConfig.AnalogPin,
+                DigitalPin: a.EffectiveConfig.DigitalPin,
+                TriggerPin: a.EffectiveConfig.TriggerPin,
+                EchoPin: a.EffectiveConfig.EchoPin,
+                OffsetCorrection: a.EffectiveConfig.OffsetCorrection,
+                GainCorrection: a.EffectiveConfig.GainCorrection,
+                Capabilities: capabilities
+            ));
+        }
+
+        var configuration = new NodeSensorConfigurationDto(
+            NodeId: node.Id,
+            SerialNumber: node.NodeId,
+            Name: node.Name,
+            IsSimulation: node.IsSimulation,
+            DefaultIntervalSeconds: 60,
+            Sensors: sensorConfigs,
+            ConfigurationTimestamp: DateTime.UtcNow
+        );
+
+        return Ok(configuration);
     }
 }

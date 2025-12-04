@@ -184,6 +184,30 @@ public record UpdateSensorDto(
     string? Color = null,
 
     // === Status ===
+    bool? IsActive = null,
+
+    // === Capabilities (full replacement) ===
+    IEnumerable<UpdateSensorCapabilityDto>? Capabilities = null
+);
+
+/// <summary>
+/// DTO for updating a SensorCapability.
+/// If Id is null, a new capability will be created.
+/// If Id is set, the existing capability will be updated.
+/// Capabilities not included in the list will be deleted.
+/// </summary>
+public record UpdateSensorCapabilityDto(
+    Guid? Id = null,
+    string? MeasurementType = null,
+    string? DisplayName = null,
+    string? Unit = null,
+    double? MinValue = null,
+    double? MaxValue = null,
+    double? Resolution = null,
+    double? Accuracy = null,
+    uint? MatterClusterId = null,
+    string? MatterClusterName = null,
+    int? SortOrder = null,
     bool? IsActive = null
 );
 

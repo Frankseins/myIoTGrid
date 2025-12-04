@@ -43,15 +43,22 @@ RUN dotnet publish "myIoTGrid.Hub.Api.csproj" -c Release -o /app/publish /p:UseA
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 WORKDIR /app
 
-# Install curl for health checks
+# Install curl and openssl for health checks and certificate generation
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends curl openssl && \
     rm -rf /var/lib/apt/lists/*
 
-# Create data and logs directories
+# Create data, logs, and certs directories
 # Note: .NET images already have an 'app' user (UID 1654)
-RUN mkdir -p /app/data /app/logs && \
+RUN mkdir -p /app/data /app/logs /app/certs && \
     chown -R app:app /app
+
+# Generate self-signed certificate for development (will be overwritten in production)
+RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /app/certs/privkey.pem \
+    -out /app/certs/fullchain.pem \
+    -subj "/C=DE/ST=NRW/L=Cologne/O=myIoTGrid/OU=Development/CN=localhost" && \
+    chown -R app:app /app/certs
 
 # Copy published files
 COPY --from=publish /app/publish .
@@ -62,17 +69,19 @@ RUN chown -R app:app /app
 # Switch to non-root user (built-in .NET user)
 USER app
 
-# Expose port (8080 is the default for .NET in containers)
-EXPOSE 8080
+# Expose HTTPS port
+EXPOSE 5001
 
-# Environment variables
-ENV ASPNETCORE_URLS=http://+:8080
+# Environment variables for HTTPS
+ENV ASPNETCORE_URLS=https://+:5001
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/app/certs/fullchain.pem
+ENV ASPNETCORE_Kestrel__Certificates__Default__KeyPath=/app/certs/privkey.pem
 ENV ConnectionStrings__HubDb="Data Source=/app/data/hub.db"
 
-# Health check
+# Health check (HTTPS with insecure flag for self-signed cert)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -fk https://localhost:5001/health || exit 1
 
 # Entry point
 ENTRYPOINT ["dotnet", "myIoTGrid.Hub.Api.dll"]

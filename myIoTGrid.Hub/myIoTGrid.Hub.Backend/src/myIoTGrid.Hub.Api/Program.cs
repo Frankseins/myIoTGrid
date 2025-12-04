@@ -53,6 +53,8 @@ try
     // Configuration Options
     builder.Services.Configure<MonitoringOptions>(
         builder.Configuration.GetSection(MonitoringOptions.SectionName));
+    builder.Services.Configure<DiscoveryOptions>(
+        builder.Configuration.GetSection(DiscoveryOptions.SectionName));
 
     // DbContext mit SQLite
     builder.Services.AddDbContext<HubDbContext>(options =>
@@ -76,6 +78,8 @@ try
     builder.Services.AddScoped<IAlertService, AlertService>();
     builder.Services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
     builder.Services.AddScoped<ISeedDataService, SeedDataService>();
+    builder.Services.AddScoped<IDashboardService, DashboardService>();
+    builder.Services.AddScoped<IChartService, ChartService>();
 
     // Memory Cache for Sensors
     builder.Services.AddMemoryCache();
@@ -111,6 +115,7 @@ try
     builder.Services.AddHostedService<HubMonitorService>();
     builder.Services.AddHostedService<DataRetentionService>();
     builder.Services.AddHostedService<MatterBridgeService>();
+    builder.Services.AddHostedService<DiscoveryService>();
 
     // Controllers (aus Interface-Projekt)
     builder.Services.AddControllers()

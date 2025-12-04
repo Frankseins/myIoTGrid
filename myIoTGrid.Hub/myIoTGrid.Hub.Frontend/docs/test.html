@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myIoTGrid - The Smart World AI</title>
+    <style>
+        :root {
+            --bg-body: #fbfbfd;
+            --bg-section-alt: #f5f5f7;
+            --bg-card: #ffffff;
+            --bg-dark: #1d1d1f;
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --text-on-dark: #f5f5f7;
+            --accent-blue: #0071e3;
+            --radius: 20px;
+            --max-width: 980px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        /* TYPOGRAPHY */
+        h1 { font-size: 56px; line-height: 1.05; font-weight: 700; letter-spacing: -0.015em; }
+        h2 { font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 20px; }
+        h3 { font-size: 24px; font-weight: 600; margin-bottom: 10px; }
+        p { font-size: 17px; color: var(--text-secondary); margin-bottom: 1.5em; }
+        strong { color: var(--text-primary); font-weight: 600; }
+
+        .container { max-width: var(--max-width); margin: 0 auto; padding: 0 20px; }
+
+        /* NAV */
+        nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05); height: 52px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .nav-inner { width: 100%; max-width: var(--max-width); display: flex; justify-content: space-between; padding: 0 20px; font-size: 12px; }
+        .nav-inner a { text-decoration: none; color: var(--text-primary); opacity: 0.8; transition: opacity 0.2s; }
+        .nav-inner a:hover { opacity: 1; color: var(--accent-blue); }
+
+        /* SECTIONS */
+        section { padding: 100px 0; }
+        .bg-alt { background-color: var(--bg-section-alt); }
+        .bg-dark { background-color: var(--bg-dark); color: var(--text-on-dark); }
+        .bg-dark p { color: #a1a1a6; }
+        .bg-dark h2, .bg-dark h3, .bg-dark strong { color: white; }
+
+        /* HERO */
+        .hero { text-align: center; padding: 150px 0 100px; }
+        .hero h1 { margin-bottom: 20px; background: linear-gradient(135deg, #000 0%, #444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p.lead { font-size: 24px; max-width: 700px; margin: 0 auto 40px; color: var(--text-primary); }
+        .hero-btns { display: flex; gap: 15px; justify-content: center; }
+        .btn { display: inline-block; padding: 12px 22px; border-radius: 999px; font-size: 17px; text-decoration: none; transition: all 0.2s; }
+        .btn-primary { background: var(--accent-blue); color: white; }
+        .btn-primary:hover { background: #005bb5; }
+        .btn-text { color: var(--accent-blue); }
+        .btn-text:hover { text-decoration: underline; }
+
+        /* STORY TEXT */
+        .story-text { max-width: 680px; margin: 0 auto; }
+
+        /* GRID LAYOUTS */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+
+        /* CARDS */
+        .card { background: white; padding: 30px; border-radius: var(--radius); box-shadow: 0 4px 10px rgba(0,0,0,0.03); height: 100%; }
+        .card-icon { font-size: 40px; margin-bottom: 20px; display: block; }
+
+        /* AI TABLE LOOKALIKE */
+        .spec-list { list-style: none; border-top: 1px solid rgba(0,0,0,0.1); }
+        .spec-list li { display: flex; padding: 15px 0; border-bottom: 1px solid rgba(0,0,0,0.1); }
+        .spec-list span:first-child { width: 40%; font-weight: 600; color: var(--text-primary); }
+        .spec-list span:last-child { width: 60%; color: var(--text-secondary); }
+
+        /* WARNING LEVELS */
+        .alert-levels { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .alert-badge { padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .bg-red { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
+        .bg-yellow { background: rgba(255, 204, 0, 0.1); color: #ffcc00; }
+        .bg-blue { background: rgba(0, 122, 255, 0.1); color: #007aff; }
+        .bg-green { background: rgba(52, 199, 89, 0.1); color: #34c759; }
+
+        /* TERMINAL */
+        .terminal { background: #1d1d1f; border-radius: 12px; padding: 25px; font-family: 'SF Mono', Monaco, monospace; font-size: 14px; color: white; overflow-x: auto; margin-top: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        .cmd { color: #64d2ff; }
+        .comment { color: #6e6e73; }
+
+        /* FOOTER */
+        footer { padding: 50px 0; font-size: 12px; text-align: center; color: var(--text-secondary); border-top: 1px solid #e5e5e5; }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            h1 { font-size: 42px; }
+            .hero { padding: 80px 0 50px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-inner">
+        <a href="#" style="font-weight: 700;">myIoTGrid</a>
+        <div style="display: flex; gap: 20px;">
+            <a href="#idee">Die Idee</a>
+            <a href="#ai">KI Native</a>
+            <a href="#privacy">Privacy</a>
+            <a href="#start">Start</a>
+        </div>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="container">
+        <h1>Aus vielen Punkten<br>entsteht ein Bild.</h1>
+        <p class="lead">Gemeinsam machen wir die Welt ein bisschen smarter. <br>Open Source. AI Powered. Privacy First.</p>
+        <div class="hero-btns">
+            <a href="#start" class="btn btn-primary">Schnellstart 🚀</a>
+            <a href="https://github.com/myiotgrid" class="btn btn-text">GitHub ansehen ></a>
+        </div>
+    </div>
+</section>
+
+<section id="idee" class="bg-alt">
+    <div class="container">
+        <div class="story-text">
+            <h2 style="text-align: center;">Die Idee.</h2>
+            <p><strong>Stell dir vor:</strong> Du schaust morgens auf dein Smartphone und siehst nicht nur die Temperatur in deinem Wohnzimmer – du siehst das Mikroklima deiner gesamten Nachbarschaft. Du weißt, dass es im Park um die Ecke 2 Grad kühler ist. Du siehst, dass die Luftqualität an der Hauptstraße heute schlecht ist.</p>
+
+            <p>Und dann sagt dir eine KI:</p>
+            <blockquote style="font-size: 21px; font-weight: 600; color: var(--text-primary); margin: 30px 0; border-left: 4px solid var(--accent-blue); padding-left: 20px;">
+                „Basierend auf der Wettervorhersage und deinen Kellerdaten der letzten 30 Tage: Schimmelrisiko steigt. Empfehlung: Heute 2x stoßlüften.“
+            </blockquote>
+
+            <p>Diese Daten kommen nicht von einer teuren Wetterstation oder einer Behörde. Sie kommen von Menschen wie dir. Von deinem Nachbarn, der einen Sensor im Garten hat. Von der Schule nebenan. Von Tausenden anderen, die ihre kleinen Messpunkte zu einem großen Bild zusammenfügen.</p>
+            <p>Die KI macht aus diesem Bild Wissen. <strong>Das ist myIoTGrid.</strong></p>
+        </div>
+    </div>
+</section>
+
+<section id="ai">
+    <div class="container">
+        <h2>Built with AI. Powered by AI.</h2>
+        <p style="max-width: 600px;">myIoTGrid ist von Anfang an ein KI-natives Projekt. KI ist kein Feature, das später dazukommt – sie steckt in der DNA.</p>
+
+        <div class="grid-2" style="margin-top: 50px;">
+            <div>
+                <h3>Wie KI zum Einsatz kommt</h3>
+                <ul class="spec-list">
+                    <li><span>🛠️ Entwicklung</span> <span>Architektur & Code entstehen mit KI</span></li>
+                    <li><span>📊 Analyse</span> <span>Erkennt Muster & Anomalien</span></li>
+                    <li><span>⚠️ Frühwarnung</span> <span>Warnt vor kritischen Ereignissen</span></li>
+                    <li><span>🔮 Prognosen</span> <span>Sagt Trends voraus</span></li>
+                    <li><span>💡 Insights</span> <span>Handlungsempfehlungen</span></li>
+                </ul>
+            </div>
+            <div class="card bg-alt" style="border: none;">
+                <h3>KI-Warnstufen</h3>
+                <p>Die KI kategorisiert Ereignisse automatisch:</p>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="alert-badge bg-red">🔴 Kritisch: Wasserschaden, CO₂ gefährlich</div>
+                    <div class="alert-badge bg-yellow">🟡 Warnung: Schimmelrisiko, Frostgefahr</div>
+                    <div class="alert-badge bg-blue">🔵 Hinweis: Lüftungsempfehlung</div>
+                    <div class="alert-badge bg-green">🟢 OK: Alles im grünen Bereich</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="privacy" class="bg-dark">
+    <div class="container">
+        <h2 style="text-align: center;">Nicht nur geben – auch empfangen.</h2>
+        <p style="text-align: center; margin-bottom: 60px;">Das Sharing-Prinzip unterscheidet myIoTGrid von allem anderen.</p>
+
+        <div class="grid-2">
+            <div>
+                <span style="font-size: 50px; display: block; margin-bottom: 20px;">📤</span>
+                <h3>Du gibst.</h3>
+                <p>Teile deine Sensordaten. Aber nur, wenn du willst. <br><strong>Privacy First – Sharing Second.</strong></p>
+                <p style="font-size: 15px; opacity: 0.8;">
+                    ✅ Du entscheidest pro Sensor.<br>
+                    ✅ Du kontrollierst Echtzeit-Daten.<br>
+                    ✅ Du kontrollierst den Standort.<br>
+                    ✅ Offline-Nutzung möglich.
+                </p>
+            </div>
+            <div>
+                <span style="font-size: 50px; display: block; margin-bottom: 20px;">📥</span>
+                <h3>Du empfängst.</h3>
+                <p>Im Gegenzug erhältst du Zugriff auf das globale Wissen der Community und externe Quellen.</p>
+                <ul class="spec-list" style="border-color: rgba(255,255,255,0.1);">
+                    <li style="border-color: rgba(255,255,255,0.1);"><span>👥 Community</span> <span>Wachsende Datenbasis</span></li>
+                    <li style="border-color: rgba(255,255,255,0.1);"><span>🌐 Sensor.Community</span> <span>34.000+ Sensoren</span></li>
+                    <li style="border-color: rgba(255,255,255,0.1);"><span>☁️ Wetterdaten</span> <span>DWD, OpenWeatherMap</span></li>
+                    <li style="border-color: rgba(255,255,255,0.1);"><span>💨 Luftqualität</span> <span>OpenAQ (Global)</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="components" class="bg-alt">
+    <div class="container">
+        <h2>Die drei Komponenten.</h2>
+        <div class="grid-3" style="margin-top: 40px;">
+            <div class="card">
+                <span class="card-icon">📡</span>
+                <h3>Grid.Sensor</h3>
+                <p>Die Augen. ESP32-Mikrocontroller zur Erfassung von Umwelt, Licht und mehr.</p>
+                <p style="font-size: 14px; margin-top: auto; color: var(--accent-blue);">Ab ~5€ Materialkosten</p>
+            </div>
+            <div class="card">
+                <span class="card-icon">🧠</span>
+                <h3>Grid.Hub</h3>
+                <p>Das Gehirn. Lokale Zentrale (Raspberry Pi/Docker). Edge-KI analysiert Daten, auch offline.</p>
+                <p style="font-size: 14px; margin-top: auto; color: var(--accent-blue);">.NET 8 · Angular · SQLite</p>
+            </div>
+            <div class="card">
+                <span class="card-icon">☁️</span>
+                <h3>Grid.Cloud</h3>
+                <p>Das Netzwerk. Optionale Cloud für Community-Maps und globale KI-Prognosen.</p>
+                <p style="font-size: 14px; margin-top: auto; color: var(--accent-blue);">PostgreSQL · .NET 10</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <h2>Überall einsetzbar.</h2>
+        <div class="grid-3">
+            <div>
+                <h3>🏠 Zuhause</h3>
+                <p>Wohnzimmer, Keller (Schimmel?), Garage.</p>
+            </div>
+            <div>
+                <h3>🌳 Outdoor</h3>
+                <p>Garten, Gewächshaus, Pool.</p>
+            </div>
+            <div>
+                <h3>🏫 Bildung</h3>
+                <p>MINT-Projekte an Schulen & Unis.</p>
+            </div>
+            <div>
+                <h3>🌾 Agrar</h3>
+                <p>Felder, Weinberge, Bienenstöcke.</p>
+            </div>
+            <div>
+                <h3>🏙️ Stadt</h3>
+                <p>Hitze-Inseln finden, Klimaschutz.</p>
+            </div>
+            <div>
+                <h3>🔬 Spezial</h3>
+                <p>Terrarium, Weinkeller, Serverraum.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="start" class="bg-dark">
+    <div class="container">
+        <h2 style="text-align: center;">Schnellstart.</h2>
+        <p style="text-align: center;">In 5 Minuten live. Keine versteckten Kosten.</p>
+
+        <div style="max-width: 700px; margin: 0 auto;">
+            <div class="terminal">
+                <div style="margin-bottom: 15px;">
+                    <span style="display:inline-block; width:12px; height:12px; background:#ff5f56; border-radius:50%; margin-right:6px;"></span>
+                    <span style="display:inline-block; width:12px; height:12px; background:#ffbd2e; border-radius:50%; margin-right:6px;"></span>
+                    <span style="display:inline-block; width:12px; height:12px; background:#27c93f; border-radius:50%;"></span>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <span class="comment"># 1. Hub starten</span><br>
+                    <span class="cmd">docker</span> run -d --name myiotgrid -p 5000:5000 ghcr.io/myiotgrid/hub:latest
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <span class="comment"># 2. Sensor Code holen</span><br>
+                    <span class="cmd">git</span> clone https://github.com/myiotgrid/grid-sensor
+                </div>
+
+                <div>
+                    <span class="comment"># 3. Dashboard öffnen</span><br>
+                    <span class="cmd">open</span> http://localhost:5000
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 40px;">
+                <p>Wir suchen dich für den <strong>SmartCity Hackathon 2025</strong>!</p>
+                <a href="#" class="btn btn-primary" style="background: white; color: black;">Jetzt Mitmachen</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <p><strong>myIoTGrid</strong> · 100% Open Source · MIT Lizenz</p>
+        <p>Made with ❤️ and 🤖 in Germany.</p>
+        <br>
+        <p style="opacity: 0.6;">Du darfst den Code nutzen, verändern, forken und kommerziell einsetzen. Weil Umweltdaten allen gehören sollten.</p>
+    </div>
+</footer>
+
+</body>
+</html>
