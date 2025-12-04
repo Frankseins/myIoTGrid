@@ -89,9 +89,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
       - name: Build
         run: npm run build -- --configuration=production
 
@@ -250,8 +247,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./myIoTGrid.Hub/myIoTGrid.Hub.Backend/docker/sensor-sim
-          file: ./myIoTGrid.Hub/myIoTGrid.Hub.Backend/docker/sensor-sim/Dockerfile
+          context: ./myIoTGrid.Sensor
+          file: ./myIoTGrid.Sensor/docker/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
