@@ -42,6 +42,10 @@ constexpr int DISCOVERY_TIMEOUT_MS = 5000;
 constexpr int DISCOVERY_RETRY_COUNT = 3;
 constexpr int DISCOVERY_RETRY_DELAY_MS = 2000;
 
+// Discovery Protocol Message Types
+constexpr const char* DISCOVERY_MESSAGE_TYPE = "MYIOTGRID_DISCOVER";
+constexpr const char* DISCOVERY_RESPONSE_TYPE = "MYIOTGRID_HUB";
+
 // Storage Keys
 constexpr const char* STORAGE_KEY_SERIAL = "serial";
 constexpr const char* STORAGE_KEY_CONFIG = "config";

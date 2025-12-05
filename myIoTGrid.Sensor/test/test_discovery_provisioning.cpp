@@ -235,7 +235,9 @@ void test_state_machine_pairing_to_configured() {
     StateMachine sm;
     sm.processEvent(StateEvent::BLE_PAIR_START);  // UNCONFIGURED -> PAIRING
 
-    sm.processEvent(StateEvent::BLE_CONFIG_RECEIVED);  // PAIRING -> CONFIGURED
+    // BLE_CONFIG_RECEIVED stays in PAIRING, WIFI_CONNECTED transitions to CONFIGURED
+    sm.processEvent(StateEvent::BLE_CONFIG_RECEIVED);  // Stays in PAIRING
+    sm.processEvent(StateEvent::WIFI_CONNECTED);       // PAIRING -> CONFIGURED
     TEST_ASSERT_EQUAL(NodeState::CONFIGURED, sm.getState());
 }
 
@@ -263,7 +265,11 @@ void test_state_machine_error_recovery() {
 
     TEST_ASSERT_EQUAL(NodeState::ERROR, sm.getState());
 
-    sm.processEvent(StateEvent::RETRY_TIMEOUT);  // ERROR -> CONFIGURED
+    // RETRY_TIMEOUT transitions to PAIRING, WIFI_CONNECTED transitions to CONFIGURED
+    sm.processEvent(StateEvent::RETRY_TIMEOUT);   // ERROR -> PAIRING
+    TEST_ASSERT_EQUAL(NodeState::PAIRING, sm.getState());
+
+    sm.processEvent(StateEvent::WIFI_CONNECTED);  // PAIRING -> CONFIGURED
     TEST_ASSERT_EQUAL(NodeState::CONFIGURED, sm.getState());
 }
 
@@ -282,8 +288,8 @@ void test_state_machine_retry_delay_increases() {
 
     unsigned long delay1 = sm.getRetryDelay();
 
-    sm.processEvent(StateEvent::RETRY_TIMEOUT);  // ERROR -> CONFIGURED
-    sm.processEvent(StateEvent::ERROR_OCCURRED);  // -> ERROR again
+    sm.processEvent(StateEvent::RETRY_TIMEOUT);  // ERROR -> PAIRING
+    sm.processEvent(StateEvent::ERROR_OCCURRED);  // PAIRING -> ERROR again
 
     unsigned long delay2 = sm.getRetryDelay();
 
@@ -339,7 +345,7 @@ void test_env_variable_names() {
 }
 
 void test_default_hub_port() {
-    TEST_ASSERT_EQUAL(5000, config::DEFAULT_HUB_PORT);
+    TEST_ASSERT_EQUAL(5001, config::DEFAULT_HUB_PORT);
 }
 
 // ============================================
