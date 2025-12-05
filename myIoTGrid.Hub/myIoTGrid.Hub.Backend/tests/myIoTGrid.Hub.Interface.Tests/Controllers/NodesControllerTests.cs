@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Moq;
 using myIoTGrid.Hub.Interface.Controllers;
 using myIoTGrid.Hub.Interface.Hubs;
@@ -26,6 +27,7 @@ public class NodesControllerTests
     private readonly Mock<IHubContext<SensorHub>> _hubContextMock;
     private readonly Mock<IClientProxy> _clientProxyMock;
     private readonly Mock<IConfiguration> _configurationMock;
+    private readonly Mock<ILogger<NodesController>> _loggerMock;
     private readonly NodesController _sut;
 
     private readonly Guid _tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -43,6 +45,7 @@ public class NodesControllerTests
         _hubContextMock = new Mock<IHubContext<SensorHub>>();
         _clientProxyMock = new Mock<IClientProxy>();
         _configurationMock = new Mock<IConfiguration>();
+        _loggerMock = new Mock<ILogger<NodesController>>();
 
         var hubClientsMock = new Mock<IHubClients>();
         hubClientsMock.Setup(c => c.Group(It.IsAny<string>())).Returns(_clientProxyMock.Object);
@@ -55,7 +58,8 @@ public class NodesControllerTests
             _assignmentServiceMock.Object,
             _sensorServiceMock.Object,
             _hubContextMock.Object,
-            _configurationMock.Object);
+            _configurationMock.Object,
+            _loggerMock.Object);
 
         // Setup HttpContext for Register endpoint tests
         var httpContext = new DefaultHttpContext();
