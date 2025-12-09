@@ -289,6 +289,155 @@ public class ReadingService : IReadingService
     }
 
     /// <inheritdoc />
+    public async Task<BatchReadingsResultDto> CreateBatchAsync(CreateBatchReadingsDto dto, CancellationToken ct = default)
+    {
+        var tenantId = _tenantService.GetCurrentTenantId();
+        var errors = new List<string>();
+        var successCount = 0;
+        var failedCount = 0;
+        var readings = dto.Readings.ToList();
+
+        _logger.LogInformation("Processing batch upload: {Count} readings from Node {NodeId}",
+            readings.Count, dto.NodeId);
+
+        // Find Node (required for batch upload)
+        Node? node = null;
+        if (Guid.TryParse(dto.NodeId, out var nodeGuid))
+        {
+            node = await _context.Nodes
+                .Include(n => n.Hub)
+                .FirstOrDefaultAsync(n => n.Id == nodeGuid && n.Hub!.TenantId == tenantId, ct);
+        }
+        else
+        {
+            node = await _context.Nodes
+                .Include(n => n.Hub)
+                .FirstOrDefaultAsync(n => n.NodeId == dto.NodeId && n.Hub!.TenantId == tenantId, ct);
+        }
+
+        if (node == null)
+        {
+            return new BatchReadingsResultDto(
+                SuccessCount: 0,
+                FailedCount: readings.Count,
+                TotalCount: readings.Count,
+                NodeId: dto.NodeId,
+                ProcessedAt: DateTime.UtcNow,
+                Errors: new[] { $"Node not found: {dto.NodeId}" }
+            );
+        }
+
+        // Pre-load all assignments for this node (for performance)
+        var assignments = await _context.NodeSensorAssignments
+            .Include(a => a.Sensor)
+                .ThenInclude(s => s.Capabilities)
+            .Where(a => a.NodeId == node.Id && a.IsActive)
+            .ToListAsync(ct);
+
+        // Process each reading in the batch
+        var baseTimestamp = dto.Timestamp ?? DateTime.UtcNow;
+        var readingsToAdd = new List<Reading>();
+
+        foreach (var readingValue in readings)
+        {
+            try
+            {
+                var measurementType = readingValue.MeasurementType.ToLowerInvariant();
+
+                // Find assignment by EndpointId
+                var assignment = assignments.FirstOrDefault(a => a.EndpointId == readingValue.EndpointId);
+
+                Guid? assignmentId = assignment?.Id;
+                var sensor = assignment?.Sensor;
+                var calibratedValue = readingValue.RawValue;
+                var unit = string.Empty;
+
+                if (assignment != null && sensor != null)
+                {
+                    // Apply calibration
+                    calibratedValue = _effectiveConfigService.ApplyCalibration(readingValue.RawValue, sensor);
+
+                    // Get unit from capability
+                    var capability = sensor.Capabilities
+                        .FirstOrDefault(c => c.MeasurementType.Equals(measurementType, StringComparison.OrdinalIgnoreCase));
+                    unit = capability?.Unit ?? string.Empty;
+                }
+
+                var reading = new Reading
+                {
+                    TenantId = tenantId,
+                    NodeId = node.Id,
+                    AssignmentId = assignmentId,
+                    MeasurementType = measurementType,
+                    RawValue = readingValue.RawValue,
+                    Value = calibratedValue,
+                    Unit = unit,
+                    Timestamp = baseTimestamp,
+                    IsSyncedToCloud = false
+                };
+
+                readingsToAdd.Add(reading);
+                successCount++;
+            }
+            catch (Exception ex)
+            {
+                failedCount++;
+                errors.Add($"EndpointId {readingValue.EndpointId} ({readingValue.MeasurementType}): {ex.Message}");
+                _logger.LogWarning(ex, "Failed to process batch reading: EndpointId={EndpointId}, Type={Type}",
+                    readingValue.EndpointId, readingValue.MeasurementType);
+            }
+        }
+
+        // Bulk insert all readings
+        if (readingsToAdd.Count > 0)
+        {
+            _context.Readings.AddRange(readingsToAdd);
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            // Update Node LastSeen and sync status
+            node.LastSeen = DateTime.UtcNow;
+            node.LastSyncAt = DateTime.UtcNow;
+            node.PendingSyncCount = Math.Max(0, node.PendingSyncCount - successCount);
+            node.LastSyncError = failedCount > 0 ? $"{failedCount} readings failed" : null;
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            // SignalR notification for latest readings only (to avoid flooding)
+            var latestByType = readingsToAdd
+                .GroupBy(r => r.MeasurementType)
+                .Select(g => g.OrderByDescending(r => r.Timestamp).First());
+
+            foreach (var reading in latestByType)
+            {
+                // Reload with navigation properties for DTO conversion
+                var reloadedReading = await _context.Readings
+                    .Include(r => r.Node)
+                        .ThenInclude(n => n!.Location)
+                    .Include(r => r.Assignment)
+                        .ThenInclude(a => a!.Sensor)
+                            .ThenInclude(s => s!.Capabilities)
+                    .FirstOrDefaultAsync(r => r.Id == reading.Id, ct);
+
+                if (reloadedReading != null)
+                {
+                    await _signalRNotificationService.NotifyNewReadingAsync(reloadedReading.ToDto(), ct);
+                }
+            }
+        }
+
+        _logger.LogInformation("Batch upload completed: {Success}/{Total} readings from Node {NodeId}",
+            successCount, readings.Count, dto.NodeId);
+
+        return new BatchReadingsResultDto(
+            SuccessCount: successCount,
+            FailedCount: failedCount,
+            TotalCount: readings.Count,
+            NodeId: dto.NodeId,
+            ProcessedAt: DateTime.UtcNow,
+            Errors: errors.Count > 0 ? errors : null
+        );
+    }
+
+    /// <inheritdoc />
     public async Task<ReadingDto?> GetByIdAsync(long id, CancellationToken ct = default)
     {
         var reading = await _context.Readings

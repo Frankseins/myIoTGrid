@@ -51,6 +51,11 @@ public class HubDbContext : DbContext
     /// <summary>Alerts/Warnings</summary>
     public DbSet<Alert> Alerts => Set<Alert>();
 
+    // === Remote Debug System (Sprint 8) ===
+
+    /// <summary>Node Debug Logs</summary>
+    public DbSet<NodeDebugLog> NodeDebugLogs => Set<NodeDebugLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

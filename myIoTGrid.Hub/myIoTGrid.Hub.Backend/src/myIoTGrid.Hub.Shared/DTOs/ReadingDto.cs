@@ -121,3 +121,22 @@ public record DeleteReadingsResultDto(
     Guid? AssignmentId,
     string? MeasurementType
 );
+
+/// <summary>
+/// Response DTO for batch readings creation (Sprint OS-01: Offline Storage).
+/// Returns summary of batch upload result.
+/// </summary>
+public record BatchReadingsResultDto(
+    /// <summary>Number of readings successfully created</summary>
+    int SuccessCount,
+    /// <summary>Number of readings that failed to create</summary>
+    int FailedCount,
+    /// <summary>Total readings in the batch</summary>
+    int TotalCount,
+    /// <summary>Node ID that received the readings</summary>
+    string NodeId,
+    /// <summary>Timestamp when batch was processed</summary>
+    DateTime ProcessedAt,
+    /// <summary>Error messages for failed readings (if any)</summary>
+    IEnumerable<string>? Errors = null
+);

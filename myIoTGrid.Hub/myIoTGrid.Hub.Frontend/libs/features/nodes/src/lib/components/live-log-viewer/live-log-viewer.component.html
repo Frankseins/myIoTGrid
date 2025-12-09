@@ -1,0 +1,181 @@
+<div class="card log-viewer outlook">
+  <!-- Toolbar with Title and Actions -->
+  <mat-toolbar class="toolbar outlook-toolbar log-header">
+    <mat-icon class="header-icon">terminal</mat-icon>
+    <h3 class="log-title">Live Debug-Logs</h3>
+    <span class="log-count">
+      {{ filteredLogs.length }} von {{ logs().length }}
+      @if (isPaused()) {
+        <span class="paused-badge">PAUSIERT</span>
+      }
+    </span>
+
+    <span class="spacer"></span>
+
+    <!-- Auto-Scroll Toggle -->
+    <mat-slide-toggle
+      [(ngModel)]="autoScroll"
+      class="auto-scroll-toggle"
+      matTooltip="Auto-Scroll zum neuesten Log">
+      Auto-Scroll
+    </mat-slide-toggle>
+
+    <!-- Pause/Play Button -->
+    <button type="button" mat-icon-button class="tbar-icon"
+            [class.paused]="isPaused()"
+            (click)="togglePause()"
+            [matTooltip]="isPaused() ? 'Fortsetzen' : 'Pausieren'">
+      <mat-icon>{{ isPaused() ? 'play_arrow' : 'pause' }}</mat-icon>
+    </button>
+
+    <!-- Refresh Button -->
+    <button type="button" mat-icon-button class="tbar-icon"
+            (click)="refresh()"
+            [disabled]="isLoading()"
+            matTooltip="Logs neu laden">
+      <mat-icon>refresh</mat-icon>
+    </button>
+
+    <!-- Filter Button -->
+    <button type="button" mat-icon-button class="tbar-icon"
+            [class.on]="isFilterOpen"
+            [class.active]="hasActiveFilters()"
+            (click)="toggleFilter()"
+            [matTooltip]="hasActiveFilters() ? 'Filter (aktiv)' : 'Filter'">
+      <mat-icon>filter_list</mat-icon>
+    </button>
+
+    <!-- Search -->
+    <div class="o365-search" [class.open]="isSearchOpen">
+      <button type="button" mat-icon-button class="tbar-icon o365-search__btn"
+              (click)="toggleSearch()"
+              matTooltip="Suche">
+        <mat-icon>search</mat-icon>
+      </button>
+
+      <div class="o365-search__field">
+        <input #searchInput matInput class="o365-search__input"
+               type="text" placeholder="Nachricht durchsuchen..."
+               [(ngModel)]="globalFilter"
+               (ngModelChange)="onFilterInput($event)"
+               (keydown.escape)="closeSearch()"
+               (blur)="onSearchBlur()" />
+        @if (globalFilter?.length) {
+          <button type="button" mat-icon-button class="tbar-icon o365-search__clear"
+                  (click)="clearSearch()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Delete Button -->
+    <button type="button" mat-icon-button class="tbar-icon warn"
+            color="warn"
+            (click)="clearLogs()"
+            [disabled]="isClearing() || logs().length === 0"
+            matTooltip="Alle Logs loeschen">
+      <mat-icon>delete</mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <!-- Loading Indicator -->
+  @if (isLoading()) {
+    <mat-progress-bar mode="indeterminate" class="loading-bar"></mat-progress-bar>
+  }
+
+  <!-- Log Content -->
+  <div class="log-content">
+    @if (isLoading()) {
+      <div class="loading-container">
+        <span>Lade Logs...</span>
+      </div>
+    } @else if (filteredLogs.length === 0) {
+      <div class="empty-container">
+        <mat-icon>inbox</mat-icon>
+        <span>
+          @if (hasActiveFilters() || globalFilter) {
+            Keine Logs mit den aktuellen Filtern gefunden
+          } @else {
+            Keine Debug-Logs vorhanden
+          }
+        </span>
+      </div>
+    } @else {
+      <div class="log-container" #logContainer>
+        @for (log of filteredLogs; track log.id) {
+          <div class="log-entry" [class]="'level-' + log.level.toLowerCase()">
+            <div class="log-header">
+              <span class="log-time" [matTooltip]="formatDate(log.receivedAt)">
+                {{ formatTime(log.receivedAt) }}
+              </span>
+              <mat-chip class="level-chip" [style.background-color]="getLevelColor(log.level)">
+                {{ log.level }}
+              </mat-chip>
+              <mat-chip class="category-chip">
+                <mat-icon>{{ getCategoryIcon(log.category) }}</mat-icon>
+                {{ getCategoryLabel(log.category) }}
+              </mat-chip>
+            </div>
+            <div class="log-message">{{ log.message }}</div>
+            @if (log.stackTrace) {
+              <pre class="log-stacktrace">{{ log.stackTrace }}</pre>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<!-- Filter Drawer Template -->
+<ng-template #filterHost>
+  <div class="gl-drawer gl-filter-drawer">
+    <div class="gl-drawer__header">
+      <h3 class="gl-drawer__title">Filter</h3>
+      <button mat-icon-button (click)="closeFilter()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <div class="gl-drawer__body">
+      <div class="gl-drawer__inner">
+        <!-- Level Filter -->
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Level</mat-label>
+          <mat-select [(ngModel)]="selectedLevel" placeholder="Alle">
+            <mat-option [value]="null">Alle</mat-option>
+            @for (level of debugLevels; track level.value) {
+              <mat-option [value]="level.value">
+                <span [style.color]="level.color">{{ level.label }}</span>
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Category Filter -->
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Kategorie</mat-label>
+          <mat-select [(ngModel)]="selectedCategory" placeholder="Alle">
+            <mat-option [value]="null">Alle</mat-option>
+            @for (cat of logCategories; track cat.value) {
+              <mat-option [value]="cat.value">
+                <mat-icon>{{ cat.icon }}</mat-icon>
+                {{ cat.label }}
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+
+    <div class="drawer-buttons">
+      <button mat-button (click)="clearFilters()">
+        <mat-icon>clear</mat-icon> Zuruecksetzen
+      </button>
+      <button mat-flat-button color="primary" (click)="applyFilters()">
+        <mat-icon>check</mat-icon> Anwenden
+      </button>
+    </div>
+  </div>
+</ng-template>

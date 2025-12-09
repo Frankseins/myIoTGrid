@@ -19,4 +19,8 @@ public static class EnumMappingExtensions
     // AlertSource Mapping
     public static AlertSourceDto ToDto(this AlertSource source) => (AlertSourceDto)source;
     public static AlertSource ToEntity(this AlertSourceDto source) => (AlertSource)source;
+
+    // StorageMode Mapping (Sprint OS-01)
+    public static StorageModeDto ToDto(this StorageMode mode) => (StorageModeDto)mode;
+    public static StorageMode ToEntity(this StorageModeDto mode) => (StorageMode)mode;
 }

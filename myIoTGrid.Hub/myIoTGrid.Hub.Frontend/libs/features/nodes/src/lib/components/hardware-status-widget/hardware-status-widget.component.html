@@ -1,0 +1,134 @@
+<div class="hardware-status-widget">
+  @if (isLoading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="24"></mat-spinner>
+    </div>
+  } @else if (status()) {
+    <!-- Compact Header - Always visible -->
+    <div class="status-header" [class]="getOverallStatus()" (click)="toggleExpanded()">
+      <div class="status-summary">
+        <mat-icon class="status-icon">{{ getStatusIcon() }}</mat-icon>
+        <span class="status-label">{{ getStatusLabel() }}</span>
+
+        @if (status()!.summary.sensorsError > 0) {
+          <span class="badge error">{{ status()!.summary.sensorsError }}</span>
+        }
+        @if (getNotConfiguredCount() > 0) {
+          <span class="badge warning">{{ getNotConfiguredCount() }}</span>
+        }
+      </div>
+
+      <div class="header-meta">
+        <span class="firmware" matTooltip="Firmware Version">v{{ status()!.firmwareVersion }}</span>
+        <mat-icon class="expand-icon">{{ expanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+      </div>
+    </div>
+
+    <!-- Expandable Details -->
+    @if (expanded()) {
+      <div class="status-details">
+        <mat-divider></mat-divider>
+
+        <!-- Summary Stats -->
+        <div class="summary-row">
+          <div class="stat">
+            <span class="stat-value">{{ status()!.summary.totalDevicesDetected }}</span>
+            <span class="stat-label">Erkannt</span>
+          </div>
+          <div class="stat ok">
+            <span class="stat-value">{{ status()!.summary.sensorsOk }}</span>
+            <span class="stat-label">OK</span>
+          </div>
+          <div class="stat error">
+            <span class="stat-value">{{ status()!.summary.sensorsError }}</span>
+            <span class="stat-label">Fehler</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">{{ status()!.summary.sensorsConfigured }}</span>
+            <span class="stat-label">Konfiguriert</span>
+          </div>
+        </div>
+
+        <!-- Detected Devices -->
+        @if (status()!.detectedDevices.length > 0) {
+          <div class="section">
+            <h4>Erkannte Geraete</h4>
+            <div class="devices-list">
+              @for (device of status()!.detectedDevices; track device.address) {
+                <div class="device-item" [class]="getDeviceStatusClass(device)">
+                  <mat-icon class="device-status-icon">{{ getDeviceStatusIcon(device) }}</mat-icon>
+                  <div class="device-info">
+                    <span class="device-type">{{ device.deviceType }}</span>
+                    <span class="device-address">{{ device.bus }}: {{ device.address }}</span>
+                  </div>
+                  @if (device.sensorCode) {
+                    <span class="device-sensor">{{ device.sensorCode }}</span>
+                  }
+                  @if (device.errorMessage) {
+                    <span class="device-error" [matTooltip]="device.errorMessage">{{ device.errorMessage }}</span>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Bus Status -->
+        <div class="section">
+          <h4>Bus Status</h4>
+          <div class="bus-status">
+            <div class="bus-item" [class.active]="status()!.busStatus.i2cAvailable">
+              <mat-icon>{{ status()!.busStatus.i2cAvailable ? 'check' : 'close' }}</mat-icon>
+              <span>I2C ({{ status()!.busStatus.i2cDeviceCount }} Geraete)</span>
+            </div>
+            <div class="bus-item" [class.active]="status()!.busStatus.oneWireAvailable">
+              <mat-icon>{{ status()!.busStatus.oneWireAvailable ? 'check' : 'close' }}</mat-icon>
+              <span>1-Wire ({{ status()!.busStatus.oneWireDeviceCount }} Geraete)</span>
+            </div>
+            <div class="bus-item" [class.active]="status()!.busStatus.uartAvailable">
+              <mat-icon>{{ status()!.busStatus.uartAvailable ? 'check' : 'close' }}</mat-icon>
+              <span>UART</span>
+            </div>
+            <div class="bus-item" [class.active]="status()!.busStatus.gpsDetected">
+              <mat-icon>{{ status()!.busStatus.gpsDetected ? 'gps_fixed' : 'gps_off' }}</mat-icon>
+              <span>GPS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Storage Status -->
+        @if (status()!.storage.available) {
+          <div class="section">
+            <h4>SD-Karte</h4>
+            <div class="storage-info">
+              <div class="storage-bar">
+                <div class="storage-used" [style.width.%]="getStoragePercent()"></div>
+              </div>
+              <div class="storage-text">
+                {{ formatBytes(status()!.storage.usedBytes) }} / {{ formatBytes(status()!.storage.totalBytes) }}
+                ({{ getStoragePercent() }}%)
+              </div>
+              @if (status()!.storage.pendingSyncCount > 0) {
+                <div class="pending-sync">
+                  <mat-icon>sync</mat-icon>
+                  {{ status()!.storage.pendingSyncCount }} ausstehend
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Last Report -->
+        <div class="last-report">
+          <mat-icon>schedule</mat-icon>
+          <span>Letzter Bericht: {{ formatDate(status()!.reportedAt) }}</span>
+        </div>
+      </div>
+    }
+  } @else {
+    <div class="empty-container">
+      <mat-icon>memory</mat-icon>
+      <span>Kein Hardware-Status</span>
+    </div>
+  }
+</div>

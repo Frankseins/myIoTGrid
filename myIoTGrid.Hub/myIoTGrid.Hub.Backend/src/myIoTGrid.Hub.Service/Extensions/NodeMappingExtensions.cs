@@ -30,8 +30,45 @@ public static class NodeMappingExtensions
             CreatedAt: node.CreatedAt,
             MacAddress: node.MacAddress,
             Status: node.Status.ToDto(),
-            IsSimulation: node.IsSimulation
+            IsSimulation: node.IsSimulation,
+            // Sprint OS-01: Offline Storage
+            StorageMode: node.StorageMode.ToDto(),
+            PendingSyncCount: node.PendingSyncCount,
+            LastSyncAt: node.LastSyncAt,
+            LastSyncError: node.LastSyncError,
+            // Sprint 8: Remote Debug System
+            DebugLevel: node.DebugLevel.ToDto(),
+            EnableRemoteLogging: node.EnableRemoteLogging,
+            LastDebugChange: node.LastDebugChange
         );
+    }
+
+    /// <summary>
+    /// Converts DebugLevel enum to DebugLevelDto
+    /// </summary>
+    public static DebugLevelDto ToDto(this DebugLevel level)
+    {
+        return level switch
+        {
+            DebugLevel.Production => DebugLevelDto.Production,
+            DebugLevel.Normal => DebugLevelDto.Normal,
+            DebugLevel.Debug => DebugLevelDto.Debug,
+            _ => DebugLevelDto.Normal
+        };
+    }
+
+    /// <summary>
+    /// Converts DebugLevelDto to DebugLevel enum
+    /// </summary>
+    public static DebugLevel ToEntity(this DebugLevelDto level)
+    {
+        return level switch
+        {
+            DebugLevelDto.Production => DebugLevel.Production,
+            DebugLevelDto.Normal => DebugLevel.Normal,
+            DebugLevelDto.Debug => DebugLevel.Debug,
+            _ => DebugLevel.Normal
+        };
     }
 
     /// <summary>
@@ -159,6 +196,10 @@ public static class NodeMappingExtensions
 
         if (dto.IsSimulation.HasValue)
             node.IsSimulation = dto.IsSimulation.Value;
+
+        // Sprint OS-01: Update StorageMode
+        if (dto.StorageMode.HasValue)
+            node.StorageMode = dto.StorageMode.Value.ToEntity();
     }
 
     /// <summary>

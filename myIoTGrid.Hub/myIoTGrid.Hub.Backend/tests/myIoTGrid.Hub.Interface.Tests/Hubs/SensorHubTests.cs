@@ -266,6 +266,62 @@ public class SensorHubTests
 
     #endregion
 
+    #region JoinDebugGroup Tests
+
+    [Fact]
+    public async Task JoinDebugGroup_WithValidNodeId_AddsClientToGroup()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+
+        // Act
+        await _sut.JoinDebugGroup(nodeId);
+
+        // Assert
+        var expectedGroupName = $"debug:{nodeId}";
+        _groupManagerMock.Verify(g => g.AddToGroupAsync(_connectionId, expectedGroupName, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task JoinDebugGroup_WithEmptyNodeId_DoesNotAddToGroup()
+    {
+        // Act
+        await _sut.JoinDebugGroup(Guid.Empty);
+
+        // Assert
+        _groupManagerMock.Verify(g => g.AddToGroupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
+    #region LeaveDebugGroup Tests
+
+    [Fact]
+    public async Task LeaveDebugGroup_WithValidNodeId_RemovesClientFromGroup()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+
+        // Act
+        await _sut.LeaveDebugGroup(nodeId);
+
+        // Assert
+        var expectedGroupName = $"debug:{nodeId}";
+        _groupManagerMock.Verify(g => g.RemoveFromGroupAsync(_connectionId, expectedGroupName, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task LeaveDebugGroup_WithEmptyNodeId_DoesNotRemoveFromGroup()
+    {
+        // Act
+        await _sut.LeaveDebugGroup(Guid.Empty);
+
+        // Assert
+        _groupManagerMock.Verify(g => g.RemoveFromGroupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
     #region Static Helper Methods Tests
 
     [Fact]
@@ -319,6 +375,19 @@ public class SensorHubTests
 
         // Assert
         result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void GetDebugGroupName_ReturnsCorrectFormat()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+
+        // Act
+        var result = SensorHub.GetDebugGroupName(nodeId);
+
+        // Assert
+        result.Should().Be($"debug:{nodeId}");
     }
 
     #endregion

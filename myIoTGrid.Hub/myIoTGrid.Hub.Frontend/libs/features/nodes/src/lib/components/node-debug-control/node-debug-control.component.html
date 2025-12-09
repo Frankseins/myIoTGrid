@@ -1,0 +1,84 @@
+<!-- Debug Control - Inline section design (no mat-card) -->
+<div class="debug-control-container">
+  @if (isLoading()) {
+    <div class="loading-container">
+      <mat-spinner diameter="32"></mat-spinner>
+      <span>Lade Konfiguration...</span>
+    </div>
+  } @else if (config()) {
+    <div class="debug-settings-grid">
+      <!-- Debug Level Selection -->
+      <mat-form-field class="full-width"
+                      [appearance]="readonly ? 'fill' : 'outline'"
+                      [floatLabel]="readonly ? 'always' : 'auto'">
+        <mat-label>Debug-Level</mat-label>
+        @if (readonly) {
+          <mat-icon matPrefix>{{ getLevelIcon(selectedLevel) }}</mat-icon>
+        }
+        @if (readonly) {
+          <input matInput [value]="getLevelLabel(selectedLevel)" readonly>
+        } @else {
+          <mat-select [(ngModel)]="selectedLevel" (ngModelChange)="onValueChange()">
+            @for (level of debugLevels; track level.value) {
+              <mat-option [value]="level.value">
+                <div class="level-option">
+                  <mat-icon>{{ level.icon }}</mat-icon>
+                  <div class="level-info">
+                    <span class="level-label">{{ level.label }}</span>
+                    <span class="level-desc">{{ level.description }}</span>
+                  </div>
+                </div>
+              </mat-option>
+            }
+          </mat-select>
+        }
+        <mat-hint>{{ getLevelDescription(selectedLevel) }}</mat-hint>
+      </mat-form-field>
+
+      <!-- Remote Logging Toggle -->
+      <div class="toggle-section">
+        <mat-slide-toggle
+          [(ngModel)]="remoteLoggingEnabled"
+          (ngModelChange)="onValueChange()"
+          [disabled]="readonly"
+          color="primary">
+          Remote-Logging aktivieren
+        </mat-slide-toggle>
+        <p class="toggle-hint">
+          Wenn aktiviert, werden Debug-Logs automatisch an den Hub gesendet
+        </p>
+      </div>
+
+      <!-- Current Status Info Card -->
+      <div class="status-section">
+        <div class="status-row">
+          <span class="status-label">Aktueller Level:</span>
+          <span class="status-value" [class]="'level-' + config()!.debugLevel.toLowerCase()">
+            <mat-icon>{{ getLevelIcon(config()!.debugLevel) }}</mat-icon>
+            {{ getLevelLabel(config()!.debugLevel) }}
+          </span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Remote-Logging:</span>
+          <span class="status-value" [class.enabled]="config()!.enableRemoteLogging">
+            <mat-icon>{{ config()!.enableRemoteLogging ? 'cloud_upload' : 'cloud_off' }}</mat-icon>
+            {{ config()!.enableRemoteLogging ? 'Aktiviert' : 'Deaktiviert' }}
+          </span>
+        </div>
+        @if (config()!.lastDebugChange) {
+          <div class="status-row">
+            <span class="status-label">Letzte Änderung:</span>
+            <span class="status-value">
+              {{ formatDate(config()!.lastDebugChange) }}
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="error-container">
+      <mat-icon>error_outline</mat-icon>
+      <span>Konfiguration konnte nicht geladen werden</span>
+    </div>
+  }
+</div>

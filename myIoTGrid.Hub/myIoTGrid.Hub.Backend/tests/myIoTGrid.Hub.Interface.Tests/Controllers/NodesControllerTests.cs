@@ -25,6 +25,7 @@ public class NodesControllerTests
     private readonly Mock<INodeSensorAssignmentService> _assignmentServiceMock;
     private readonly Mock<ISensorService> _sensorServiceMock;
     private readonly Mock<IReadingService> _readingServiceMock;
+    private readonly Mock<INodeDebugLogService> _debugLogServiceMock;
     private readonly Mock<IHubContext<SensorHub>> _hubContextMock;
     private readonly Mock<IClientProxy> _clientProxyMock;
     private readonly Mock<IConfiguration> _configurationMock;
@@ -44,6 +45,7 @@ public class NodesControllerTests
         _assignmentServiceMock = new Mock<INodeSensorAssignmentService>();
         _sensorServiceMock = new Mock<ISensorService>();
         _readingServiceMock = new Mock<IReadingService>();
+        _debugLogServiceMock = new Mock<INodeDebugLogService>();
         _hubContextMock = new Mock<IHubContext<SensorHub>>();
         _clientProxyMock = new Mock<IClientProxy>();
         _configurationMock = new Mock<IConfiguration>();
@@ -60,6 +62,7 @@ public class NodesControllerTests
             _assignmentServiceMock.Object,
             _sensorServiceMock.Object,
             _readingServiceMock.Object,
+            _debugLogServiceMock.Object,
             _hubContextMock.Object,
             _configurationMock.Object,
             _loggerMock.Object);
@@ -922,6 +925,227 @@ public class NodesControllerTests
 
     #endregion
 
+    #region GetGpsStatus Tests
+
+    [Fact]
+    public async Task GetGpsStatus_WithExistingNode_ReturnsOk()
+    {
+        // Arrange
+        var node = CreateNodeDto("node-01", "Test Node");
+        var readings = new List<ReadingDto>
+        {
+            CreateReadingDto("gps_satellites", 8),
+            CreateReadingDto("gps_fix", 3),
+            CreateReadingDto("gps_hdop", 1.5),
+            CreateReadingDto("latitude", 50.9375),
+            CreateReadingDto("longitude", 6.9603)
+        };
+
+        _nodeServiceMock.Setup(s => s.GetByIdAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(node);
+        _readingServiceMock.Setup(s => s.GetLatestByNodeAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(readings);
+
+        // Act
+        var result = await _sut.GetGpsStatus(_nodeId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var gpsStatus = okResult.Value.Should().BeOfType<NodeGpsStatusDto>().Subject;
+        gpsStatus.HasGps.Should().BeTrue();
+        gpsStatus.Satellites.Should().Be(8);
+        gpsStatus.FixType.Should().Be(3);
+        gpsStatus.HdopQuality.Should().Be("Excellent");
+    }
+
+    [Fact]
+    public async Task GetGpsStatus_WithNonExistingNode_ReturnsNotFound()
+    {
+        // Arrange
+        _nodeServiceMock.Setup(s => s.GetByIdAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeDto?)null);
+
+        // Act
+        var result = await _sut.GetGpsStatus(_nodeId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetGpsStatus_WithNoGpsReadings_ReturnsHasGpsFalse()
+    {
+        // Arrange
+        var node = CreateNodeDto("node-01", "Test Node");
+        var readings = new List<ReadingDto>
+        {
+            CreateReadingDto("temperature", 21.5)
+        };
+
+        _nodeServiceMock.Setup(s => s.GetByIdAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(node);
+        _readingServiceMock.Setup(s => s.GetLatestByNodeAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(readings);
+
+        // Act
+        var result = await _sut.GetGpsStatus(_nodeId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var gpsStatus = okResult.Value.Should().BeOfType<NodeGpsStatusDto>().Subject;
+        gpsStatus.HasGps.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region Register Tests
+
+    [Fact]
+    public async Task Register_WithValidRequest_ReturnsOk()
+    {
+        // Arrange
+        var dto = new RegisterNodeDto(
+            SerialNumber: "ESP32-0070078492CC",
+            Name: "Wohnzimmer Sensor",
+            FirmwareVersion: "1.0.0",
+            HardwareType: "ESP32",
+            Capabilities: new List<string> { "temperature", "humidity" },
+            Location: null
+        );
+        var defaultHub = new HubDto(
+            Id: _hubId,
+            TenantId: _tenantId,
+            HubId: "hub-01",
+            Name: "Default Hub",
+            Description: null,
+            LastSeen: DateTime.UtcNow,
+            IsOnline: true,
+            CreatedAt: DateTime.UtcNow,
+            SensorCount: 5
+        );
+        var node = CreateNodeDto("ESP32-0070078492CC", "Wohnzimmer Sensor");
+
+        _hubServiceMock.Setup(s => s.GetDefaultHubAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(defaultHub);
+        _nodeServiceMock.Setup(s => s.RegisterOrUpdateWithStatusAsync(
+                It.IsAny<CreateNodeDto>(), "1.0.0", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((node, true));
+
+        // Act
+        var result = await _sut.Register(dto, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<NodeRegistrationResponseDto>().Subject;
+        response.SerialNumber.Should().Be("ESP32-0070078492CC");
+        response.IsNewNode.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Register_WithEmptySerialNumber_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new RegisterNodeDto(
+            SerialNumber: "",
+            Name: "Test",
+            FirmwareVersion: "1.0.0",
+            HardwareType: "ESP32",
+            Capabilities: null,
+            Location: null
+        );
+
+        // Act
+        var result = await _sut.Register(dto, CancellationToken.None);
+
+        // Assert
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequest.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("SerialNumber");
+    }
+
+    #endregion
+
+    #region Debug Configuration Tests
+
+    [Fact]
+    public async Task GetDebugConfiguration_WithExistingNode_ReturnsOk()
+    {
+        // Arrange
+        var config = new NodeDebugConfigurationDto(
+            NodeId: _nodeId,
+            SerialNumber: "ESP32-0070078492CC",
+            DebugLevel: DebugLevelDto.Debug,
+            EnableRemoteLogging: true,
+            LastDebugChange: DateTime.UtcNow
+        );
+
+        _debugLogServiceMock.Setup(s => s.GetDebugConfigurationAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        // Act
+        var result = await _sut.GetDebugConfiguration(_nodeId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeDebugConfigurationDto>();
+    }
+
+    [Fact]
+    public async Task GetDebugConfiguration_WithNonExistingNode_ReturnsNotFound()
+    {
+        // Arrange
+        _debugLogServiceMock.Setup(s => s.GetDebugConfigurationAsync(_nodeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeDebugConfigurationDto?)null);
+
+        // Act
+        var result = await _sut.GetDebugConfiguration(_nodeId, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task SetDebugLevel_WithExistingNode_ReturnsOk()
+    {
+        // Arrange
+        var dto = new SetNodeDebugLevelDto(DebugLevelDto.Debug, true);
+        var config = new NodeDebugConfigurationDto(
+            NodeId: _nodeId,
+            SerialNumber: "ESP32-0070078492CC",
+            DebugLevel: DebugLevelDto.Debug,
+            EnableRemoteLogging: true,
+            LastDebugChange: DateTime.UtcNow
+        );
+
+        _debugLogServiceMock.Setup(s => s.SetDebugLevelAsync(_nodeId, dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(config);
+
+        // Act
+        var result = await _sut.SetDebugLevel(_nodeId, dto, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<NodeDebugConfigurationDto>();
+    }
+
+    [Fact]
+    public async Task SetDebugLevel_WithNonExistingNode_ReturnsNotFound()
+    {
+        // Arrange
+        var dto = new SetNodeDebugLevelDto(DebugLevelDto.Debug, true);
+
+        _debugLogServiceMock.Setup(s => s.SetDebugLevelAsync(_nodeId, dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NodeDebugConfigurationDto?)null);
+
+        // Act
+        var result = await _sut.SetDebugLevel(_nodeId, dto, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private void SetAuthorizationHeader(string? value)
@@ -957,7 +1181,14 @@ public class NodesControllerTests
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
             Status: NodeProvisioningStatusDto.Configured,
-            IsSimulation: false
+            IsSimulation: false,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
         );
     }
 
@@ -1000,6 +1231,30 @@ public class NodesControllerTests
                 OffsetCorrection: 0.0,
                 GainCorrection: 1.0
             )
+        );
+    }
+
+    private ReadingDto CreateReadingDto(string measurementType, double value)
+    {
+        return new ReadingDto(
+            Id: 1,
+            TenantId: _tenantId,
+            NodeId: _nodeId,
+            NodeName: "Test Node",
+            AssignmentId: _assignmentId,
+            SensorId: _sensorId,
+            SensorCode: "test-sensor",
+            SensorName: "Test Sensor",
+            SensorIcon: "thermostat",
+            SensorColor: "#FF5722",
+            MeasurementType: measurementType,
+            DisplayName: measurementType,
+            RawValue: value,
+            Value: value,
+            Unit: measurementType == "temperature" ? "°C" : "",
+            Timestamp: DateTime.UtcNow,
+            Location: null,
+            IsSyncedToCloud: false
         );
     }
 

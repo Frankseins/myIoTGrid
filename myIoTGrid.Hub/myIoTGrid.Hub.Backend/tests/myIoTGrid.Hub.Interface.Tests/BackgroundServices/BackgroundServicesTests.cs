@@ -592,3 +592,315 @@ public class DataRetentionServiceEnabledTests
         sut.Should().NotBeNull();
     }
 }
+
+#region DebugLogCleanupService Tests
+
+public class DebugLogCleanupServiceDisabledTests
+{
+    private readonly Mock<IServiceScopeFactory> _scopeFactoryMock;
+    private readonly Mock<ILogger<DebugLogCleanupService>> _loggerMock;
+
+    public DebugLogCleanupServiceDisabledTests()
+    {
+        _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        _loggerMock = new Mock<ILogger<DebugLogCleanupService>>();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenDisabled_ReturnsImmediately()
+    {
+        // Arrange
+        var options = new MonitoringOptions { EnableDebugLogCleanup = false };
+        var sut = new DebugLogCleanupService(
+            _scopeFactoryMock.Object,
+            Options.Create(options),
+            _loggerMock.Object);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        // Act
+        await sut.StartAsync(cts.Token);
+        await Task.Delay(50);
+        await sut.StopAsync(CancellationToken.None);
+
+        // Assert - Service should not have created any scopes since it's disabled
+        _scopeFactoryMock.Verify(f => f.CreateScope(), Times.Never);
+    }
+
+    [Fact]
+    public void Constructor_WithValidDependencies_DoesNotThrow()
+    {
+        // Arrange & Act
+        var options = new MonitoringOptions();
+        var sut = new DebugLogCleanupService(
+            _scopeFactoryMock.Object,
+            Options.Create(options),
+            _loggerMock.Object);
+
+        // Assert
+        sut.Should().NotBeNull();
+    }
+}
+
+public class DebugLogCleanupServiceEnabledTests
+{
+    private readonly Mock<IServiceScopeFactory> _scopeFactoryMock;
+    private readonly Mock<ILogger<DebugLogCleanupService>> _loggerMock;
+    private readonly Mock<IServiceScope> _scopeMock;
+    private readonly Mock<IServiceProvider> _serviceProviderMock;
+
+    public DebugLogCleanupServiceEnabledTests()
+    {
+        _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        _loggerMock = new Mock<ILogger<DebugLogCleanupService>>();
+        _scopeMock = new Mock<IServiceScope>();
+        _serviceProviderMock = new Mock<IServiceProvider>();
+
+        _scopeMock.Setup(s => s.ServiceProvider).Returns(_serviceProviderMock.Object);
+        _scopeFactoryMock.Setup(f => f.CreateScope()).Returns(_scopeMock.Object);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCancellationRequested_StopsGracefully()
+    {
+        // Arrange
+        var options = new MonitoringOptions
+        {
+            EnableDebugLogCleanup = true,
+            DebugLogCleanupIntervalHours = 1,
+            DebugLogRetentionDays = 7,
+            MaxDebugLogsPerNode = 1000
+        };
+
+        var sut = new DebugLogCleanupService(
+            _scopeFactoryMock.Object,
+            Options.Create(options),
+            _loggerMock.Object);
+
+        using var cts = new CancellationTokenSource();
+
+        // Act
+        await sut.StartAsync(cts.Token);
+        await Task.Delay(50);
+        cts.Cancel();
+        await Task.Delay(100);
+        await sut.StopAsync(CancellationToken.None);
+
+        // Assert - Should not throw
+        _loggerMock.Invocations.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void MonitoringOptions_DebugLogCleanup_DefaultValues_AreCorrect()
+    {
+        // Arrange & Act
+        var options = new MonitoringOptions();
+
+        // Assert
+        options.EnableDebugLogCleanup.Should().BeTrue(); // Default is true
+        options.DebugLogCleanupIntervalHours.Should().Be(6);
+        options.DebugLogRetentionDays.Should().Be(7);
+        options.MaxDebugLogsPerNode.Should().Be(10000);
+    }
+
+    [Fact]
+    public void MonitoringOptions_DebugLogCleanup_CanBeConfigured()
+    {
+        // Arrange & Act
+        var options = new MonitoringOptions
+        {
+            EnableDebugLogCleanup = true,
+            DebugLogCleanupIntervalHours = 12,
+            DebugLogRetentionDays = 14,
+            MaxDebugLogsPerNode = 5000
+        };
+
+        // Assert
+        options.EnableDebugLogCleanup.Should().BeTrue();
+        options.DebugLogCleanupIntervalHours.Should().Be(12);
+        options.DebugLogRetentionDays.Should().Be(14);
+        options.MaxDebugLogsPerNode.Should().Be(5000);
+    }
+}
+
+#endregion
+
+#region SeedDataHostedService Tests
+
+public class SeedDataHostedServiceTests
+{
+    private readonly Mock<IServiceScopeFactory> _scopeFactoryMock;
+    private readonly Mock<ILogger<SeedDataHostedService>> _loggerMock;
+    private readonly Mock<IServiceScope> _scopeMock;
+    private readonly Mock<IServiceProvider> _serviceProviderMock;
+
+    public SeedDataHostedServiceTests()
+    {
+        _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        _loggerMock = new Mock<ILogger<SeedDataHostedService>>();
+        _scopeMock = new Mock<IServiceScope>();
+        _serviceProviderMock = new Mock<IServiceProvider>();
+
+        _scopeMock.Setup(s => s.ServiceProvider).Returns(_serviceProviderMock.Object);
+        _scopeFactoryMock.Setup(f => f.CreateScope()).Returns(_scopeMock.Object);
+    }
+
+    [Fact]
+    public void Constructor_WithValidDependencies_DoesNotThrow()
+    {
+        // Arrange & Act
+        var sut = new SeedDataHostedService(
+            _scopeFactoryMock.Object,
+            _loggerMock.Object);
+
+        // Assert
+        sut.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task StopAsync_CompletesSuccessfully()
+    {
+        // Arrange
+        var sut = new SeedDataHostedService(
+            _scopeFactoryMock.Object,
+            _loggerMock.Object);
+
+        // Act
+        await sut.StopAsync(CancellationToken.None);
+
+        // Assert - Should complete without throwing
+        _loggerMock.Invocations.Should().NotBeEmpty();
+    }
+}
+
+#endregion
+
+#region DiscoveryService Tests
+
+public class DiscoveryServiceDisabledTests
+{
+    private readonly Mock<IServiceScopeFactory> _scopeFactoryMock;
+    private readonly Mock<ILogger<DiscoveryService>> _loggerMock;
+
+    public DiscoveryServiceDisabledTests()
+    {
+        _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        _loggerMock = new Mock<ILogger<DiscoveryService>>();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenDisabled_ReturnsImmediately()
+    {
+        // Arrange
+        var options = new DiscoveryOptions { Enabled = false };
+        var sut = new DiscoveryService(
+            _scopeFactoryMock.Object,
+            Options.Create(options),
+            _loggerMock.Object);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        // Act
+        await sut.StartAsync(cts.Token);
+        await Task.Delay(50);
+        await sut.StopAsync(CancellationToken.None);
+
+        // Assert - Service should not have created any scopes since it's disabled
+        _scopeFactoryMock.Verify(f => f.CreateScope(), Times.Never);
+    }
+
+    [Fact]
+    public void Constructor_WithValidDependencies_DoesNotThrow()
+    {
+        // Arrange & Act
+        var options = new DiscoveryOptions();
+        var sut = new DiscoveryService(
+            _scopeFactoryMock.Object,
+            Options.Create(options),
+            _loggerMock.Object);
+
+        // Assert
+        sut.Should().NotBeNull();
+    }
+}
+
+public class DiscoveryServiceEnabledTests
+{
+    private readonly Mock<IServiceScopeFactory> _scopeFactoryMock;
+    private readonly Mock<ILogger<DiscoveryService>> _loggerMock;
+    private readonly Mock<IServiceScope> _scopeMock;
+    private readonly Mock<IServiceProvider> _serviceProviderMock;
+
+    public DiscoveryServiceEnabledTests()
+    {
+        _scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        _loggerMock = new Mock<ILogger<DiscoveryService>>();
+        _scopeMock = new Mock<IServiceScope>();
+        _serviceProviderMock = new Mock<IServiceProvider>();
+
+        _scopeMock.Setup(s => s.ServiceProvider).Returns(_serviceProviderMock.Object);
+        _scopeFactoryMock.Setup(f => f.CreateScope()).Returns(_scopeMock.Object);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCancellationRequested_StopsGracefully()
+    {
+        // Arrange - Note: Using high port to avoid binding issues
+        var options = new DiscoveryOptions
+        {
+            Enabled = true,
+            Port = 59123, // High port for testing
+            ReceiveTimeoutMs = 100
+        };
+
+        var sut = new DiscoveryService(
+            _scopeFactoryMock.Object,
+            Options.Create(options),
+            _loggerMock.Object);
+
+        using var cts = new CancellationTokenSource();
+
+        // Act
+        await sut.StartAsync(cts.Token);
+        await Task.Delay(50);
+        cts.Cancel();
+        await Task.Delay(200);
+        await sut.StopAsync(CancellationToken.None);
+
+        // Assert - Should not throw
+        _loggerMock.Invocations.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void DiscoveryOptions_FullConfiguration_CanBeSet()
+    {
+        // Arrange & Act
+        var options = new DiscoveryOptions
+        {
+            Enabled = true,
+            Port = 8080,
+            HubId = "test-hub-01",
+            HubName = "Test Hub",
+            Protocol = "http",
+            ApiPort = 8080,
+            AdvertiseIp = "192.168.1.50",
+            NetworkInterface = "eth1",
+            ReceiveTimeoutMs = 5000,
+            LogDiscoveryRequests = true
+        };
+
+        // Assert
+        options.Enabled.Should().BeTrue();
+        options.Port.Should().Be(8080);
+        options.HubId.Should().Be("test-hub-01");
+        options.HubName.Should().Be("Test Hub");
+        options.Protocol.Should().Be("http");
+        options.ApiPort.Should().Be(8080);
+        options.AdvertiseIp.Should().Be("192.168.1.50");
+        options.NetworkInterface.Should().Be("eth1");
+        options.ReceiveTimeoutMs.Should().Be(5000);
+        options.LogDiscoveryRequests.Should().BeTrue();
+    }
+}
+
+#endregion

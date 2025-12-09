@@ -212,8 +212,26 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DebugLevel")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Normal");
+
+                    b.Property<bool>("EnableRemoteLogging")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("FirmwareVersion")
                         .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HardwareStatusJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("HardwareStatusReportedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("HubId")
@@ -227,7 +245,16 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.Property<bool>("IsSimulation")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("LastDebugChange")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("LastSeen")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastSyncError")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("MacAddress")
@@ -245,6 +272,9 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("PendingSyncCount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Protocol")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -254,6 +284,9 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("StorageMode")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -274,6 +307,59 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Nodes", (string)null);
+                });
+
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.NodeDebugLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("NodeTimestamp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StackTrace")
+                        .HasMaxLength(8000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("Level");
+
+                    b.HasIndex("NodeId");
+
+                    b.HasIndex("ReceivedAt");
+
+                    b.HasIndex("NodeId", "ReceivedAt");
+
+                    b.HasIndex("NodeId", "Category", "ReceivedAt");
+
+                    b.HasIndex("NodeId", "Level", "ReceivedAt");
+
+                    b.ToTable("NodeDebugLogs", (string)null);
                 });
 
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.NodeSensorAssignment", b =>
@@ -863,6 +949,17 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
                     b.Navigation("Location");
                 });
 
+            modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.NodeDebugLog", b =>
+                {
+                    b.HasOne("myIoTGrid.Hub.Domain.Entities.Node", "Node")
+                        .WithMany("DebugLogs")
+                        .HasForeignKey("NodeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Node");
+                });
+
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.NodeSensorAssignment", b =>
                 {
                     b.HasOne("myIoTGrid.Hub.Domain.Entities.Node", "Node")
@@ -979,6 +1076,8 @@ namespace myIoTGrid.Hub.Infrastructure.Migrations
             modelBuilder.Entity("myIoTGrid.Hub.Domain.Entities.Node", b =>
                 {
                     b.Navigation("Alerts");
+
+                    b.Navigation("DebugLogs");
 
                     b.Navigation("Readings");
 

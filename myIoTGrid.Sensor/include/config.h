@@ -5,7 +5,7 @@
 
 // Firmware Version
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.9.0"
+#define FIRMWARE_VERSION "1.9.1"  // Sprint OS-01: Offline Storage
 #endif
 
 // Hardware Type
@@ -61,6 +61,18 @@ constexpr const char* SERIAL_PREFIX_ESP32 = "ESP-";
 
 // Data Directory (Native only)
 constexpr const char* DATA_DIR = "./data";
+
+// ============================================================================
+// SD Card Configuration (Sprint OS-01)
+// ============================================================================
+constexpr int SD_MISO_PIN = 19;           // SD Card MISO (GPIO19)
+constexpr int SD_MOSI_PIN = 23;           // SD Card MOSI (GPIO23)
+constexpr int SD_SCK_PIN = 18;            // SD Card SCK (GPIO18)
+constexpr int SD_CS_PIN = 5;              // SD Card CS (GPIO5)
+
+// Sync Button and Status LED (Sprint OS-01)
+constexpr int SYNC_BUTTON_GPIO = 4;       // Sync button (GPIO4)
+constexpr int SYNC_LED_GPIO = 2;          // Sync status LED (GPIO2 = onboard LED)
 
 // Environment variable names
 constexpr const char* ENV_HUB_HOST = "HUB_HOST";

@@ -60,6 +60,42 @@ public class ReadingsController : ControllerBase
     }
 
     /// <summary>
+    /// Creates multiple Readings in a single batch (Sprint OS-01: Offline Storage sync).
+    /// Used by ESP32 sensors to upload locally stored readings when WiFi reconnects.
+    /// </summary>
+    /// <param name="dto">Batch data containing NodeId and list of readings</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Summary of batch upload result</returns>
+    /// <response code="200">Batch processed (check SuccessCount/FailedCount)</response>
+    /// <response code="400">Invalid request</response>
+    [HttpPost("batch")]
+    [ProducesResponseType(typeof(BatchReadingsResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateBatch([FromBody] CreateBatchReadingsDto dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(dto.NodeId))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Request",
+                Detail = "NodeId is required"
+            });
+        }
+
+        if (dto.Readings == null || !dto.Readings.Any())
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Invalid Request",
+                Detail = "Readings list cannot be empty"
+            });
+        }
+
+        var result = await _readingService.CreateBatchAsync(dto, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Returns Readings filtered and paginated (legacy)
     /// </summary>
     /// <param name="filter">Filter criteria</param>

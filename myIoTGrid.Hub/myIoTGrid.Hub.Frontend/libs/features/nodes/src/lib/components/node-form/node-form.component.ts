@@ -18,15 +18,19 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Overlay, OverlayRef, OverlayModule } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
-import { NodeApiService, HubApiService, NodeSensorAssignmentApiService, SensorApiService, SignalRService, ReadingApiService } from '@myiotgrid/shared/data-access';
+import { firstValueFrom } from 'rxjs';
+import { NodeApiService, HubApiService, NodeSensorAssignmentApiService, SensorApiService, SignalRService, ReadingApiService, NodeDebugApiService } from '@myiotgrid/shared/data-access';
 import {
-  Node, CreateNodeDto, UpdateNodeDto, Hub, Protocol,
+  Node, CreateNodeDto, UpdateNodeDto, Hub, Protocol, StorageMode,
   NodeSensorAssignment, CreateNodeSensorAssignmentDto, UpdateNodeSensorAssignmentDto,
-  Sensor, NodeSensorsLatest, Reading, QueryParams
+  Sensor, NodeSensorsLatest, Reading, QueryParams, NodeDebugConfiguration
 } from '@myiotgrid/shared/models';
 import { LoadingSpinnerComponent, GenericListComponent, GenericListColumn, ListLazyEvent, ListColumnTemplateDirective } from '@myiotgrid/shared/ui';
 import { ConfirmDialogComponent } from '@myiotgrid/shared/ui';
 import { DeleteReadingsDrawerComponent } from '../delete-readings-drawer/delete-readings-drawer.component';
+import { NodeDebugControlComponent } from '../node-debug-control/node-debug-control.component';
+import { LiveLogViewerComponent } from '../live-log-viewer/live-log-viewer.component';
+import { HardwareStatusWidgetComponent } from '../hardware-status-widget/hardware-status-widget.component';
 
 type FormMode = 'view' | 'edit' | 'create';
 
@@ -55,7 +59,10 @@ type FormMode = 'view' | 'edit' | 'create';
     LoadingSpinnerComponent,
     GenericListComponent,
     ListColumnTemplateDirective,
-    DeleteReadingsDrawerComponent
+    DeleteReadingsDrawerComponent,
+    NodeDebugControlComponent,
+    LiveLogViewerComponent,
+    HardwareStatusWidgetComponent
   ],
   templateUrl: './node-form.component.html',
   styleUrl: './node-form.component.scss'
@@ -64,6 +71,7 @@ export class NodeFormComponent implements OnInit, OnDestroy {
   @ViewChild('assignmentDrawer') assignmentDrawerTemplate!: TemplateRef<unknown>;
   @ViewChild('deleteReadingsDrawer') deleteReadingsDrawerTemplate!: TemplateRef<unknown>;
   @ViewChild('deleteNodeDrawer') deleteNodeDrawerTemplate!: TemplateRef<unknown>;
+  @ViewChild('debugControl') debugControlComponent?: NodeDebugControlComponent;
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -161,6 +169,14 @@ export class NodeFormComponent implements OnInit, OnDestroy {
   readonly protocols: { value: Protocol; label: string }[] = [
     { value: Protocol.WLAN, label: 'WLAN' },
     { value: Protocol.LoRaWAN, label: 'LoRaWAN' }
+  ];
+
+  // Storage modes for offline storage (Sprint OS-01)
+  readonly storageModes: { value: StorageMode; label: string; description: string }[] = [
+    { value: StorageMode.RemoteOnly, label: 'Nur Remote', description: 'Messwerte werden nur an den Hub gesendet' },
+    { value: StorageMode.LocalAndRemote, label: 'Lokal + Remote', description: 'Lokale Speicherung und Senden an Hub' },
+    { value: StorageMode.LocalOnly, label: 'Nur Lokal', description: 'Nur lokale Speicherung, kein Senden' },
+    { value: StorageMode.LocalAutoSync, label: 'Auto-Sync', description: 'Lokal speichern, bei WiFi automatisch synchronisieren' }
   ];
 
   // Node types (Sensorart) - Placeholder for future backend enum
@@ -309,7 +325,8 @@ export class NodeFormComponent implements OnInit, OnDestroy {
       locationName: [''],
       nodeType: ['esp32'],  // Default: ESP32
       firmwareVersion: [''],
-      isSimulation: [false]
+      isSimulation: [false],
+      storageMode: [StorageMode.RemoteOnly]  // Sprint OS-01: Default to remote only
     });
   }
 
@@ -518,13 +535,41 @@ export class NodeFormComponent implements OnInit, OnDestroy {
       protocol: node.protocol ?? Protocol.WLAN,
       locationName: node.location?.name || '',
       firmwareVersion: node.firmwareVersion || '',
-      isSimulation: node.isSimulation || false
+      isSimulation: node.isSimulation || false,
+      // Sprint OS-01: Parse storageMode from API (can be string or number)
+      storageMode: this.parseStorageMode(node.storageMode as StorageMode | string)
     });
     // Note: We use [readonly] in the template instead of disable()
     // to keep the form valid while preventing edits
   }
 
-  onSave(): void {
+  /** Get label for storage mode */
+  getStorageModeLabel(mode: StorageMode): string {
+    const found = this.storageModes.find(m => m.value === mode);
+    return found?.label ?? 'Unbekannt';
+  }
+
+  /**
+   * Parse storage mode from API response (can be string or number)
+   * API returns string like "LocalAndRemote", frontend uses numeric enum
+   */
+  private parseStorageMode(value: StorageMode | string | undefined | null): StorageMode {
+    if (value === undefined || value === null) return StorageMode.RemoteOnly;
+
+    // Already a number (enum value)
+    if (typeof value === 'number') return value;
+
+    // String from API - map to enum value
+    const mapping: Record<string, StorageMode> = {
+      'RemoteOnly': StorageMode.RemoteOnly,
+      'LocalAndRemote': StorageMode.LocalAndRemote,
+      'LocalOnly': StorageMode.LocalOnly,
+      'LocalAutoSync': StorageMode.LocalAutoSync
+    };
+    return mapping[value] ?? StorageMode.RemoteOnly;
+  }
+
+  async onSave(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -558,20 +603,26 @@ export class NodeFormComponent implements OnInit, OnDestroy {
         name: formValue.name,
         location: formValue.locationName ? { name: formValue.locationName } : undefined,
         firmwareVersion: formValue.firmwareVersion || undefined,
-        isSimulation: formValue.isSimulation
+        isSimulation: formValue.isSimulation,
+        storageMode: formValue.storageMode  // Sprint OS-01: Offline Storage Mode
       };
 
-      this.nodeApiService.update(this.node()!.id, dto).subscribe({
-        next: () => {
-          this.snackBar.open('Node aktualisiert', 'Schließen', { duration: 3000 });
-          this.router.navigate(['/nodes']);
-        },
-        error: (error) => {
-          console.error('Error updating node:', error);
-          this.snackBar.open('Fehler beim Aktualisieren des Nodes', 'Schließen', { duration: 5000 });
-          this.isSaving.set(false);
-        }
-      });
+      // Save node and debug settings in parallel
+      try {
+        const nodeUpdate = firstValueFrom(this.nodeApiService.update(this.node()!.id, dto));
+        const debugUpdate = this.debugControlComponent?.hasChanges()
+          ? this.debugControlComponent.saveSettings()
+          : Promise.resolve();
+
+        await Promise.all([nodeUpdate, debugUpdate]);
+
+        this.snackBar.open('Node aktualisiert', 'Schließen', { duration: 3000 });
+        this.router.navigate(['/nodes']);
+      } catch (error) {
+        console.error('Error updating node:', error);
+        this.snackBar.open('Fehler beim Aktualisieren des Nodes', 'Schließen', { duration: 5000 });
+        this.isSaving.set(false);
+      }
     }
   }
 

@@ -213,7 +213,7 @@ public class NodeSensorAssignmentsControllerTests
         // Assert
         _clientProxyMock.Verify(c => c.SendCoreAsync(
             "AssignmentCreated",
-            It.Is<object?[]>(o => o.Length == 1 && o[0] == assignment),
+            It.Is<object?[]>(o => o.Length == 1 && Equals(o[0], assignment)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

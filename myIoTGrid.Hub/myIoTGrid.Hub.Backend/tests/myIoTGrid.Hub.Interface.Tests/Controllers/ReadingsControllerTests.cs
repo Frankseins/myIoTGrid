@@ -4,6 +4,7 @@ using Moq;
 using myIoTGrid.Hub.Interface.Controllers;
 using myIoTGrid.Hub.Service.Interfaces;
 using myIoTGrid.Hub.Shared.DTOs;
+using myIoTGrid.Hub.Shared.DTOs.Chart;
 using myIoTGrid.Hub.Shared.DTOs.Common;
 
 namespace myIoTGrid.Hub.Interface.Tests.Controllers;
@@ -481,7 +482,342 @@ public class ReadingsControllerTests
 
     #endregion
 
+    #region CreateBatch Tests
+
+    [Fact]
+    public async Task CreateBatch_WithValidData_ReturnsOk()
+    {
+        // Arrange
+        var dto = new CreateBatchReadingsDto(
+            NodeId: "node-01",
+            HubId: null,
+            Readings: new List<ReadingValueDto>
+            {
+                new(1, "temperature", 21.5),
+                new(2, "humidity", 65.0)
+            });
+        var result = new BatchReadingsResultDto(2, 0, 2, "node-01", DateTime.UtcNow, null);
+
+        _readingServiceMock.Setup(s => s.CreateBatchAsync(It.IsAny<CreateBatchReadingsDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(result);
+
+        // Act
+        var actionResult = await _sut.CreateBatch(dto, CancellationToken.None);
+
+        // Assert
+        var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<BatchReadingsResultDto>();
+    }
+
+    [Fact]
+    public async Task CreateBatch_WithEmptyNodeId_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateBatchReadingsDto(
+            NodeId: "",
+            HubId: null,
+            Readings: new List<ReadingValueDto> { new(1, "temperature", 21.5) });
+
+        // Act
+        var result = await _sut.CreateBatch(dto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequestResult.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("NodeId");
+    }
+
+    [Fact]
+    public async Task CreateBatch_WithNullNodeId_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateBatchReadingsDto(
+            NodeId: null!,
+            HubId: null,
+            Readings: new List<ReadingValueDto> { new(1, "temperature", 21.5) });
+
+        // Act
+        var result = await _sut.CreateBatch(dto, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task CreateBatch_WithEmptyReadings_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateBatchReadingsDto(
+            NodeId: "node-01",
+            HubId: null,
+            Readings: new List<ReadingValueDto>());
+
+        // Act
+        var result = await _sut.CreateBatch(dto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequestResult.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("Readings");
+    }
+
+    [Fact]
+    public async Task CreateBatch_WithNullReadings_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new CreateBatchReadingsDto(
+            NodeId: "node-01",
+            HubId: null,
+            Readings: null!);
+
+        // Act
+        var result = await _sut.CreateBatch(dto, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    #endregion
+
+    #region DeleteRange Tests
+
+    [Fact]
+    public async Task DeleteRange_WithValidData_ReturnsOk()
+    {
+        // Arrange
+        var from = DateTime.UtcNow.AddDays(-7);
+        var to = DateTime.UtcNow;
+        var dto = new DeleteReadingsRangeDto(_nodeId, from, to);
+        var result = new DeleteReadingsResultDto(100, _nodeId, from, to, null, null);
+
+        _readingServiceMock.Setup(s => s.DeleteRangeAsync(dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(result);
+
+        // Act
+        var actionResult = await _sut.DeleteRange(dto, CancellationToken.None);
+
+        // Assert
+        var okResult = actionResult.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<DeleteReadingsResultDto>();
+    }
+
+    [Fact]
+    public async Task DeleteRange_WithEmptyNodeId_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new DeleteReadingsRangeDto(
+            Guid.Empty,
+            DateTime.UtcNow.AddDays(-7),
+            DateTime.UtcNow);
+
+        // Act
+        var result = await _sut.DeleteRange(dto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequestResult.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("NodeId");
+    }
+
+    [Fact]
+    public async Task DeleteRange_WithFromAfterTo_ReturnsBadRequest()
+    {
+        // Arrange
+        var dto = new DeleteReadingsRangeDto(
+            _nodeId,
+            DateTime.UtcNow,
+            DateTime.UtcNow.AddDays(-7)); // From is after To
+
+        // Act
+        var result = await _sut.DeleteRange(dto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        var problemDetails = badRequestResult.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problemDetails.Detail.Should().Contain("From date");
+    }
+
+    #endregion
+
+    #region GetChartData Tests
+
+    [Fact]
+    public async Task GetChartData_WithValidData_ReturnsOk()
+    {
+        // Arrange
+        var chartData = CreateChartDataDto();
+        _chartServiceMock.Setup(s => s.GetChartDataAsync(_nodeId, _assignmentId, "temperature", ChartInterval.OneDay, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chartData);
+
+        // Act
+        var result = await _sut.GetChartData(_nodeId, _assignmentId, "temperature", ChartInterval.OneDay, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<ChartDataDto>();
+    }
+
+    [Fact]
+    public async Task GetChartData_WhenNoData_ReturnsNotFound()
+    {
+        // Arrange
+        _chartServiceMock.Setup(s => s.GetChartDataAsync(_nodeId, _assignmentId, "temperature", ChartInterval.OneDay, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ChartDataDto?)null);
+
+        // Act
+        var result = await _sut.GetChartData(_nodeId, _assignmentId, "temperature", ChartInterval.OneDay, CancellationToken.None);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Theory]
+    [InlineData(ChartInterval.OneHour)]
+    [InlineData(ChartInterval.OneDay)]
+    [InlineData(ChartInterval.OneWeek)]
+    [InlineData(ChartInterval.OneMonth)]
+    [InlineData(ChartInterval.ThreeMonths)]
+    [InlineData(ChartInterval.SixMonths)]
+    [InlineData(ChartInterval.OneYear)]
+    public async Task GetChartData_WithDifferentIntervals_PassesToService(ChartInterval interval)
+    {
+        // Arrange
+        var chartData = CreateChartDataDto();
+        _chartServiceMock.Setup(s => s.GetChartDataAsync(_nodeId, _assignmentId, "temperature", interval, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chartData);
+
+        // Act
+        await _sut.GetChartData(_nodeId, _assignmentId, "temperature", interval, CancellationToken.None);
+
+        // Assert
+        _chartServiceMock.Verify(s => s.GetChartDataAsync(_nodeId, _assignmentId, "temperature", interval, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region GetReadingsList Tests
+
+    [Fact]
+    public async Task GetReadingsList_WithDefaultParams_ReturnsOk()
+    {
+        // Arrange
+        var readingsList = CreateReadingsListDto();
+        _chartServiceMock.Setup(s => s.GetReadingsListAsync(_nodeId, _assignmentId, "temperature", It.IsAny<ReadingsListRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(readingsList);
+
+        // Act
+        var result = await _sut.GetReadingsList(_nodeId, _assignmentId, "temperature", 1, 20, null, null, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeOfType<ReadingsListDto>();
+    }
+
+    [Fact]
+    public async Task GetReadingsList_WithDateFilters_PassesToService()
+    {
+        // Arrange
+        var from = DateTime.UtcNow.AddDays(-7);
+        var to = DateTime.UtcNow;
+        var readingsList = CreateReadingsListDto();
+
+        ReadingsListRequestDto? capturedRequest = null;
+        _chartServiceMock.Setup(s => s.GetReadingsListAsync(_nodeId, _assignmentId, "temperature", It.IsAny<ReadingsListRequestDto>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, Guid, string, ReadingsListRequestDto, CancellationToken>((_, _, _, req, _) => capturedRequest = req)
+            .ReturnsAsync(readingsList);
+
+        // Act
+        await _sut.GetReadingsList(_nodeId, _assignmentId, "temperature", 2, 50, from, to, CancellationToken.None);
+
+        // Assert
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Page.Should().Be(2);
+        capturedRequest.PageSize.Should().Be(50);
+        capturedRequest.From.Should().Be(from);
+        capturedRequest.To.Should().Be(to);
+    }
+
+    #endregion
+
+    #region ExportToCsv Tests
+
+    [Fact]
+    public async Task ExportToCsv_ReturnsFileResult()
+    {
+        // Arrange
+        var csvData = System.Text.Encoding.UTF8.GetBytes("timestamp,value\n2024-01-01,21.5");
+        _chartServiceMock.Setup(s => s.ExportToCsvAsync(_nodeId, _assignmentId, "temperature", null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(csvData);
+
+        // Act
+        var result = await _sut.ExportToCsv(_nodeId, _assignmentId, "temperature", null, null, CancellationToken.None);
+
+        // Assert
+        var fileResult = result.Should().BeOfType<FileContentResult>().Subject;
+        fileResult.ContentType.Should().Be("text/csv");
+        fileResult.FileDownloadName.Should().StartWith("readings_temperature_");
+        fileResult.FileDownloadName.Should().EndWith(".csv");
+    }
+
+    [Fact]
+    public async Task ExportToCsv_WithDateFilters_PassesToService()
+    {
+        // Arrange
+        var from = DateTime.UtcNow.AddDays(-7);
+        var to = DateTime.UtcNow;
+        var csvData = System.Text.Encoding.UTF8.GetBytes("timestamp,value\n2024-01-01,21.5");
+        _chartServiceMock.Setup(s => s.ExportToCsvAsync(_nodeId, _assignmentId, "temperature", from, to, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(csvData);
+
+        // Act
+        await _sut.ExportToCsv(_nodeId, _assignmentId, "temperature", from, to, CancellationToken.None);
+
+        // Assert
+        _chartServiceMock.Verify(s => s.ExportToCsvAsync(_nodeId, _assignmentId, "temperature", from, to, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
     #region Helper Methods
+
+    private ChartDataDto CreateChartDataDto()
+    {
+        var now = DateTime.UtcNow;
+        return new ChartDataDto(
+            NodeId: _nodeId,
+            NodeName: "Test Node",
+            AssignmentId: _assignmentId,
+            SensorId: Guid.NewGuid(),
+            SensorName: "BME280",
+            MeasurementType: "temperature",
+            LocationName: "Living Room",
+            Unit: "°C",
+            Color: "#FF5722",
+            CurrentValue: 22.5,
+            LastUpdate: now,
+            Stats: new ChartStatsDto(20.0, now.AddHours(-2), 25.0, now.AddHours(-1), 22.5),
+            Trend: new TrendDto(0.5, 2.3, "up"),
+            DataPoints: new List<ChartPointDto>
+            {
+                new(now.AddHours(-1), 21.0, 20.5, 21.5),
+                new(now, 22.0, 21.5, 22.5)
+            });
+    }
+
+    private ReadingsListDto CreateReadingsListDto()
+    {
+        var now = DateTime.UtcNow;
+        return new ReadingsListDto(
+            Items: new List<ReadingListItemDto>
+            {
+                new(1, now, 21.5, "°C", "stable"),
+                new(2, now.AddMinutes(-5), 21.3, "°C", "down")
+            },
+            TotalCount: 10,
+            Page: 1,
+            PageSize: 20,
+            TotalPages: 1);
+    }
 
     private ReadingDto CreateReadingDto(long id, string measurementType, double value)
     {

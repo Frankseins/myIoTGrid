@@ -15,6 +15,9 @@ public interface IReadingService
     /// <summary>Creates a new Reading from sensor device (firmware format)</summary>
     Task<ReadingDto> CreateFromSensorAsync(CreateSensorReadingDto dto, CancellationToken ct = default);
 
+    /// <summary>Creates multiple Readings in batch (Sprint OS-01: Offline Storage sync)</summary>
+    Task<BatchReadingsResultDto> CreateBatchAsync(CreateBatchReadingsDto dto, CancellationToken ct = default);
+
     /// <summary>Returns a Reading by ID</summary>
     Task<ReadingDto?> GetByIdAsync(long id, CancellationToken ct = default);
 

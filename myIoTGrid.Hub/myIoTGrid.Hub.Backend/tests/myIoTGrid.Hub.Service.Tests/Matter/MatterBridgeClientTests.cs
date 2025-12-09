@@ -162,7 +162,7 @@ public class MatterBridgeClientTests : IDisposable
             deviceCount = 2,
             devices = new[]
             {
-                new { sensorId = "s1", name = "Sensor 1", type = "temperature", location = "Living Room" },
+                new { sensorId = "s1", name = "Sensor 1", type = "temperature", location = (string?)"Living Room" },
                 new { sensorId = "s2", name = "Sensor 2", type = "humidity", location = (string?)null }
             },
             pairingCode = 12345678,

@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { API_CONFIG, defaultApiConfig } from './api.config';
-import { Reading, Alert, Hub, Node, Sensor } from '@myiotgrid/shared/models';
+import { Reading, Alert, Hub, Node, Sensor, NodeDebugLog, NodeDebugConfiguration } from '@myiotgrid/shared/models';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -217,6 +217,40 @@ export class SignalRService {
    */
   async leaveAlertGroup(alertLevel: string): Promise<void> {
     await this.hubConnection?.invoke('LeaveAlertGroup', alertLevel);
+  }
+
+  // ==========================================
+  // Debug Events (Sprint 8: Remote Debug System)
+  // ==========================================
+
+  /**
+   * Subscribe to debug log received events
+   * Event: DebugLogReceived
+   */
+  onDebugLogReceived(callback: (log: NodeDebugLog) => void): void {
+    this.hubConnection?.on('DebugLogReceived', callback);
+  }
+
+  /**
+   * Subscribe to debug configuration changed events
+   * Event: DebugConfigChanged
+   */
+  onDebugConfigChanged(callback: (config: NodeDebugConfiguration) => void): void {
+    this.hubConnection?.on('DebugConfigChanged', callback);
+  }
+
+  /**
+   * Join a debug group to receive debug logs for a specific node
+   */
+  async joinDebugGroup(nodeId: string): Promise<void> {
+    await this.hubConnection?.invoke('JoinDebugGroup', nodeId);
+  }
+
+  /**
+   * Leave a debug group
+   */
+  async leaveDebugGroup(nodeId: string): Promise<void> {
+    await this.hubConnection?.invoke('LeaveDebugGroup', nodeId);
   }
 
   // ==========================================

@@ -25,3 +25,4 @@ export * from './alert-type-api.service';
 export * from './health-api.service';
 export * from './dashboard-api.service';
 export * from './chart-api.service';
+export * from './node-debug-api.service';

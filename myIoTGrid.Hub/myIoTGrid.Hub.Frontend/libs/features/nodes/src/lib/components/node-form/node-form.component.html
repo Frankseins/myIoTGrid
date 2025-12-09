@@ -142,6 +142,88 @@
             </div>
           </section>
 
+          <!-- Hardware Status Section (Sprint 8) -->
+          @if (!isCreateMode()) {
+            <mat-divider></mat-divider>
+
+            <section class="form-section">
+              <h3>Hardware-Status</h3>
+              <myiotgrid-hardware-status-widget
+                [nodeId]="node()!.id">
+              </myiotgrid-hardware-status-widget>
+            </section>
+          }
+
+          <!-- Storage Configuration Section (Sprint OS-01) -->
+          @if (!isCreateMode()) {
+            <mat-divider></mat-divider>
+
+            <section class="form-section">
+              <h3>Offline-Speicher</h3>
+
+              <div class="form-row">
+                <mat-form-field class="full"
+                                [appearance]="isViewMode() ? 'fill' : 'outline'"
+                                [floatLabel]="isViewMode() ? 'always' : 'auto'">
+                  <mat-label>Speichermodus</mat-label>
+                  @if (isViewMode()) {
+                    <input matInput [value]="getStorageModeLabel(form.get('storageMode')?.value)" readonly>
+                    <input type="hidden" [formControl]="$any(form.get('storageMode'))">
+                  } @else {
+                    <mat-select formControlName="storageMode">
+                      @for (mode of storageModes; track mode.value) {
+                        <mat-option [value]="mode.value" [matTooltip]="mode.description">
+                          <mat-icon>{{ mode.value === 0 ? 'cloud_upload' : mode.value === 1 ? 'cloud_sync' : mode.value === 2 ? 'sd_card' : 'sync' }}</mat-icon>
+                          {{ mode.label }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                  }
+                  <mat-hint>Bestimmt wie Messwerte gespeichert werden</mat-hint>
+                </mat-form-field>
+              </div>
+
+              <!-- Sync Status Info -->
+              @if (node(); as currentNode) {
+                <div class="sync-status-card">
+                  <div class="sync-status-header">
+                    <mat-icon class="sync-icon" [class.syncing]="currentNode.pendingSyncCount > 0">
+                      {{ currentNode.pendingSyncCount > 0 ? 'sync' : 'cloud_done' }}
+                    </mat-icon>
+                    <span class="sync-title">Synchronisierungsstatus</span>
+                  </div>
+
+                  <div class="sync-status-grid">
+                    <div class="sync-stat">
+                      <span class="stat-value" [class.warning]="currentNode.pendingSyncCount > 0">
+                        {{ currentNode.pendingSyncCount }}
+                      </span>
+                      <span class="stat-label">Ausstehend</span>
+                    </div>
+
+                    <div class="sync-stat">
+                      <span class="stat-value">
+                        @if (currentNode.lastSyncAt) {
+                          {{ getRelativeTime(currentNode.lastSyncAt) }}
+                        } @else {
+                          -
+                        }
+                      </span>
+                      <span class="stat-label">Letzte Sync</span>
+                    </div>
+                  </div>
+
+                  @if (currentNode.lastSyncError) {
+                    <div class="sync-error">
+                      <mat-icon>error</mat-icon>
+                      <span>{{ currentNode.lastSyncError }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </section>
+          }
+
           @if (!isCreateMode()) {
             <mat-divider></mat-divider>
 
@@ -427,6 +509,31 @@
                 </ng-template>
 
               </myiotgrid-generic-list>
+            </section>
+
+            <!-- Remote Debug Section (Sprint 8) -->
+            <mat-divider></mat-divider>
+
+            <section class="form-section debug-section">
+              <h3>Debug-Einstellungen</h3>
+
+              <!-- Debug Control - inline, respects view mode -->
+              <myiotgrid-node-debug-control
+                #debugControl
+                [nodeId]="node()!.id"
+                [readonly]="isViewMode()">
+              </myiotgrid-node-debug-control>
+            </section>
+
+            <mat-divider></mat-divider>
+
+            <section class="form-section">
+              <h3>Live Debug-Logs</h3>
+
+              <!-- Live Log Viewer -->
+              <myiotgrid-live-log-viewer
+                [nodeId]="node()!.id">
+              </myiotgrid-live-log-viewer>
             </section>
           }
 

@@ -21,7 +21,16 @@ public record NodeDto(
     DateTime CreatedAt,
     string MacAddress,
     NodeProvisioningStatusDto Status,
-    bool IsSimulation
+    bool IsSimulation,
+    // Sprint OS-01: Offline Storage
+    StorageModeDto StorageMode,
+    int PendingSyncCount,
+    DateTime? LastSyncAt,
+    string? LastSyncError,
+    // Sprint 8: Remote Debug System
+    DebugLevelDto DebugLevel,
+    bool EnableRemoteLogging,
+    DateTime? LastDebugChange
 );
 
 /// <summary>
@@ -43,7 +52,9 @@ public record UpdateNodeDto(
     string? Name = null,
     LocationDto? Location = null,
     string? FirmwareVersion = null,
-    bool? IsSimulation = null
+    bool? IsSimulation = null,
+    // Sprint OS-01: Offline Storage
+    StorageModeDto? StorageMode = null
 );
 
 /// <summary>

@@ -34,7 +34,14 @@ public class NodeDtoTests
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
             Status: NodeProvisioningStatusDto.Configured,
-            IsSimulation: false
+            IsSimulation: false,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
         );
 
         // Assert
@@ -2536,7 +2543,14 @@ public class NodeDtoExtendedTests
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
             Status: NodeProvisioningStatusDto.Configured,
-            IsSimulation: false
+            IsSimulation: false,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
         );
 
         // Assert
@@ -3456,7 +3470,14 @@ public class NodeDtoExtendedCoverageTests
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
             Status: NodeProvisioningStatusDto.Configured,
-            IsSimulation: false
+            IsSimulation: false,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
         );
         dto.Protocol.Should().Be(ProtocolDto.WLAN);
         dto.FirmwareVersion.Should().Be("2.1.0");
@@ -3480,9 +3501,16 @@ public class NodeDtoExtendedCoverageTests
             FirmwareVersion: null,
             BatteryLevel: null,
             CreatedAt: DateTime.UtcNow,
-            MacAddress: null,
+            MacAddress: null!,
             Status: NodeProvisioningStatusDto.Unconfigured,
-            IsSimulation: true
+            IsSimulation: true,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
         );
         dto.Location.Should().BeNull();
         dto.FirmwareVersion.Should().BeNull();

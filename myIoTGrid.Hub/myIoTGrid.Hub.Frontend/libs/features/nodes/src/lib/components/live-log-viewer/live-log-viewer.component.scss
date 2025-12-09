@@ -1,0 +1,391 @@
+:host { display: block; max-width: 100%; }
+
+/* Toolbar-Icon-Design (matching GenericListComponent) */
+.outlook-toolbar {
+  --tbar-icon-size: 40px;
+  --tbar-icon-radius: 999px;
+  --tbar-icon-bg: #fff;
+  --tbar-icon-border: #e6e6e6;
+  --tbar-icon-shadow: 0 1px 2px rgba(0,0,0,.06);
+  --tbar-icon-hover-bg: rgba(0,0,0,.04);
+  --tbar-icon-active-bg: rgba(0,0,0,.08);
+  --tbar-icon-focus: 0 0 0 3px rgba(25,118,210,.25);
+}
+
+.card.log-viewer.outlook {
+  background: #fff;
+  padding: .5rem .75rem 0;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.toolbar.outlook-toolbar.log-header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: #fff;
+  margin-bottom: .5rem;
+  min-height: 44px;
+  padding: 0;
+
+  .header-icon {
+    background-color: #424242;
+    color: white;
+    border-radius: 50%;
+    padding: 8px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .log-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #202124;
+  }
+
+  .log-count {
+    font-size: 0.85rem;
+    color: #666;
+    margin-left: 8px;
+  }
+
+  .paused-badge {
+    background-color: #ff9800;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    margin-left: 8px;
+  }
+
+  .auto-scroll-toggle {
+    font-size: 0.85rem;
+    margin-right: 8px;
+  }
+}
+
+.spacer { flex: 1 1 auto; }
+
+.tbar-icon {
+  width: var(--tbar-icon-size);
+  height: var(--tbar-icon-size);
+  border-radius: var(--tbar-icon-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tbar-icon-bg);
+  border: 1px solid var(--tbar-icon-border);
+  box-shadow: var(--tbar-icon-shadow);
+  padding: 0;
+  transition: background-color .15s, box-shadow .15s, transform .12s, border-color .15s;
+
+  .mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+  }
+
+  &:hover {
+    background: var(--tbar-icon-hover-bg);
+  }
+
+  &:active {
+    background: var(--tbar-icon-active-bg);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--tbar-icon-focus);
+  }
+
+  &.paused {
+    border-color: #ffb74d;
+    background: rgba(255, 152, 0, 0.08);
+
+    .mat-icon {
+      color: #f57c00;
+    }
+  }
+
+  &.warn {
+    &:hover {
+      border-color: #ef9a9a;
+      background: rgba(244, 67, 54, 0.08);
+    }
+  }
+}
+
+/* Filter aktiv */
+.tbar-icon.active {
+  border-color: #90caf9;
+  background: rgba(25,118,210,.08);
+  box-shadow: 0 2px 8px rgba(25,118,210,.2);
+
+  .mat-icon {
+    color: #1976d2;
+  }
+}
+
+.tbar-icon.on {
+  border-color: #90caf9;
+  background: rgba(25,118,210,.08);
+}
+
+/* Search (matching GenericListComponent) */
+.o365-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+
+  &__field {
+    display: inline-flex;
+    align-items: center;
+    height: var(--tbar-icon-size);
+    border-radius: var(--tbar-icon-radius);
+    padding: 0 0 0 .5rem;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.10);
+    border: 1px solid rgba(0,0,0,.06);
+    width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: width .25s, opacity .2s, transform .25s;
+    gap: .25rem;
+  }
+
+  &__input {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    width: 100%;
+    line-height: 1;
+    padding: 0 .25rem;
+  }
+
+  &.open {
+    .o365-search__btn {
+      transform: translateX(8px);
+    }
+
+    .o365-search__field {
+      width: clamp(200px, 24vw, 320px);
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+
+/* Loading Indicator */
+.loading-bar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  z-index: 10;
+}
+
+/* Log Content Area */
+.log-content {
+  padding: 0;
+}
+
+.loading-container,
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+  color: rgba(0, 0, 0, 0.6);
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* Terminal-style Log Container */
+.log-container {
+  max-height: 500px;
+  overflow-y: auto;
+  background-color: #1e1e1e;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: .5rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+}
+
+.log-entry {
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #666;
+
+  &.level-production {
+    border-left-color: #4caf50;
+  }
+
+  &.level-normal {
+    border-left-color: #2196f3;
+  }
+
+  &.level-debug {
+    border-left-color: #ff9800;
+  }
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .log-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+
+    .log-time {
+      color: #888;
+      font-size: 11px;
+      min-width: 100px;
+    }
+
+    .level-chip {
+      font-size: 10px;
+      height: 20px;
+      color: white;
+      padding: 0 8px;
+
+      ::ng-deep .mdc-evolution-chip__text-label {
+        color: white;
+      }
+    }
+
+    .category-chip {
+      font-size: 10px;
+      height: 20px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #ccc;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        margin-right: 4px;
+      }
+    }
+  }
+
+  .log-message {
+    color: #e0e0e0;
+    word-break: break-word;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+
+  .log-stacktrace {
+    margin-top: 8px;
+    padding: 8px;
+    background-color: rgba(244, 67, 54, 0.1);
+    border-radius: 4px;
+    color: #ff8a80;
+    font-size: 11px;
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 200px;
+  }
+}
+
+/* ===== Filter Drawer (CDK Overlay) ===== */
+::ng-deep .gl-drawer-backdrop {
+  background: rgba(0,0,0,.25);
+}
+
+::ng-deep .gl-drawer-panel {
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
+  border-left: 1px solid #ededed;
+  transform: translateX(100%);
+  transition: transform 200ms ease;
+  max-width: 100vw;
+}
+
+::ng-deep .gl-drawer-panel.open {
+  transform: translateX(0);
+}
+
+.gl-drawer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  width: 100%;
+}
+
+.gl-drawer__header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: .25rem;
+  padding: .75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.gl-drawer__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #202124;
+}
+
+.gl-drawer__body {
+  padding: 1rem;
+  overflow: auto;
+  flex: 1 1 auto;
+  background: #fff;
+}
+
+.gl-drawer__inner {
+  width: 100%;
+
+  .filter-field {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+}
+
+.drawer-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  padding: .75rem 1rem;
+  border-top: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .outlook-toolbar {
+    gap: .4rem;
+  }
+
+  .o365-search.open .o365-search__field {
+    width: clamp(140px, 30vw, 200px);
+  }
+}

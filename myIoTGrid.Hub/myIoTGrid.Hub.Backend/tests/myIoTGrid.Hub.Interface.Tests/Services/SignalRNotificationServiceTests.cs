@@ -50,7 +50,7 @@ public class SignalRNotificationServiceTests
         _clientsMock.Verify(c => c.Group(SensorHub.GetTenantGroupName(tenantId)), Times.Once);
         _clientProxyMock.Verify(p => p.SendCoreAsync(
             "NewReading",
-            It.Is<object[]>(args => args.Length == 1 && args[0] == reading),
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], reading)),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
@@ -106,7 +106,7 @@ public class SignalRNotificationServiceTests
         _clientsMock.Verify(c => c.Group(SensorHub.GetTenantGroupName(tenantId)), Times.Once);
         _clientProxyMock.Verify(p => p.SendCoreAsync(
             "AlertReceived",
-            It.Is<object[]>(args => args.Length == 1 && args[0] == alert),
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], alert)),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
@@ -142,7 +142,7 @@ public class SignalRNotificationServiceTests
         _clientsMock.Verify(c => c.Group(SensorHub.GetTenantGroupName(tenantId)), Times.Once);
         _clientProxyMock.Verify(p => p.SendCoreAsync(
             "AlertAcknowledged",
-            It.Is<object[]>(args => args.Length == 1 && args[0] == alert),
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], alert)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -164,7 +164,7 @@ public class SignalRNotificationServiceTests
         _clientsMock.Verify(c => c.Group(SensorHub.GetTenantGroupName(tenantId)), Times.Once);
         _clientProxyMock.Verify(p => p.SendCoreAsync(
             "HubStatusChanged",
-            It.Is<object[]>(args => args.Length == 1 && args[0] == hub),
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], hub)),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
@@ -200,7 +200,7 @@ public class SignalRNotificationServiceTests
         _clientsMock.Verify(c => c.Group(SensorHub.GetTenantGroupName(tenantId)), Times.Once);
         _clientProxyMock.Verify(p => p.SendCoreAsync(
             "NodeStatusChanged",
-            It.Is<object[]>(args => args.Length == 1 && args[0] == node),
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], node)),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
@@ -236,8 +236,119 @@ public class SignalRNotificationServiceTests
         _clientsMock.Verify(c => c.Group(SensorHub.GetHubGroupName(hubId.ToString())), Times.Once);
         _clientProxyMock.Verify(p => p.SendCoreAsync(
             "NodeRegistered",
-            It.Is<object[]>(args => args.Length == 1 && args[0] == node),
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], node)),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region NotifyDebugLogReceivedAsync Tests
+
+    [Fact]
+    public async Task NotifyDebugLogReceivedAsync_SendsToNodeGroup()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+        var log = CreateDebugLogDto(nodeId);
+
+        // Act
+        await _sut.NotifyDebugLogReceivedAsync(log);
+
+        // Assert
+        _clientsMock.Verify(c => c.Group(SensorHub.GetNodeGroupName(nodeId)), Times.Once);
+        _clientProxyMock.Verify(p => p.SendCoreAsync(
+            "DebugLogReceived",
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], log)),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task NotifyDebugLogReceivedAsync_SendsToDebugGroup()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+        var log = CreateDebugLogDto(nodeId);
+
+        // Act
+        await _sut.NotifyDebugLogReceivedAsync(log);
+
+        // Assert
+        _clientsMock.Verify(c => c.Group(SensorHub.GetDebugGroupName(nodeId)), Times.Once);
+    }
+
+    [Fact]
+    public async Task NotifyDebugLogReceivedAsync_WithCancellationToken_PassesToken()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+        var log = CreateDebugLogDto(nodeId);
+        var cts = new CancellationTokenSource();
+
+        // Act
+        await _sut.NotifyDebugLogReceivedAsync(log, cts.Token);
+
+        // Assert
+        _clientProxyMock.Verify(p => p.SendCoreAsync(
+            "DebugLogReceived",
+            It.IsAny<object[]>(),
+            cts.Token), Times.AtLeastOnce);
+    }
+
+    #endregion
+
+    #region NotifyDebugConfigChangedAsync Tests
+
+    [Fact]
+    public async Task NotifyDebugConfigChangedAsync_SendsToNodeGroup()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+        var config = CreateDebugConfigDto(nodeId);
+        _clientsMock.Setup(c => c.All).Returns(_clientProxyMock.Object);
+
+        // Act
+        await _sut.NotifyDebugConfigChangedAsync(config);
+
+        // Assert
+        _clientsMock.Verify(c => c.Group(SensorHub.GetNodeGroupName(nodeId)), Times.Once);
+        _clientProxyMock.Verify(p => p.SendCoreAsync(
+            "DebugConfigChanged",
+            It.Is<object[]>(args => args.Length == 1 && Equals(args[0], config)),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task NotifyDebugConfigChangedAsync_SendsToAllClients()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+        var config = CreateDebugConfigDto(nodeId);
+        _clientsMock.Setup(c => c.All).Returns(_clientProxyMock.Object);
+
+        // Act
+        await _sut.NotifyDebugConfigChangedAsync(config);
+
+        // Assert
+        _clientsMock.Verify(c => c.All, Times.Once);
+    }
+
+    [Fact]
+    public async Task NotifyDebugConfigChangedAsync_WithCancellationToken_PassesToken()
+    {
+        // Arrange
+        var nodeId = Guid.NewGuid();
+        var config = CreateDebugConfigDto(nodeId);
+        var cts = new CancellationTokenSource();
+        _clientsMock.Setup(c => c.All).Returns(_clientProxyMock.Object);
+
+        // Act
+        await _sut.NotifyDebugConfigChangedAsync(config, cts.Token);
+
+        // Assert
+        _clientProxyMock.Verify(p => p.SendCoreAsync(
+            "DebugConfigChanged",
+            It.IsAny<object[]>(),
+            cts.Token), Times.AtLeastOnce);
     }
 
     #endregion
@@ -323,7 +434,39 @@ public class SignalRNotificationServiceTests
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
             Status: NodeProvisioningStatusDto.Configured,
-            IsSimulation: false
+            IsSimulation: false,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
+        );
+    }
+
+    private static NodeDebugLogDto CreateDebugLogDto(Guid nodeId)
+    {
+        return new NodeDebugLogDto(
+            Id: Guid.NewGuid(),
+            NodeId: nodeId,
+            NodeTimestamp: 123456789,
+            ReceivedAt: DateTime.UtcNow,
+            Level: DebugLevelDto.Debug,
+            Category: LogCategoryDto.System,
+            Message: "Test debug log message for testing purposes",
+            StackTrace: null
+        );
+    }
+
+    private static NodeDebugConfigurationDto CreateDebugConfigDto(Guid nodeId)
+    {
+        return new NodeDebugConfigurationDto(
+            NodeId: nodeId,
+            SerialNumber: "ESP32-0070078492CC",
+            DebugLevel: DebugLevelDto.Debug,
+            EnableRemoteLogging: true,
+            LastDebugChange: DateTime.UtcNow
         );
     }
 

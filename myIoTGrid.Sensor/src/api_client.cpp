@@ -220,6 +220,41 @@ bool ApiClient::sendReadings(const String& readingsJson) {
     return response.success && response.statusCode == 200;
 }
 
+bool ApiClient::sendHardwareStatus(const String& serialNumber,
+                                    const String& firmwareVersion,
+                                    const String& hardwareType,
+                                    const String& detectedDevicesJson,
+                                    const String& storageJson,
+                                    const String& busStatusJson) {
+    if (_baseUrl.length() == 0) {
+        Serial.println("[API] Base URL not set for hardware status report");
+        return false;
+    }
+
+    // Build the complete JSON body matching ReportHardwareStatusDto
+    String body = "{";
+    body += "\"serialNumber\":\"" + serialNumber + "\",";
+    body += "\"firmwareVersion\":\"" + firmwareVersion + "\",";
+    body += "\"hardwareType\":\"" + hardwareType + "\",";
+    body += "\"detectedDevices\":" + detectedDevicesJson + ",";
+    body += "\"storage\":" + storageJson + ",";
+    body += "\"busStatus\":" + busStatusJson;
+    body += "}";
+
+    Serial.println("[API] Sending hardware status report...");
+
+    ApiResponse response = httpPost("/api/node-debug/hardware-status", body);
+
+    if (response.success && response.statusCode == 200) {
+        Serial.println("[API] Hardware status report sent successfully");
+        return true;
+    } else {
+        Serial.printf("[API] Hardware status report failed: %d - %s\n",
+                      response.statusCode, response.error.c_str());
+        return false;
+    }
+}
+
 NodeConfigurationResponse ApiClient::fetchConfiguration(const String& serialNumber) {
     NodeConfigurationResponse result;
     result.success = false;
@@ -247,6 +282,9 @@ NodeConfigurationResponse ApiClient::fetchConfiguration(const String& serialNumb
             result.name = respDoc["name"].as<String>();
             result.isSimulation = respDoc["isSimulation"] | false;
             result.defaultIntervalSeconds = respDoc["defaultIntervalSeconds"] | 60;
+
+            // Sprint OS-01: Parse storageMode from API
+            result.storageMode = respDoc["storageMode"] | 0;  // Default: RemoteOnly
 
             // Parse sensors array
             JsonArray sensorsArray = respDoc["sensors"].as<JsonArray>();
@@ -284,8 +322,12 @@ NodeConfigurationResponse ApiClient::fetchConfiguration(const String& serialNumb
                 result.sensors.push_back(sensor);
             }
 
-            Serial.printf("[API] Configuration loaded: %d sensors assigned\n",
-                          (int)result.sensors.size());
+            // Sprint OS-01: Log storage mode
+            const char* storageModeNames[] = {"RemoteOnly", "LocalAndRemote", "LocalOnly", "LocalAutoSync"};
+            const char* storageModeName = (result.storageMode >= 0 && result.storageMode <= 3)
+                                          ? storageModeNames[result.storageMode] : "Unknown";
+            Serial.printf("[API] Configuration loaded: %d sensors, StorageMode=%s (%d)\n",
+                          (int)result.sensors.size(), storageModeName, result.storageMode);
 
             for (const auto& s : result.sensors) {
                 Serial.printf("[API]   - %s (%s): Endpoint %d, Interval %ds\n",
@@ -303,6 +345,72 @@ NodeConfigurationResponse ApiClient::fetchConfiguration(const String& serialNumb
     } else {
         result.error = response.error.length() > 0 ? response.error : "Failed to fetch configuration";
         Serial.printf("[API] Configuration fetch failed: %d - %s\n",
+                      response.statusCode, result.error.c_str());
+    }
+
+    return result;
+}
+
+DebugConfigurationResponse ApiClient::fetchDebugConfiguration(const String& serialNumber) {
+    DebugConfigurationResponse result;
+    result.success = false;
+    result.debugLevel = 1;  // Default: Normal
+    result.enableRemoteLogging = false;
+
+    if (_baseUrl.length() == 0) {
+        Serial.println("[API] Base URL not set for debug config fetch");
+        result.error = "Base URL not configured";
+        return result;
+    }
+
+    String path = "/api/nodes/" + serialNumber + "/debug";
+    Serial.printf("[API] Fetching debug configuration for: %s\n", serialNumber.c_str());
+
+    ApiResponse response = httpGet(path);
+
+    if (response.success && response.statusCode == 200) {
+        JsonDocument respDoc;
+        DeserializationError error = deserializeJson(respDoc, response.body);
+
+        if (!error) {
+            result.success = true;
+            result.nodeId = respDoc["nodeId"].as<String>();
+
+            // Parse debugLevel - can be string ("Production", "Normal", "Debug") or int (0, 1, 2)
+            JsonVariant levelVar = respDoc["debugLevel"];
+            if (levelVar.is<const char*>()) {
+                String levelStr = levelVar.as<String>();
+                if (levelStr == "Production" || levelStr == "production") {
+                    result.debugLevel = 0;
+                } else if (levelStr == "Normal" || levelStr == "normal") {
+                    result.debugLevel = 1;
+                } else if (levelStr == "Debug" || levelStr == "debug") {
+                    result.debugLevel = 2;
+                }
+            } else {
+                result.debugLevel = levelVar | 1;
+            }
+
+            result.enableRemoteLogging = respDoc["enableRemoteLogging"] | false;
+            result.lastDebugChange = respDoc["lastDebugChange"].as<String>();
+
+            const char* levelNames[] = {"Production", "Normal", "Debug"};
+            const char* levelName = (result.debugLevel >= 0 && result.debugLevel <= 2)
+                                    ? levelNames[result.debugLevel] : "Unknown";
+            Serial.printf("[API] Debug config loaded: Level=%s (%d), RemoteLogging=%s\n",
+                          levelName, result.debugLevel,
+                          result.enableRemoteLogging ? "enabled" : "disabled");
+        } else {
+            result.error = "Failed to parse debug configuration response";
+            Serial.printf("[API] JSON parse error: %s\n", error.c_str());
+        }
+    } else if (response.statusCode == 404) {
+        // Node not found - use defaults
+        result.error = "No debug configuration found";
+        Serial.println("[API] No debug configuration found (using defaults)");
+    } else {
+        result.error = response.error.length() > 0 ? response.error : "Failed to fetch debug configuration";
+        Serial.printf("[API] Debug config fetch failed: %d - %s\n",
                       response.statusCode, result.error.c_str());
     }
 

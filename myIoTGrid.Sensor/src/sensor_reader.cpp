@@ -7,6 +7,7 @@
 #include "sensor_reader.h"
 #include "hardware_scanner.h"
 #include "uart_manager.h"
+#include "debug_manager.h"
 
 // Default I2C pins for ESP32
 #define DEFAULT_SDA_PIN 21
@@ -1386,8 +1387,8 @@ SensorReading SensorReader::readLatitude(const SensorAssignmentConfig& config) {
             return SensorReading(lat);
         }
 
-        // Auto-start GPS debug diagnostics once when no fix
-        if (!_gps_debug_ran) {
+        // Auto-start GPS debug diagnostics once when no fix (only in DEBUG mode, not PRODUCTION/NORMAL)
+        if (!_gps_debug_ran && DebugManager::getInstance().getLevel() == DebugLevel::DEBUG) {
             Serial.println("\n[SensorReader] GPS no fix detected - running diagnostics automatically...\n");
             _gps_debug_ran = true;
 
@@ -1404,6 +1405,8 @@ SensorReading SensorReader::readLatitude(const SensorAssignmentConfig& config) {
             // Re-initialize GPS after debug (UARTManager will allocate fresh)
             Serial.println("\n[SensorReader] Re-initializing GPS after diagnostics...");
             initGPS(rxPin, txPin);
+        } else if (!_gps_debug_ran) {
+            _gps_debug_ran = true;  // Skip diagnostics in PRODUCTION/NORMAL mode
         }
 
         return SensorReading("GPS no fix");

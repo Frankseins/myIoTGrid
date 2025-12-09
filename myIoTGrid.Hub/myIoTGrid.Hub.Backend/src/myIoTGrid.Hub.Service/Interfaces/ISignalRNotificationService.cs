@@ -43,4 +43,18 @@ public interface ISignalRNotificationService
     /// Event: "NodeRegistered"
     /// </summary>
     Task NotifyNodeRegisteredAsync(Guid hubId, NodeDto node, CancellationToken ct = default);
+
+    // === Remote Debug System (Sprint 8) ===
+
+    /// <summary>
+    /// Sends a debug log received notification for live view.
+    /// Event: "DebugLogReceived"
+    /// </summary>
+    Task NotifyDebugLogReceivedAsync(NodeDebugLogDto log, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sends a debug configuration changed notification.
+    /// Event: "DebugConfigChanged"
+    /// </summary>
+    Task NotifyDebugConfigChangedAsync(NodeDebugConfigurationDto config, CancellationToken ct = default);
 }

@@ -54,4 +54,26 @@ public class MonitoringOptions
     /// Whether to enable data retention cleanup (default: true)
     /// </summary>
     public bool EnableDataRetention { get; set; } = true;
+
+    // === Remote Debug System (Sprint 8) ===
+
+    /// <summary>
+    /// Whether to enable debug log cleanup (default: true)
+    /// </summary>
+    public bool EnableDebugLogCleanup { get; set; } = true;
+
+    /// <summary>
+    /// Interval in hours between debug log cleanup runs (default: 6 hours)
+    /// </summary>
+    public int DebugLogCleanupIntervalHours { get; set; } = 6;
+
+    /// <summary>
+    /// Number of days to retain debug logs (default: 7 days)
+    /// </summary>
+    public int DebugLogRetentionDays { get; set; } = 7;
+
+    /// <summary>
+    /// Maximum number of debug logs per node (default: 10000)
+    /// </summary>
+    public int MaxDebugLogsPerNode { get; set; } = 10000;
 }

@@ -94,6 +94,20 @@ struct NodeConfigurationResponse {
     std::vector<SensorAssignmentConfig> sensors;
     unsigned long configurationTimestamp;
     String error;
+    // Sprint OS-01: Offline Storage
+    int storageMode;  // 0=RemoteOnly, 1=LocalAndRemote, 2=LocalOnly, 3=LocalAutoSync
+};
+
+/**
+ * Debug configuration response from Hub (Sprint 8: Remote Debug System)
+ */
+struct DebugConfigurationResponse {
+    bool success;
+    String nodeId;
+    int debugLevel;           // 0=Production, 1=Normal, 2=Debug
+    bool enableRemoteLogging;
+    String lastDebugChange;
+    String error;
 };
 
 /**
@@ -148,6 +162,32 @@ public:
     NodeConfigurationResponse fetchConfiguration(const String& serialNumber);
 
     /**
+     * Send hardware status report to Hub (Sprint 8)
+     * Called after boot to report detected hardware, SD card status, bus status
+     * @param serialNumber Node serial number (MAC address)
+     * @param firmwareVersion Current firmware version
+     * @param hardwareType Hardware type identifier
+     * @param detectedDevices JSON array of detected devices
+     * @param storageJson Storage status JSON object
+     * @param busStatusJson Bus status JSON object
+     * @return true if report was sent successfully
+     */
+    bool sendHardwareStatus(const String& serialNumber,
+                            const String& firmwareVersion,
+                            const String& hardwareType,
+                            const String& detectedDevicesJson,
+                            const String& storageJson,
+                            const String& busStatusJson);
+
+    /**
+     * Fetch debug configuration from Hub (Sprint 8: Remote Debug System)
+     * Gets debug level and remote logging settings for this node
+     * @param serialNumber Node serial number (MAC address)
+     * @return Debug configuration response
+     */
+    DebugConfigurationResponse fetchDebugConfiguration(const String& serialNumber);
+
+    /**
      * Check if configured
      */
     bool isConfigured() const;
@@ -156,6 +196,11 @@ public:
      * Get base URL
      */
     String getBaseUrl() const { return _baseUrl; }
+
+    /**
+     * Get node ID (GUID from registration)
+     */
+    String getNodeId() const { return _nodeId; }
 
     /**
      * Set connection timeout

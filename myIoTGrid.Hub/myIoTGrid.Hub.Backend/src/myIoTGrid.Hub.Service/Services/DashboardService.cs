@@ -503,12 +503,12 @@ public class DashboardService : IDashboardService
     {
         var tenantId = _tenantService.GetCurrentTenantId();
 
-        // Get all unique locations
+        // Get all unique locations (filter out nulls)
         var locations = await _context.Nodes
             .AsNoTracking()
             .Include(n => n.Location)
-            .Where(n => n.Hub!.TenantId == tenantId && n.Location != null)
-            .Select(n => n.Location!.Name)
+            .Where(n => n.Hub!.TenantId == tenantId && n.Location != null && n.Location.Name != null)
+            .Select(n => n.Location!.Name!)
             .Distinct()
             .OrderBy(l => l)
             .ToListAsync(ct);

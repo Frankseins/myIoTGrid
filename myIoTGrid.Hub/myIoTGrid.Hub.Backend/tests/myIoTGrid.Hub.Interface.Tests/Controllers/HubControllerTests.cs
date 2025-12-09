@@ -244,6 +244,48 @@ public class HubControllerTests
 
     #endregion
 
+    #region GetProvisioningSettings Tests
+
+    [Fact]
+    public async Task GetProvisioningSettings_ReturnsOkWithSettings()
+    {
+        // Arrange
+        var settings = new HubProvisioningSettingsDto(
+            DefaultWifiSsid: "MyNetwork",
+            DefaultWifiPassword: "password123",
+            ApiUrl: "http://192.168.1.100",
+            ApiPort: 5000
+        );
+
+        _hubServiceMock.Setup(s => s.GetProvisioningSettingsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(settings);
+
+        // Act
+        var result = await _sut.GetProvisioningSettings(CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var returnedSettings = okResult.Value.Should().BeOfType<HubProvisioningSettingsDto>().Subject;
+        returnedSettings.DefaultWifiSsid.Should().Be("MyNetwork");
+        returnedSettings.ApiUrl.Should().Be("http://192.168.1.100");
+    }
+
+    [Fact]
+    public async Task GetProvisioningSettings_CallsGetProvisioningSettingsAsync()
+    {
+        // Arrange
+        _hubServiceMock.Setup(s => s.GetProvisioningSettingsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HubProvisioningSettingsDto("wifi", "pass", "http://localhost", 5000));
+
+        // Act
+        await _sut.GetProvisioningSettings(CancellationToken.None);
+
+        // Assert
+        _hubServiceMock.Verify(s => s.GetProvisioningSettingsAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private HubDto CreateHubDto(string hubId, string name)
@@ -278,7 +320,14 @@ public class HubControllerTests
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
             Status: NodeProvisioningStatusDto.Configured,
-            IsSimulation: false
+            IsSimulation: false,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
         );
     }
 

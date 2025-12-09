@@ -19,6 +19,7 @@
 
 #include <Arduino.h>
 #include <vector>
+#include <map>
 #include "config.h"
 #include "state_machine.h"
 #include "config_manager.h"
@@ -29,6 +30,20 @@
 #include "hardware_scanner.h"
 #include "sensor_reader.h"
 #include "led_controller.h"
+
+// Sprint OS-01: Offline Storage Components
+#include "storage/sd_manager.h"
+#include "storage/storage_config.h"
+#include "storage/reading_storage.h"
+#include "storage/sync_manager.h"
+#include "ui/sync_status_led.h"
+#include "ui/sync_button.h"
+
+// Sprint 8: Remote Debug System
+#include "debug_manager.h"
+#include "sd_logger.h"
+#include "hardware_validator.h"
+#include "debug_log_uploader.h"
 
 #ifdef PLATFORM_ESP32
 #include "ble_service.h"
@@ -55,6 +70,15 @@ SensorSimulator sensorSimulator;
 HardwareScanner hardwareScanner;
 SensorReader sensorReader;
 LEDController ledController;
+
+// Sprint OS-01: Offline Storage Instances
+SDManager sdManager;
+StorageConfigManager storageConfigManager;
+ReadingStorage readingStorage;
+SyncManager syncManager;
+SyncStatusLED syncStatusLED;
+SyncButton syncButton;
+bool offlineStorageEnabled = false;
 
 #ifdef PLATFORM_ESP32
 BLEProvisioningService bleService;
@@ -98,11 +122,17 @@ static const unsigned long HEARTBEAT_INTERVAL_MS = 60000;   // 1 minute
 static const unsigned long SENSOR_INTERVAL_MS = 60000;      // 1 minute
 static const unsigned long WIFI_CHECK_INTERVAL_MS = 5000;   // 5 seconds
 static const unsigned long CONFIG_CHECK_INTERVAL_MS = 60000; // 60 seconds
+static const unsigned long DEBUG_CONFIG_CHECK_INTERVAL_MS = 60000; // 60 seconds for debug config sync (same as sensor config)
 
 static unsigned long lastHeartbeat = 0;
 static unsigned long lastSensorReading = 0;
 static unsigned long lastWiFiCheck = 0;
 static unsigned long lastConfigCheck = 0;
+static unsigned long lastDebugConfigCheck = 0;
+
+// Per-sensor timing for GCD-based polling
+static std::map<int, unsigned long> sensorLastReading;  // endpointId -> last reading time
+static int calculatedPollIntervalSeconds = 60;  // GCD of all sensor intervals
 
 // Current sensor configuration from Hub
 static NodeConfigurationResponse currentConfig;
@@ -147,6 +177,75 @@ String ensureUrlHasPort(const String& url, int defaultPort = 5002) {
         String path = url.substring(protocolEnd + pathStart);
         return host + ":" + String(defaultPort) + path;
     }
+}
+
+// ============================================================================
+// Sensor Polling Interval Calculation (GCD-based)
+// ============================================================================
+
+/**
+ * Calculate GCD (Greatest Common Divisor) of two numbers using Euclidean algorithm
+ */
+int gcd(int a, int b) {
+    if (b == 0) return a;
+    return gcd(b, a % b);
+}
+
+/**
+ * Calculate GCD of all sensor intervals
+ * This determines the poll loop interval - only sensors due at each tick are read
+ *
+ * Example: Sensors with 30s, 20s, 15s intervals
+ * GCD(30, 20, 15) = 5
+ * Poll every 5s, but only read sensors when their interval elapsed
+ */
+int calculatePollIntervalGCD() {
+    if (!configLoaded || currentConfig.sensors.size() == 0) {
+        return currentConfig.defaultIntervalSeconds > 0 ? currentConfig.defaultIntervalSeconds : 60;
+    }
+
+    int result = 0;
+    for (const auto& sensor : currentConfig.sensors) {
+        if (sensor.isActive && sensor.intervalSeconds > 0) {
+            if (result == 0) {
+                result = sensor.intervalSeconds;
+            } else {
+                result = gcd(result, sensor.intervalSeconds);
+            }
+        }
+    }
+
+    // Fallback to default if no active sensors with intervals
+    if (result == 0) {
+        result = currentConfig.defaultIntervalSeconds > 0 ? currentConfig.defaultIntervalSeconds : 60;
+    }
+
+    return result;
+}
+
+/**
+ * Check if a specific sensor is due for reading based on its interval
+ */
+bool isSensorDue(const SensorAssignmentConfig& sensor, unsigned long now) {
+    if (!sensor.isActive || sensor.intervalSeconds <= 0) {
+        return false;
+    }
+
+    auto it = sensorLastReading.find(sensor.endpointId);
+    if (it == sensorLastReading.end()) {
+        // First reading - sensor is due
+        return true;
+    }
+
+    unsigned long elapsed = (now - it->second) / 1000;  // Convert to seconds
+    return elapsed >= (unsigned long)sensor.intervalSeconds;
+}
+
+/**
+ * Mark sensor as read at current time
+ */
+void markSensorRead(int endpointId, unsigned long now) {
+    sensorLastReading[endpointId] = now;
 }
 
 // ============================================================================
@@ -669,8 +768,18 @@ void fetchSensorConfiguration() {
         currentConfig = response;
         configLoaded = true;
 
-        Serial.printf("[Main] Configuration updated: %d sensors\n",
-                      (int)currentConfig.sensors.size());
+        // Calculate GCD-based poll interval for all active sensors
+        calculatedPollIntervalSeconds = calculatePollIntervalGCD();
+
+        // Log sensor intervals for debugging
+        Serial.printf("[Main] Configuration updated: %d sensors\n", (int)currentConfig.sensors.size());
+        Serial.printf("[Main] Poll interval: %ds (GCD of sensor intervals)\n", calculatedPollIntervalSeconds);
+        for (const auto& sensor : currentConfig.sensors) {
+            if (sensor.isActive) {
+                Serial.printf("[Main]   - %s (Endpoint %d): every %ds\n",
+                              sensor.sensorName.c_str(), sensor.endpointId, sensor.intervalSeconds);
+            }
+        }
 
         // Log simulation mode change
         if (currentConfig.isSimulation != wasSimulation || !simulationModeLogged) {
@@ -703,9 +812,72 @@ void fetchSensorConfiguration() {
                 lastValidatedConfigTimestamp = currentConfig.configurationTimestamp;
             }
         }
+
+        // Sprint OS-01: Apply storageMode from API to storageConfigManager
+#ifdef PLATFORM_ESP32
+        if (offlineStorageEnabled) {
+            StorageMode apiMode = static_cast<StorageMode>(response.storageMode);
+            StorageMode currentMode = storageConfigManager.getMode();
+
+            if (apiMode != currentMode) {
+                Serial.printf("[Main] Storage Mode changed: %s -> %s (from Hub API)\n",
+                              StorageConfig::getModeString(currentMode),
+                              StorageConfig::getModeString(apiMode));
+                storageConfigManager.setMode(apiMode);
+                storageConfigManager.save(sdManager);
+            }
+        }
+#endif
     } else {
         Serial.printf("[Main] Config fetch: %s\n", response.error.c_str());
         // Don't clear configLoaded - keep using last known config
+    }
+}
+
+/**
+ * Periodically check and apply debug configuration from Hub (Sprint 8)
+ * Called in handleOperationalState to sync debug level and remote logging settings
+ */
+void checkDebugConfiguration() {
+    if (!apiClient.isConfigured()) {
+        return;
+    }
+
+    String nodeId = apiClient.getNodeId();
+    if (nodeId.length() == 0) {
+        return;
+    }
+
+    DebugConfigurationResponse debugConfig = apiClient.fetchDebugConfiguration(nodeId);
+    if (debugConfig.success) {
+        // Apply debug level to DebugManager
+        DebugLevel newLevel = static_cast<DebugLevel>(debugConfig.debugLevel);
+        DebugLevel currentLevel = DebugManager::getInstance().getLevel();
+
+        if (newLevel != currentLevel) {
+            DebugManager::getInstance().setLevel(newLevel);
+            Serial.printf("[Main] Debug level changed: %d -> %d (from Hub sync)\n",
+                          static_cast<int>(currentLevel), static_cast<int>(newLevel));
+        }
+
+        // Apply remote logging setting
+        DebugManager::getInstance().setRemoteLogging(debugConfig.enableRemoteLogging);
+
+        // Enable/disable debug log uploader
+        bool uploaderWasEnabled = DebugLogUploader::getInstance().isEnabled();
+        if (debugConfig.enableRemoteLogging) {
+            if (!uploaderWasEnabled) {
+                // Initialize SerialCapture and uploader on first enable
+                DebugLogUploader::getInstance().begin(apiClient.getBaseUrl(), nodeId);
+                Serial.println("[Main] Remote logging ENABLED (from Hub sync)");
+            }
+            DebugLogUploader::getInstance().setEnabled(true);
+        } else {
+            DebugLogUploader::getInstance().setEnabled(false);
+            if (uploaderWasEnabled) {
+                Serial.println("[Main] Remote logging DISABLED (from Hub sync)");
+            }
+        }
     }
 }
 
@@ -918,7 +1090,11 @@ double readSensorValue(const String& sensorCode, const String& unit) {
     return -999.99;  // Error indicator
 }
 
-void readAndSendSensors() {
+/**
+ * Read and send only sensors that are DUE based on their individual intervals.
+ * Uses GCD-based polling: loop runs at GCD interval, only reads sensors whose time has come.
+ */
+void readAndSendDueSensors(unsigned long now) {
     if (!apiClient.isConfigured()) {
         Serial.println("[Main] API client not configured - skipping sensor readings");
         return;
@@ -962,61 +1138,53 @@ void readAndSendSensors() {
         simulationModeLogged = true;
     }
 
-    // We have configuration with sensors, send readings
-    if (configLoaded && currentConfig.sensors.size() > 0) {
-        Serial.printf("[Main] Reading %d configured sensors (simulation=%s)...\n",
-                      (int)currentConfig.sensors.size(),
-                      currentConfig.isSimulation ? "true" : "false");
+    // Count how many sensors are due this tick
+    int dueCount = 0;
+    for (const auto& sensor : currentConfig.sensors) {
+        if (isSensorDue(sensor, now)) {
+            dueCount++;
+        }
+    }
 
-        for (const auto& sensor : currentConfig.sensors) {
-            if (!sensor.isActive) {
-                Serial.printf("[Main] Skipping inactive sensor: %s\n", sensor.sensorName.c_str());
-                continue;
-            }
+    if (dueCount == 0) {
+        // No sensors due this tick - silently skip
+        return;
+    }
 
-            // Initialize sensor if not simulating (first reading will init)
+    Serial.printf("[Main] Polling tick: %d of %d sensors due\n",
+                  dueCount, (int)currentConfig.sensors.size());
+
+    // Read only sensors that are due
+    for (const auto& sensor : currentConfig.sensors) {
+        if (!sensor.isActive) {
+            continue;  // Skip inactive sensors silently
+        }
+
+        if (!isSensorDue(sensor, now)) {
+            continue;  // Not due yet - skip
+        }
+
+        // Mark sensor as read at current time
+        markSensorRead(sensor.endpointId, now);
+
+        // Initialize sensor if not simulating (first reading will init)
 #ifdef PLATFORM_ESP32
-            if (!currentConfig.isSimulation) {
-                // Ensure sensor is initialized with Hub configuration
-                sensorReader.initializeSensor(sensor);
-            }
+        if (!currentConfig.isSimulation) {
+            // Ensure sensor is initialized with Hub configuration
+            sensorReader.initializeSensor(sensor);
+        }
 #endif
 
-            // If sensor has capabilities, send one reading per capability
-            if (sensor.capabilities.size() > 0) {
-                for (const auto& cap : sensor.capabilities) {
-                    // Read value based on Hub's isSimulation flag, with sensor config
-                    double value = readSensorValueWithConfig(cap.measurementType, cap.unit, &sensor);
-
-                    // Check for error indicator
-                    if (value <= -999.0) {
-                        Serial.printf("[Main] Skipping %s/%s - hardware read error\n",
-                                      sensor.sensorName.c_str(), cap.measurementType.c_str());
-                        continue;
-                    }
-
-                    // Apply calibration corrections
-                    value = (value + sensor.offsetCorrection) * sensor.gainCorrection;
-
-                    // Include endpointId to identify which sensor assignment this reading belongs to
-                    if (apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId)) {
-                        Serial.printf("[Main] Sent %s/%s: %.2f %s (Endpoint %d)%s\n",
-                                      sensor.sensorName.c_str(), cap.displayName.c_str(),
-                                      value, cap.unit.c_str(), sensor.endpointId,
-                                      currentConfig.isSimulation ? " [SIM]" : " [HW]");
-                    } else {
-                        Serial.printf("[Main] Failed to send %s/%s reading\n",
-                                      sensor.sensorName.c_str(), cap.measurementType.c_str());
-                    }
-                }
-            } else {
-                // Fallback: Send single reading with sensor code as measurement type
-                double value = readSensorValueWithConfig(sensor.sensorCode, "", &sensor);
+        // If sensor has capabilities, send one reading per capability
+        if (sensor.capabilities.size() > 0) {
+            for (const auto& cap : sensor.capabilities) {
+                // Read value based on Hub's isSimulation flag, with sensor config
+                double value = readSensorValueWithConfig(cap.measurementType, cap.unit, &sensor);
 
                 // Check for error indicator
                 if (value <= -999.0) {
-                    Serial.printf("[Main] Skipping %s - hardware read error\n",
-                                  sensor.sensorName.c_str());
+                    Serial.printf("[Main] Skipping %s/%s - hardware read error\n",
+                                  sensor.sensorName.c_str(), cap.measurementType.c_str());
                     continue;
                 }
 
@@ -1024,18 +1192,273 @@ void readAndSendSensors() {
                 value = (value + sensor.offsetCorrection) * sensor.gainCorrection;
 
                 // Include endpointId to identify which sensor assignment this reading belongs to
-                if (apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId)) {
-                    Serial.printf("[Main] Sent %s: %.2f (Endpoint %d)%s\n",
-                                  sensor.sensorName.c_str(), value, sensor.endpointId,
+                // Sprint OS-01: Check storage mode and WiFi availability
+                bool sentToHub = false;
+                bool storedLocally = false;
+
+#ifdef PLATFORM_ESP32
+                if (offlineStorageEnabled) {
+                    StorageMode mode = storageConfigManager.getMode();
+                    bool wifiAvailable = wifiManager.isConnected();
+
+                    // Decide where to store/send based on mode
+                    if (mode == StorageMode::LOCAL_ONLY) {
+                        // Only store locally
+                        storedLocally = readingStorage.storeReading(
+                            cap.measurementType, value, cap.unit, sensor.endpointId);
+                    } else if (mode == StorageMode::REMOTE_ONLY) {
+                        // Only send to Hub (original behavior)
+                        sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
+                    } else {
+                        // LOCAL_AND_REMOTE or LOCAL_AUTOSYNC
+                        // Store locally first
+                        storedLocally = readingStorage.storeReading(
+                            cap.measurementType, value, cap.unit, sensor.endpointId);
+
+                        // Also send to Hub if WiFi available (for LOCAL_AND_REMOTE)
+                        // For LOCAL_AUTOSYNC, sync manager handles the upload
+                        if (mode == StorageMode::LOCAL_AND_REMOTE && wifiAvailable) {
+                            sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
+                        }
+                    }
+                } else {
+                    // No offline storage - send directly
+                    sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
+                }
+#else
+                sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
+#endif
+
+                // Log result with mode info
+                if (sentToHub && storedLocally) {
+                    Serial.printf("[Main] Sent+Stored %s/%s: %.2f %s (Endpoint %d) [LOCAL_AND_REMOTE]%s\n",
+                                  sensor.sensorName.c_str(), cap.displayName.c_str(),
+                                  value, cap.unit.c_str(), sensor.endpointId,
+                                  currentConfig.isSimulation ? " [SIM]" : " [HW]");
+                } else if (sentToHub) {
+                    Serial.printf("[Main] Sent %s/%s: %.2f %s (Endpoint %d) [REMOTE]%s\n",
+                                  sensor.sensorName.c_str(), cap.displayName.c_str(),
+                                  value, cap.unit.c_str(), sensor.endpointId,
+                                  currentConfig.isSimulation ? " [SIM]" : " [HW]");
+                } else if (storedLocally) {
+                    Serial.printf("[Main] Stored %s/%s: %.2f %s (Endpoint %d) [LOCAL]%s\n",
+                                  sensor.sensorName.c_str(), cap.displayName.c_str(),
+                                  value, cap.unit.c_str(), sensor.endpointId,
                                   currentConfig.isSimulation ? " [SIM]" : " [HW]");
                 } else {
-                    Serial.printf("[Main] Failed to send %s reading\n", sensor.sensorName.c_str());
+                    Serial.printf("[Main] Failed to send/store %s/%s reading\n",
+                                  sensor.sensorName.c_str(), cap.measurementType.c_str());
                 }
+            }
+        } else {
+            // Fallback: Send single reading with sensor code as measurement type
+            double value = readSensorValueWithConfig(sensor.sensorCode, "", &sensor);
+
+            // Check for error indicator
+            if (value <= -999.0) {
+                Serial.printf("[Main] Skipping %s - hardware read error\n",
+                              sensor.sensorName.c_str());
+                continue;
+            }
+
+            // Apply calibration corrections
+            value = (value + sensor.offsetCorrection) * sensor.gainCorrection;
+
+            // Include endpointId to identify which sensor assignment this reading belongs to
+            // Sprint OS-01: Check storage mode and WiFi availability
+            bool sentToHub = false;
+            bool storedLocally = false;
+
+#ifdef PLATFORM_ESP32
+            if (offlineStorageEnabled) {
+                StorageMode mode = storageConfigManager.getMode();
+                bool wifiAvailable = wifiManager.isConnected();
+
+                if (mode == StorageMode::LOCAL_ONLY) {
+                    storedLocally = readingStorage.storeReading(
+                        sensor.sensorCode, value, "", sensor.endpointId);
+                } else if (mode == StorageMode::REMOTE_ONLY) {
+                    sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
+                } else {
+                    storedLocally = readingStorage.storeReading(
+                        sensor.sensorCode, value, "", sensor.endpointId);
+                    if (mode == StorageMode::LOCAL_AND_REMOTE && wifiAvailable) {
+                        sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
+                    }
+                }
+            } else {
+                sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
+            }
+#else
+            sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
+#endif
+
+            if (sentToHub && storedLocally) {
+                Serial.printf("[Main] Sent+Stored %s: %.2f (Endpoint %d) [LOCAL_AND_REMOTE]%s\n",
+                              sensor.sensorName.c_str(), value, sensor.endpointId,
+                              currentConfig.isSimulation ? " [SIM]" : " [HW]");
+            } else if (sentToHub) {
+                Serial.printf("[Main] Sent %s: %.2f (Endpoint %d) [REMOTE]%s\n",
+                              sensor.sensorName.c_str(), value, sensor.endpointId,
+                              currentConfig.isSimulation ? " [SIM]" : " [HW]");
+            } else if (storedLocally) {
+                Serial.printf("[Main] Stored %s: %.2f (Endpoint %d) [LOCAL]%s\n",
+                              sensor.sensorName.c_str(), value, sensor.endpointId,
+                              currentConfig.isSimulation ? " [SIM]" : " [HW]");
+            } else {
+                Serial.printf("[Main] Failed to send/store %s reading\n", sensor.sensorName.c_str());
             }
         }
     }
     // Note: No fallback - we only send readings when we have proper configuration
     // The Hub assigns sensors to nodes, so we wait for that configuration
+}
+
+/**
+ * Send hardware status report to Hub (Sprint 8)
+ * Collects detected devices, SD card status, and bus status
+ */
+void sendHardwareStatusReport() {
+    Serial.println("[Main] Preparing hardware status report...");
+
+    // Build detected devices JSON array
+    String devicesJson = "[";
+    bool firstDevice = true;
+
+#ifdef PLATFORM_ESP32
+    // Scan hardware to get detected devices
+    auto devices = hardwareScanner.getLastScanResults();
+
+    for (const auto& device : devices) {
+        if (!firstDevice) devicesJson += ",";
+        firstDevice = false;
+
+        devicesJson += "{";
+        devicesJson += "\"deviceType\":\"" + device.deviceName + "\",";
+        devicesJson += "\"bus\":\"" + device.bus + "\",";
+
+        // Format address based on bus type
+        if (device.bus == "I2C") {
+            char addrStr[8];
+            snprintf(addrStr, sizeof(addrStr), "0x%02X", device.address);
+            devicesJson += "\"address\":\"" + String(addrStr) + "\",";
+        } else if (device.bus == "1-Wire" || device.bus == "Analog") {
+            devicesJson += "\"address\":\"Pin " + String(device.pin) + "\",";
+        } else if (device.bus == "UART") {
+            devicesJson += "\"address\":\"RX:" + String(device.rxPin) + "/TX:" + String(device.txPin) + "\",";
+        } else {
+            devicesJson += "\"address\":\"unknown\",";
+        }
+
+        devicesJson += "\"status\":\"OK\",";
+        devicesJson += "\"sensorCode\":\"" + device.sensorType + "\"";
+        devicesJson += "}";
+    }
+#endif
+    devicesJson += "]";
+
+    // Build storage status JSON
+    String storageJson = "{";
+#ifdef PLATFORM_ESP32
+    if (offlineStorageEnabled) {
+        storageJson += "\"available\":true,";
+        storageJson += "\"mode\":\"" + String(StorageConfig::getModeString(storageConfigManager.getMode())) + "\",";
+        storageJson += "\"totalBytes\":" + String(sdManager.getTotalBytes()) + ",";
+        storageJson += "\"usedBytes\":" + String(sdManager.getUsedBytes()) + ",";
+        storageJson += "\"freeBytes\":" + String(sdManager.getFreeBytes()) + ",";
+        storageJson += "\"pendingSyncCount\":" + String(readingStorage.getPendingCount()) + ",";
+        storageJson += "\"lastSyncAt\":null,";
+        storageJson += "\"lastSyncError\":null";
+    } else {
+        storageJson += "\"available\":false,";
+        storageJson += "\"mode\":\"REMOTE_ONLY\",";
+        storageJson += "\"totalBytes\":0,";
+        storageJson += "\"usedBytes\":0,";
+        storageJson += "\"freeBytes\":0,";
+        storageJson += "\"pendingSyncCount\":0,";
+        storageJson += "\"lastSyncAt\":null,";
+        storageJson += "\"lastSyncError\":null";
+    }
+#else
+    storageJson += "\"available\":false,";
+    storageJson += "\"mode\":\"REMOTE_ONLY\",";
+    storageJson += "\"totalBytes\":0,";
+    storageJson += "\"usedBytes\":0,";
+    storageJson += "\"freeBytes\":0,";
+    storageJson += "\"pendingSyncCount\":0,";
+    storageJson += "\"lastSyncAt\":null,";
+    storageJson += "\"lastSyncError\":null";
+#endif
+    storageJson += "}";
+
+    // Build bus status JSON
+    String busStatusJson = "{";
+#ifdef PLATFORM_ESP32
+    // Check I2C availability
+    bool i2cAvailable = true;  // We initialized I2C in setup
+    auto devices2 = hardwareScanner.getLastScanResults();
+
+    int i2cCount = 0;
+    String i2cAddresses = "[";
+    bool firstAddr = true;
+    for (const auto& device : devices2) {
+        if (device.bus == "I2C") {
+            i2cCount++;
+            if (!firstAddr) i2cAddresses += ",";
+            firstAddr = false;
+            char addrStr[8];
+            snprintf(addrStr, sizeof(addrStr), "\"0x%02X\"", device.address);
+            i2cAddresses += addrStr;
+        }
+    }
+    i2cAddresses += "]";
+
+    int oneWireCount = 0;
+    bool uartAvailable = false;
+    bool gpsDetected = false;
+    for (const auto& device : devices2) {
+        if (device.bus == "1-Wire") oneWireCount++;
+        if (device.bus == "UART") {
+            uartAvailable = true;
+            if (device.sensorType.indexOf("gps") >= 0 || device.sensorType.indexOf("neo") >= 0) {
+                gpsDetected = true;
+            }
+        }
+    }
+
+    busStatusJson += "\"i2cAvailable\":" + String(i2cAvailable ? "true" : "false") + ",";
+    busStatusJson += "\"i2cDeviceCount\":" + String(i2cCount) + ",";
+    busStatusJson += "\"i2cAddresses\":" + i2cAddresses + ",";
+    busStatusJson += "\"oneWireAvailable\":" + String(oneWireCount > 0 ? "true" : "false") + ",";
+    busStatusJson += "\"oneWireDeviceCount\":" + String(oneWireCount) + ",";
+    busStatusJson += "\"uartAvailable\":" + String(uartAvailable ? "true" : "false") + ",";
+    busStatusJson += "\"gpsDetected\":" + String(gpsDetected ? "true" : "false");
+#else
+    busStatusJson += "\"i2cAvailable\":false,";
+    busStatusJson += "\"i2cDeviceCount\":0,";
+    busStatusJson += "\"i2cAddresses\":[],";
+    busStatusJson += "\"oneWireAvailable\":false,";
+    busStatusJson += "\"oneWireDeviceCount\":0,";
+    busStatusJson += "\"uartAvailable\":false,";
+    busStatusJson += "\"gpsDetected\":false";
+#endif
+    busStatusJson += "}";
+
+    // Send the hardware status report
+    bool success = apiClient.sendHardwareStatus(
+        currentSerial,
+        FIRMWARE_VERSION,
+        HARDWARE_TYPE,
+        devicesJson,
+        storageJson,
+        busStatusJson
+    );
+
+    if (success) {
+        Serial.println("[Main] Hardware status report sent successfully");
+    } else {
+        Serial.println("[Main] Failed to send hardware status report");
+    }
 }
 
 bool registerWithHub() {
@@ -1108,6 +1531,34 @@ bool registerWithHub() {
         // Immediately fetch configuration after successful registration
         Serial.println("[Main] Fetching initial sensor configuration...");
         fetchSensorConfiguration();
+
+        // Sprint 8: Send hardware status report after successful registration
+        Serial.println("[Main] Sending hardware status report...");
+        sendHardwareStatusReport();
+
+        // Sprint 8: Fetch and apply debug configuration from Hub
+        // Note: Use nodeId (GUID) not serial number for the debug config endpoint
+        Serial.println("[Main] Fetching debug configuration from Hub...");
+        DebugConfigurationResponse debugConfig = apiClient.fetchDebugConfiguration(response.nodeId);
+        if (debugConfig.success) {
+            // Apply debug level to DebugManager
+            DebugLevel newLevel = static_cast<DebugLevel>(debugConfig.debugLevel);
+            DebugManager::getInstance().setLevel(newLevel);
+            DebugManager::getInstance().setRemoteLogging(debugConfig.enableRemoteLogging);
+
+            // Configure remote serial monitor (captures ALL Serial output)
+            // Note: Backend looks up by NodeId (GUID) or MacAddress, so we must send the nodeId GUID
+            if (debugConfig.enableRemoteLogging) {
+                DebugLogUploader::getInstance().begin(apiClient.getBaseUrl(), response.nodeId);
+                DebugLogUploader::getInstance().setEnabled(true);
+            }
+
+            Serial.printf("[Main] Debug config applied - Level: %s, Remote: %s\n",
+                          DebugManager::getInstance().getLevelString(),
+                          debugConfig.enableRemoteLogging ? "enabled" : "disabled");
+        } else {
+            Serial.println("[Main] Debug config fetch failed - using default settings");
+        }
 
         return true;
     } else {
@@ -1484,22 +1935,28 @@ void handleOperationalState() {
         fetchSensorConfiguration();
     }
 
+    // Check for debug configuration updates periodically (Sprint 8)
+    if (now - lastDebugConfigCheck >= DEBUG_CONFIG_CHECK_INTERVAL_MS) {
+        lastDebugConfigCheck = now;
+        checkDebugConfiguration();
+    }
+
     // Send heartbeat periodically
     if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
         lastHeartbeat = now;
         sendHeartbeat();
     }
 
-    // Read and send sensor data periodically
-    // Use configured interval if available
-    unsigned long sensorInterval = SENSOR_INTERVAL_MS;
-    if (configLoaded && currentConfig.defaultIntervalSeconds > 0) {
-        sensorInterval = currentConfig.defaultIntervalSeconds * 1000UL;
+    // Read and send sensor data using GCD-based polling
+    // Poll loop runs at GCD interval, but only reads sensors that are due
+    unsigned long sensorInterval = calculatedPollIntervalSeconds * 1000UL;
+    if (sensorInterval == 0) {
+        sensorInterval = SENSOR_INTERVAL_MS;
     }
 
     if (now - lastSensorReading >= sensorInterval) {
         lastSensorReading = now;
-        readAndSendSensors();
+        readAndSendDueSensors(now);
     }
 }
 
@@ -1648,10 +2105,128 @@ void setup() {
     Serial.println("========================================");
     Serial.println();
 
+    // ============================================================================
+    // Sprint 8: Initialize Remote Debug System (FIRST - so all subsequent logs are captured)
+    // ============================================================================
+    DebugManager::getInstance().begin();
+    DBG_SYSTEM("Debug system initialized - Level: %s",
+               DebugManager::getInstance().getLevelString());
+
+    // Initialize HardwareValidator
+    HardwareValidator::getInstance().begin();
+
     // Initialize LED controller (GPIO 2 = built-in LED on most ESP32)
     ledController.init(2, false);
     ledController.setPattern(LEDPattern::SLOW_BLINK);  // Initial pattern
-    Serial.println("[Main] LED controller initialized");
+    DBG_SYSTEM("LED controller initialized");
+
+    // ============================================================================
+    // Sprint OS-01: Initialize Offline Storage
+    // ============================================================================
+#ifdef PLATFORM_ESP32
+    Serial.println("[Main] Initializing Offline Storage (Sprint OS-01)...");
+
+    // Initialize SD Card
+    if (sdManager.init(config::SD_MISO_PIN, config::SD_MOSI_PIN,
+                       config::SD_SCK_PIN, config::SD_CS_PIN)) {
+        Serial.println("[Main] SD Card initialized successfully");
+
+        // Initialize Storage Configuration
+        if (storageConfigManager.load(sdManager)) {
+            Serial.println("[Main] Storage Configuration loaded");
+            Serial.printf("[Main]   Mode: %s\n",
+                          StorageConfig::getModeString(storageConfigManager.getMode()));
+
+            // Initialize Reading Storage
+            if (readingStorage.init(sdManager, storageConfigManager)) {
+                Serial.println("[Main] Reading Storage initialized");
+
+                // Initialize Sync Manager
+                if (syncManager.init(readingStorage, storageConfigManager, apiClient, wifiManager)) {
+                    Serial.println("[Main] Sync Manager initialized");
+
+                    // Set up sync callbacks
+                    syncManager.onSyncStart([]() {
+                        Serial.println("[Sync] Sync started...");
+                        syncStatusLED.setSyncing();
+                    });
+
+                    syncManager.onSyncComplete([](const SyncResult& result) {
+                        if (result.success) {
+                            Serial.printf("[Sync] Sync complete: %d synced\n", result.syncedCount);
+                            if (syncManager.hasPendingReadings()) {
+                                syncStatusLED.setPendingData();
+                            } else {
+                                syncStatusLED.setAllSynced();
+                            }
+                        }
+                    });
+
+                    syncManager.onSyncError([](const String& error) {
+                        Serial.printf("[Sync] Error: %s\n", error.c_str());
+                        syncStatusLED.setSyncError();
+                    });
+
+                    offlineStorageEnabled = true;
+                }
+            }
+        }
+
+        // Initialize Sync Status LED
+        syncStatusLED.init(config::SYNC_LED_GPIO, true);
+        syncStatusLED.setAllSynced();
+        Serial.println("[Main] Sync Status LED initialized");
+
+        // Initialize Sync Button
+        syncButton.init(config::SYNC_BUTTON_GPIO, true);
+        syncButton.onPress([](ButtonEvent event) {
+            if (event == ButtonEvent::SHORT_PRESS) {
+                Serial.println("[Main] Sync button: SHORT press - triggering sync");
+                syncManager.triggerSync(false);
+            } else if (event == ButtonEvent::LONG_PRESS) {
+                Serial.println("[Main] Sync button: LONG press - force sync ALL");
+                syncManager.triggerSync(true);
+            }
+        });
+        syncButton.onHeld([](unsigned long heldMs) {
+            // Visual feedback while button is held
+            uint8_t progress = syncButton.getLongPressProgress();
+            if (progress > 0 && progress < 100) {
+                syncStatusLED.forceOn();
+            }
+        });
+        Serial.println("[Main] Sync Button initialized");
+
+    } else {
+        Serial.println("[Main] SD Card initialization failed - offline storage disabled");
+        offlineStorageEnabled = false;
+    }
+
+    // Always print storage status (visible regardless of debug level)
+    Serial.println("[Main] ========================================");
+    if (offlineStorageEnabled) {
+        Serial.println("[Main] OFFLINE STORAGE: ENABLED (Sprint OS-01)");
+        Serial.printf("[Main]   Storage Mode: %s\n", StorageConfig::getModeString(storageConfigManager.getMode()));
+        Serial.printf("[Main]   Pending readings: %lu\n", readingStorage.getPendingCount());
+
+        // Sprint 8: Initialize SD Logger for debug logs
+        if (SDLogger::getInstance().begin(config::SD_CS_PIN)) {
+            Serial.println("[Main]   SD Logger: initialized");
+        } else {
+            Serial.println("[Main]   SD Logger: FAILED");
+        }
+    } else {
+        Serial.println("[Main] OFFLINE STORAGE: DISABLED");
+        Serial.println("[Main]   Reason: SD Card init failed or not present");
+    }
+    Serial.println("[Main] ========================================");
+#else
+    Serial.println("[Main] ========================================");
+    Serial.println("[Main] OFFLINE STORAGE: NOT AVAILABLE");
+    Serial.println("[Main]   Platform: Native (no SD card support)");
+    Serial.println("[Main] ========================================");
+    offlineStorageEnabled = false;
+#endif
 
     // Initialize configuration manager (NVS)
     if (!configManager.init()) {
@@ -1784,6 +2359,46 @@ void loop() {
 
     // Update LED controller (for all states)
     ledController.update();
+
+    // ============================================================================
+    // Sprint 8: Update Remote Debug System Components
+    // ============================================================================
+#ifdef PLATFORM_ESP32
+    // Process SD logger queue
+    if (offlineStorageEnabled) {
+        SDLogger::getInstance().loop();
+    }
+
+    // Process debug log uploader
+    DebugLogUploader::getInstance().loop();
+#endif
+
+    // ============================================================================
+    // Sprint OS-01: Update Offline Storage Components
+    // ============================================================================
+#ifdef PLATFORM_ESP32
+    if (offlineStorageEnabled) {
+        // Update sync button (check for presses)
+        syncButton.update();
+
+        // Update sync status LED (blink patterns)
+        syncStatusLED.update();
+
+        // Run sync manager loop (handles auto-sync, retries)
+        syncManager.loop();
+
+        // Update LED based on sync state (if not syncing)
+        if (syncManager.getState() == SyncState::IDLE) {
+            if (!wifiManager.isConnected()) {
+                syncStatusLED.setNoWifi();
+            } else if (syncManager.hasPendingReadings()) {
+                syncStatusLED.setPendingData();
+            } else {
+                syncStatusLED.setAllSynced();
+            }
+        }
+    }
+#endif
 
     // Small delay to prevent busy-looping
     delay(10);

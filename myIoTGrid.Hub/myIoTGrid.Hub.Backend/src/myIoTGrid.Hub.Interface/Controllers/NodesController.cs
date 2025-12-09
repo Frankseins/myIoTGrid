@@ -24,6 +24,7 @@ public class NodesController : ControllerBase
     private readonly INodeSensorAssignmentService _assignmentService;
     private readonly ISensorService _sensorService;
     private readonly IReadingService _readingService;
+    private readonly INodeDebugLogService _debugLogService;
     private readonly IHubContext<SensorHub> _hubContext;
     private readonly IConfiguration _configuration;
     private readonly ILogger<NodesController> _logger;
@@ -34,6 +35,7 @@ public class NodesController : ControllerBase
         INodeSensorAssignmentService assignmentService,
         ISensorService sensorService,
         IReadingService readingService,
+        INodeDebugLogService debugLogService,
         IHubContext<SensorHub> hubContext,
         IConfiguration configuration,
         ILogger<NodesController> logger)
@@ -43,6 +45,7 @@ public class NodesController : ControllerBase
         _assignmentService = assignmentService;
         _sensorService = sensorService;
         _readingService = readingService;
+        _debugLogService = debugLogService;
         _hubContext = hubContext;
         _configuration = configuration;
         _logger = logger;
@@ -651,5 +654,50 @@ public class NodesController : ControllerBase
         );
 
         return Ok(configuration);
+    }
+
+    // === Debug Configuration (Sprint 8) ===
+
+    /// <summary>
+    /// Gets debug configuration for a node.
+    /// </summary>
+    /// <param name="id">Node ID</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Debug configuration</returns>
+    [HttpGet("{id:guid}/debug")]
+    [ProducesResponseType(typeof(NodeDebugConfigurationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDebugConfiguration(Guid id, CancellationToken ct)
+    {
+        var config = await _debugLogService.GetDebugConfigurationAsync(id, ct);
+        if (config == null)
+        {
+            return NotFound(new { Message = $"Node {id} not found" });
+        }
+        return Ok(config);
+    }
+
+    /// <summary>
+    /// Sets debug level and remote logging for a node.
+    /// </summary>
+    /// <param name="id">Node ID</param>
+    /// <param name="dto">Debug configuration</param>
+    /// <param name="ct">Cancellation Token</param>
+    /// <returns>Updated debug configuration</returns>
+    [HttpPut("{id:guid}/debug")]
+    [ProducesResponseType(typeof(NodeDebugConfigurationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetDebugLevel(Guid id, [FromBody] SetNodeDebugLevelDto dto, CancellationToken ct)
+    {
+        var config = await _debugLogService.SetDebugLevelAsync(id, dto, ct);
+        if (config == null)
+        {
+            return NotFound(new { Message = $"Node {id} not found" });
+        }
+
+        _logger.LogInformation("Set debug level for node {NodeId}: Level={Level}, RemoteLogging={RemoteLogging}",
+            id, dto.DebugLevel, dto.EnableRemoteLogging);
+
+        return Ok(config);
     }
 }

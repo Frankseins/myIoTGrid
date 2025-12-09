@@ -188,6 +188,51 @@ public class SensorHub : Microsoft.AspNetCore.SignalR.Hub
             level);
     }
 
+    // === Remote Debug System (Sprint 8) ===
+
+    /// <summary>
+    /// Fügt den Client einer Debug-Log-Gruppe für einen Node hinzu.
+    /// So erhält der Client Live-Debug-Logs für diesen spezifischen Node.
+    /// </summary>
+    /// <param name="nodeId">Die ID des Nodes</param>
+    public async Task JoinDebugGroup(Guid nodeId)
+    {
+        if (nodeId == Guid.Empty)
+        {
+            _logger.LogWarning("JoinDebugGroup mit leerer nodeId aufgerufen");
+            return;
+        }
+
+        var groupName = GetDebugGroupName(nodeId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+        _logger.LogDebug(
+            "Client {ConnectionId} hat Debug-Gruppe beigetreten: {NodeId}",
+            Context.ConnectionId,
+            nodeId);
+    }
+
+    /// <summary>
+    /// Entfernt den Client aus einer Debug-Log-Gruppe.
+    /// </summary>
+    /// <param name="nodeId">Die ID des Nodes</param>
+    public async Task LeaveDebugGroup(Guid nodeId)
+    {
+        if (nodeId == Guid.Empty)
+        {
+            _logger.LogWarning("LeaveDebugGroup mit leerer nodeId aufgerufen");
+            return;
+        }
+
+        var groupName = GetDebugGroupName(nodeId);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+        _logger.LogDebug(
+            "Client {ConnectionId} hat Debug-Gruppe verlassen: {NodeId}",
+            Context.ConnectionId,
+            nodeId);
+    }
+
     #region Group Name Helpers
 
     /// <summary>
@@ -213,6 +258,12 @@ public class SensorHub : Microsoft.AspNetCore.SignalR.Hub
     /// Format: "alerts:{level}"
     /// </summary>
     public static string GetAlertGroupName(int level) => $"alerts:{level}";
+
+    /// <summary>
+    /// Generiert den Gruppennamen für Debug-Logs eines Nodes.
+    /// Format: "debug:{nodeId}"
+    /// </summary>
+    public static string GetDebugGroupName(Guid nodeId) => $"debug:{nodeId}";
 
     #endregion
 }

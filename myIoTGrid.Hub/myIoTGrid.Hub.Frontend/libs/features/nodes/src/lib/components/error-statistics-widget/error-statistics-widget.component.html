@@ -1,0 +1,92 @@
+<mat-card class="stats-card">
+  <mat-card-header>
+    <mat-icon mat-card-avatar class="header-icon" [class]="getHealthStatus()">
+      {{ getHealthIcon() }}
+    </mat-icon>
+    <mat-card-title>Fehlerstatistik</mat-card-title>
+    <mat-card-subtitle>{{ getHealthLabel() }}</mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+    @if (isLoading()) {
+      <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+    } @else if (stats()) {
+      <div class="stats-grid">
+        <!-- Total Logs -->
+        <div class="stat-item">
+          <div class="stat-value">{{ stats()!.totalLogs }}</div>
+          <div class="stat-label">Gesamt</div>
+        </div>
+
+        <!-- Errors -->
+        <div class="stat-item error">
+          <div class="stat-value">{{ stats()!.errorCount }}</div>
+          <div class="stat-label">Fehler</div>
+        </div>
+
+        <!-- Warnings -->
+        <div class="stat-item warning">
+          <div class="stat-value">{{ stats()!.warningCount }}</div>
+          <div class="stat-label">Warnungen</div>
+        </div>
+
+        <!-- Info -->
+        <div class="stat-item info">
+          <div class="stat-value">{{ stats()!.infoCount }}</div>
+          <div class="stat-label">Info</div>
+        </div>
+      </div>
+
+      <!-- Error Rate Bar -->
+      @if (stats()!.totalLogs > 0) {
+        <div class="error-rate-section">
+          <div class="error-rate-header">
+            <span>Fehlerrate</span>
+            <span class="rate-value">{{ getErrorPercentage() }}%</span>
+          </div>
+          <div class="error-rate-bar">
+            <div class="error-rate-fill" [style.width.%]="getErrorPercentage()"></div>
+          </div>
+        </div>
+      }
+
+      <mat-divider></mat-divider>
+
+      <!-- Errors by Category -->
+      @if (getCategoryEntries().length > 0) {
+        <div class="category-section">
+          <h4>Fehler nach Kategorie</h4>
+          @for (entry of getCategoryEntries(); track entry[0]) {
+            <div class="category-row">
+              <span class="category-name">{{ entry[0] }}</span>
+              <span class="category-count">{{ entry[1] }}</span>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Last Error -->
+      @if (stats()!.lastErrorAt) {
+        <div class="last-error-section">
+          <mat-divider></mat-divider>
+          <div class="last-error">
+            <mat-icon>schedule</mat-icon>
+            <div class="last-error-info">
+              <span class="last-error-time">{{ formatDate(stats()!.lastErrorAt) }}</span>
+              <span class="last-error-message" [matTooltip]="stats()!.lastErrorMessage ?? ''">
+                {{ stats()!.lastErrorMessage }}
+              </span>
+            </div>
+          </div>
+        </div>
+      }
+    } @else {
+      <div class="empty-container">
+        <mat-icon>analytics</mat-icon>
+        <span>Keine Statistiken verfügbar</span>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

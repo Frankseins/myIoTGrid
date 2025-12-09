@@ -135,4 +135,47 @@ public class SignalRNotificationService : ISignalRNotificationService
             node.NodeId,
             hubId);
     }
+
+    // === Remote Debug System (Sprint 8) ===
+
+    /// <inheritdoc />
+    public async Task NotifyDebugLogReceivedAsync(NodeDebugLogDto log, CancellationToken ct = default)
+    {
+        var nodeGroup = SensorHub.GetNodeGroupName(log.NodeId);
+        var debugGroup = SensorHub.GetDebugGroupName(log.NodeId);
+
+        // Send to node-specific group
+        await _hubContext.Clients.Group(nodeGroup)
+            .SendAsync("DebugLogReceived", log, ct);
+
+        // Send to debug-specific group (for live log viewer)
+        await _hubContext.Clients.Group(debugGroup)
+            .SendAsync("DebugLogReceived", log, ct);
+
+        _logger.LogDebug(
+            "SignalR DebugLogReceived gesendet: [{Level}] {Category} - {Message} (Node: {NodeId})",
+            log.Level,
+            log.Category,
+            log.Message[..Math.Min(50, log.Message.Length)],
+            log.NodeId);
+    }
+
+    /// <inheritdoc />
+    public async Task NotifyDebugConfigChangedAsync(NodeDebugConfigurationDto config, CancellationToken ct = default)
+    {
+        var nodeGroup = SensorHub.GetNodeGroupName(config.NodeId);
+
+        await _hubContext.Clients.Group(nodeGroup)
+            .SendAsync("DebugConfigChanged", config, ct);
+
+        // Also broadcast to all clients for dashboard updates
+        await _hubContext.Clients.All
+            .SendAsync("DebugConfigChanged", config, ct);
+
+        _logger.LogInformation(
+            "SignalR DebugConfigChanged gesendet: {NodeId} - Level: {Level}, RemoteLogging: {RemoteLogging}",
+            config.NodeId,
+            config.DebugLevel,
+            config.EnableRemoteLogging);
+    }
 }

@@ -59,6 +59,39 @@ public class Node : IEntity
     /// <summary>Whether this node generates simulated sensor values</summary>
     public bool IsSimulation { get; set; } = false;
 
+    // === Offline Storage (Sprint OS-01) ===
+
+    /// <summary>Storage mode for sensor readings</summary>
+    public StorageMode StorageMode { get; set; } = StorageMode.RemoteOnly;
+
+    /// <summary>Number of readings pending sync on the device</summary>
+    public int PendingSyncCount { get; set; } = 0;
+
+    /// <summary>Last successful sync timestamp</summary>
+    public DateTime? LastSyncAt { get; set; }
+
+    /// <summary>Last sync error message (null if no error)</summary>
+    public string? LastSyncError { get; set; }
+
+    // === Remote Debug System (Sprint 8) ===
+
+    /// <summary>Current debug level for this node</summary>
+    public DebugLevel DebugLevel { get; set; } = DebugLevel.Normal;
+
+    /// <summary>Whether remote logging is enabled (logs sent to Hub)</summary>
+    public bool EnableRemoteLogging { get; set; } = false;
+
+    /// <summary>When debug settings were last changed</summary>
+    public DateTime? LastDebugChange { get; set; }
+
+    // === Hardware Status (Sprint 8) ===
+
+    /// <summary>Last hardware status report as JSON</summary>
+    public string? HardwareStatusJson { get; set; }
+
+    /// <summary>When hardware status was last reported</summary>
+    public DateTime? HardwareStatusReportedAt { get; set; }
+
     // === Navigation Properties ===
 
     /// <summary>Hub managing this node</summary>
@@ -72,4 +105,7 @@ public class Node : IEntity
 
     /// <summary>Alerts for this node</summary>
     public ICollection<Alert> Alerts { get; set; } = new List<Alert>();
+
+    /// <summary>Debug logs from this node (Sprint 8)</summary>
+    public ICollection<NodeDebugLog> DebugLogs { get; set; } = new List<NodeDebugLog>();
 }

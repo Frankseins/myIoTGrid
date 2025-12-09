@@ -88,6 +88,22 @@ public class NodeConfiguration : IEntityTypeConfiguration<Node>
             .HasForeignKey(r => r.NodeId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasMany(n => n.DebugLogs)
+            .WithOne(l => l.Node)
+            .HasForeignKey(l => l.NodeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Remote Debug System (Sprint 8)
+        builder.Property(n => n.DebugLevel)
+            .IsRequired()
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(Domain.Enums.DebugLevel.Normal);
+
+        builder.Property(n => n.EnableRemoteLogging)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         // Indexes
         builder.HasIndex(n => n.HubId);
         builder.HasIndex(n => n.NodeId);

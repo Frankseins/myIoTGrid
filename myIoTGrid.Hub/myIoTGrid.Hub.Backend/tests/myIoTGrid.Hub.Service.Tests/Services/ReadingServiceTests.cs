@@ -1281,7 +1281,14 @@ public class ReadingServiceTests : IDisposable
             CreatedAt: DateTime.UtcNow,
             MacAddress: "AA:BB:CC:DD:EE:FF",
             Status: NodeProvisioningStatusDto.Configured,
-            IsSimulation: false
+            IsSimulation: false,
+            StorageMode: StorageModeDto.RemoteOnly,
+            PendingSyncCount: 0,
+            LastSyncAt: null,
+            LastSyncError: null,
+            DebugLevel: DebugLevelDto.Normal,
+            EnableRemoteLogging: false,
+            LastDebugChange: null
         );
     }
 

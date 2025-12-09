@@ -124,6 +124,8 @@ try
     builder.Services.AddScoped<ISeedDataService, SeedDataService>();
     builder.Services.AddScoped<IDashboardService, DashboardService>();
     builder.Services.AddScoped<IChartService, ChartService>();
+    builder.Services.AddScoped<INodeDebugLogService, NodeDebugLogService>();
+    builder.Services.AddScoped<INodeHardwareStatusService, NodeHardwareStatusService>();
 
     // Memory Cache for Sensors
     builder.Services.AddMemoryCache();
@@ -160,6 +162,7 @@ try
     builder.Services.AddHostedService<DataRetentionService>();
     builder.Services.AddHostedService<MatterBridgeService>();
     builder.Services.AddHostedService<DiscoveryService>();
+    builder.Services.AddHostedService<DebugLogCleanupService>();
 
     // Controllers (aus Interface-Projekt)
     builder.Services.AddControllers()
