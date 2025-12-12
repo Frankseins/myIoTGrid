@@ -86,3 +86,34 @@ export interface HubProvisioningSettings {
   apiUrl?: string;
   apiPort: number;
 }
+
+/**
+ * Hub properties for sensor setup (Hub/Cloud selection)
+ * Contains Address, Port, TenantID (GUID), TenantName and Version.
+ */
+export interface HubProperties {
+  address: string;
+  port: number;
+  tenantId: string;
+  tenantName: string;
+  version: string;
+  cloudAddress: string;
+  cloudPort: number;
+}
+
+/**
+ * Sensor target mode - where the sensor sends data
+ */
+export type SensorTargetMode = 'local' | 'cloud';
+
+/**
+ * Sensor target configuration for setup wizard
+ */
+export interface SensorTargetConfig {
+  mode: SensorTargetMode;
+  address: string;
+  port: number;
+  tenantId: string;
+  tenantName: string;
+  useSsl: boolean;
+}

@@ -5,6 +5,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { MatIconModule } from '@angular/material/icon';
 import { SetupWizardService, WizardStep } from '../../services/setup-wizard.service';
 import { WelcomeComponent } from '../welcome/welcome.component';
+import { HubSelectionComponent } from '../hub-selection/hub-selection.component';
 import { BlePairingComponent } from '../ble-pairing/ble-pairing.component';
 import { WifiSetupComponent } from '../wifi-setup/wifi-setup.component';
 import { NodeInfoComponent } from '../node-info/node-info.component';
@@ -26,6 +27,7 @@ interface StepInfo {
     MatStepperModule,
     MatIconModule,
     WelcomeComponent,
+    HubSelectionComponent,
     BlePairingComponent,
     WifiSetupComponent,
     NodeInfoComponent,
@@ -44,9 +46,10 @@ export class SetupWizardComponent {
 
   readonly steps: StepInfo[] = [
     { step: 'welcome', label: 'Start', icon: 'play_circle' },
+    { step: 'hub-selection', label: 'Ziel', icon: 'cloud_sync' },
     { step: 'ble-pairing', label: 'BLE', icon: 'bluetooth' },
-    { step: 'wifi-setup', label: 'WiFi', icon: 'wifi' },
     { step: 'node-info', label: 'Info', icon: 'settings' },
+    { step: 'wifi-setup', label: 'WiFi', icon: 'wifi' },
     { step: 'first-sensor', label: 'Sensor', icon: 'sensors' },
     { step: 'success', label: 'Fertig', icon: 'check_circle' }
   ];

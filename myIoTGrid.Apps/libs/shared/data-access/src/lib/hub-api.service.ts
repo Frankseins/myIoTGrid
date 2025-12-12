@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { Hub, HubStatus, HubProvisioningSettings, Node, UpdateHubDto } from '@myiotgrid/shared/models';
+import { Hub, HubStatus, HubProvisioningSettings, HubProperties, Node, UpdateHubDto } from '@myiotgrid/shared/models';
 
 /**
  * API Service for Hub management
@@ -51,6 +51,15 @@ export class HubApiService extends BaseApiService {
    */
   getProvisioningSettings(): Observable<HubProvisioningSettings> {
     return this.get<HubProvisioningSettings>(`${this.endpoint}/provisioning-settings`);
+  }
+
+  /**
+   * Get Hub properties for sensor setup (Hub/Cloud selection)
+   * Contains Address, Port, TenantID (GUID), TenantName and Version.
+   * GET /api/hub/properties
+   */
+  getProperties(): Observable<HubProperties> {
+    return this.get<HubProperties>(`${this.endpoint}/properties`);
   }
 
   // === Legacy API (for compatibility) ===

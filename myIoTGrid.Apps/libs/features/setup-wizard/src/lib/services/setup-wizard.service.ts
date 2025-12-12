@@ -1,11 +1,11 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
-import { Node, CreateNodeDto, CreateSensorDto, Protocol } from '@myiotgrid/shared/models';
+import { Node, CreateNodeDto, CreateSensorDto, Protocol, SensorTargetConfig } from '@myiotgrid/shared/models';
 
 /**
  * Wizard step identifiers
  */
-export type WizardStep = 'welcome' | 'ble-pairing' | 'wifi-setup' | 'node-info' | 'first-sensor' | 'success';
+export type WizardStep = 'welcome' | 'hub-selection' | 'ble-pairing' | 'wifi-setup' | 'node-info' | 'first-sensor' | 'success';
 
 /**
  * BLE device info from scanning
@@ -49,6 +49,7 @@ export interface NodeInfo {
  */
 export interface WizardState {
   currentStep: WizardStep;
+  targetConfig: SensorTargetConfig | null;
   bleDevice: BleDevice | null;
   wifiCredentials: WifiCredentials | null;
   nodeInfo: NodeInfo | null;
@@ -60,6 +61,7 @@ export interface WizardState {
 
 const INITIAL_STATE: WizardState = {
   currentStep: 'welcome',
+  targetConfig: null,
   bleDevice: null,
   wifiCredentials: null,
   nodeInfo: null,
@@ -71,6 +73,7 @@ const INITIAL_STATE: WizardState = {
 
 const STEP_ORDER: WizardStep[] = [
   'welcome',
+  'hub-selection',  // NEW: Hub/Cloud selection BEFORE BLE pairing
   'ble-pairing',
   'node-info',      // Node info BEFORE wifi-setup so node can be created first
   'wifi-setup',
@@ -90,6 +93,7 @@ export class SetupWizardService {
   // Public selectors
   readonly state = this._state.asReadonly();
   readonly currentStep = computed(() => this._state().currentStep);
+  readonly targetConfig = computed(() => this._state().targetConfig);
   readonly bleDevice = computed(() => this._state().bleDevice);
   readonly wifiCredentials = computed(() => this._state().wifiCredentials);
   readonly nodeInfo = computed(() => this._state().nodeInfo);
@@ -145,6 +149,17 @@ export class SetupWizardService {
     if (currentIndex > 0) {
       this.goToStep(STEP_ORDER[currentIndex - 1]);
     }
+  }
+
+  /**
+   * Save target configuration (Hub or Cloud)
+   */
+  setTargetConfig(config: SensorTargetConfig): void {
+    this._state.update(state => ({
+      ...state,
+      targetConfig: config,
+      error: null
+    }));
   }
 
   /**

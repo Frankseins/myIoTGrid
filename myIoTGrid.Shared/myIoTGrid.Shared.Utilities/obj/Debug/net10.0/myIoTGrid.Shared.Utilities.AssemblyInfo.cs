@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("Extension methods and utilities shared between Hub and Cloud")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+de854514e0a3b598976c4cfb88d15148ae761300")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6fe571327128986645ea6a1dbefa8128a99c8bb6")]
 [assembly: System.Reflection.AssemblyProductAttribute("myIoTGrid.Shared.Utilities")]
 [assembly: System.Reflection.AssemblyTitleAttribute("myIoTGrid.Shared.Utilities")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
