@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("Common DTOs, Enums, and Constants shared between Hub and Cloud")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6fe571327128986645ea6a1dbefa8128a99c8bb6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1589ee5b243e0abcf14c7608718353e92d6376bd")]
 [assembly: System.Reflection.AssemblyProductAttribute("myIoTGrid.Shared.Common")]
 [assembly: System.Reflection.AssemblyTitleAttribute("myIoTGrid.Shared.Common")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

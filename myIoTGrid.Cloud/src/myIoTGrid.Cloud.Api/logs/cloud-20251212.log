@@ -96,3 +96,49 @@
 2025-12-12 09:10:56.674 +01:00 [INF] GET /swagger/favicon-32x32.png responded 200 in 1.1738 ms
 2025-12-12 09:10:56.701 +01:00 [INF] GET /swagger/v1/swagger.json responded 200 in 33.8058 ms
 2025-12-12 09:11:55.021 +01:00 [INF] GET /api/Readings/latest responded 200 in 597.8590 ms
+2025-12-12 09:49:26.160 +01:00 [INF] Starting myIoTGrid Cloud API...
+2025-12-12 09:49:26.884 +01:00 [INF] Applying database migrations...
+2025-12-12 09:49:27.212 +01:00 [WRN] The entity type 'Node.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 09:49:27.215 +01:00 [WRN] The entity type 'SyncedNode.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 09:49:27.217 +01:00 [WRN] The 'DebugLevel' property 'DebugLevel' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Production', since this is the CLR default for the 'DebugLevel' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 09:49:27.217 +01:00 [WRN] The 'Protocol' property 'Protocol' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Unknown', since this is the CLR default for the 'Protocol' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 09:49:29.762 +01:00 [INF] myIoTGrid Cloud API started successfully
+2025-12-12 09:49:29.762 +01:00 [INF] Swagger UI available at: /swagger
+2025-12-12 09:49:29.762 +01:00 [INF] SignalR Hub available at: /hubs/sensors
+2025-12-12 09:49:29.770 +01:00 [INF] SeedDataHostedService starting...
+2025-12-12 09:49:29.770 +01:00 [INF] Applying database migrations...
+2025-12-12 09:49:30.723 +01:00 [INF] Database migrations applied successfully
+2025-12-12 09:49:30.730 +01:00 [INF] Starting seed data process...
+2025-12-12 09:49:31.083 +01:00 [INF] Default tenant ensured
+2025-12-12 09:49:31.487 +01:00 [INF] Default Hub ensured
+2025-12-12 09:49:31.628 +01:00 [INF] Default alert types seeded
+2025-12-12 09:49:32.095 +01:00 [INF] Default sensors seeded
+2025-12-12 09:49:32.095 +01:00 [INF] Seed data process completed
+2025-12-12 09:49:32.095 +01:00 [INF] SeedDataHostedService completed successfully
+2025-12-12 09:49:32.097 +01:00 [INF] DataRetentionService started. Interval: 24h, Retention: 30 days
+2025-12-12 09:49:42.919 +01:00 [INF] GET /swagger/v1/swagger.json responded 200 in 149.3826 ms
+2025-12-12 09:51:28.482 +01:00 [INF] POST /hubs/sensors/negotiate responded 200 in 16.6758 ms
+2025-12-12 09:51:28.572 +01:00 [INF] Client verbunden: AN8PKcSW9e12mXAiw21Qew (Tenant: "00000000-0000-0000-0000-000000000001")
+2025-12-12 09:51:28.945 +01:00 [INF] GET /api/dashboard/filter-options responded 200 in 337.1261 ms
+2025-12-12 09:51:29.018 +01:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2025-12-12 09:51:29.173 +01:00 [INF] GET /api/alerts responded 200 in 184.8628 ms
+2025-12-12 09:51:30.269 +01:00 [INF] GET /api/dashboard/widgets responded 200 in 1280.8783 ms
+2025-12-12 09:51:41.925 +01:00 [INF] GET /api/alerts responded 200 in 132.3918 ms
+2025-12-12 09:51:42.915 +01:00 [INF] GET /api/sensors/paged responded 200 in 408.0118 ms
+2025-12-12 09:51:43.253 +01:00 [INF] GET /api/sensors/paged responded 200 in 287.5956 ms
+2025-12-12 09:51:44.689 +01:00 [INF] GET /api/nodes responded 200 in 175.2447 ms
+2025-12-12 09:51:44.693 +01:00 [INF] GET /api/hub responded 200 in 178.6535 ms
+2025-12-12 09:51:47.605 +01:00 [INF] Client getrennt: AN8PKcSW9e12mXAiw21Qew
+2025-12-12 09:51:47.607 +01:00 [INF] GET /hubs/sensors responded 101 in 19052.7092 ms
+2025-12-12 09:51:47.835 +01:00 [INF] POST /hubs/sensors/negotiate responded 200 in 1.0499 ms
+2025-12-12 09:51:47.938 +01:00 [INF] Client verbunden: 3wpr6NQHz-t_kg4-34KX6A (Tenant: "00000000-0000-0000-0000-000000000001")
+2025-12-12 09:51:48.142 +01:00 [INF] GET /api/hub responded 200 in 155.9060 ms
+2025-12-12 09:51:48.142 +01:00 [INF] GET /api/nodes responded 200 in 155.9455 ms
+2025-12-12 09:51:52.146 +01:00 [INF] GET /api/hub/properties responded 200 in 6.0297 ms
+2025-12-12 09:52:07.836 +01:00 [INF] Client getrennt: 3wpr6NQHz-t_kg4-34KX6A
+2025-12-12 09:52:07.837 +01:00 [INF] GET /hubs/sensors responded 101 in 19948.0605 ms
+2025-12-12 09:54:32.084 +01:00 [INF] Starting data retention cleanup. Removing data older than 2025-11-12 08:54:32Z
+2025-12-12 09:54:33.180 +01:00 [INF] Deleted 0 synced readings older than 30 days
+2025-12-12 09:54:33.311 +01:00 [INF] Deleted 0 acknowledged alerts older than 30 days
+2025-12-12 09:54:33.443 +01:00 [INF] Deleted 0 inactive alerts older than 30 days
+2025-12-12 09:54:33.602 +01:00 [INF] Data retention cleanup completed. Total deleted: Readings=0, Alerts=0

@@ -213,21 +213,51 @@ try
     });
 
     // =============================================================================
-    // DATABASE MIGRATION (Auto-migrate in development)
+    // DATABASE MIGRATION (with retry for container startup)
     // =============================================================================
-    using (var scope = app.Services.CreateScope())
+    var maxRetries = 5;
+    var retryDelaySeconds = 5;
+
+    for (var retry = 0; retry < maxRetries; retry++)
     {
-        var context = scope.ServiceProvider.GetRequiredService<CloudDbContext>();
-        
-        if (app.Environment.IsDevelopment())
+        try
         {
-            Log.Information("Applying database migrations...");
-            await context.Database.MigrateAsync();
+            using var scope = app.Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<CloudDbContext>();
+
+            // Test database connection first
+            Log.Information("Testing database connection (attempt {Attempt}/{MaxRetries})...", retry + 1, maxRetries);
+            if (!await context.Database.CanConnectAsync())
+            {
+                throw new Exception("Database connection test failed");
+            }
+
+            if (app.Environment.IsDevelopment())
+            {
+                Log.Information("Applying database migrations...");
+                await context.Database.MigrateAsync();
+            }
+            else
+            {
+                // In production, ensure database exists and apply migrations
+                Log.Information("Applying database migrations...");
+                await context.Database.MigrateAsync();
+            }
+
+            Log.Information("Database connection established successfully");
+            break; // Success, exit retry loop
         }
-        else
+        catch (Exception ex) when (retry < maxRetries - 1)
         {
-            // In production, just ensure database exists
-            await context.Database.EnsureCreatedAsync();
+            Log.Warning("Database connection failed (attempt {Attempt}/{MaxRetries}): {Error}. Retrying in {Delay}s...",
+                retry + 1, maxRetries, ex.Message, retryDelaySeconds);
+            await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Database connection failed after {MaxRetries} attempts. Application will continue without database.", maxRetries);
+            // Don't throw - let the app start and fail on first DB request
+            // This allows health checks and swagger to work
         }
     }
 

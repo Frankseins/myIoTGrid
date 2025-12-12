@@ -1,0 +1,194 @@
+<div class="hub-selection-container">
+  <mat-card class="hub-selection-card">
+    <mat-card-header>
+      <mat-icon mat-card-avatar class="wizard-icon">cloud_sync</mat-icon>
+      <mat-card-title>Ziel auswählen</mat-card-title>
+      <mat-card-subtitle>Hub oder Cloud</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (isLoading()) {
+        <div class="loading-container">
+          <mat-spinner diameter="48"></mat-spinner>
+          <p>Hub-Eigenschaften werden geladen...</p>
+        </div>
+      } @else if (error()) {
+        <div class="error-container">
+          <mat-icon class="error-icon">error_outline</mat-icon>
+          <p class="error-message">{{ error() }}</p>
+          <button mat-stroked-button color="primary" (click)="retry()">
+            <mat-icon>refresh</mat-icon>
+            Erneut versuchen
+          </button>
+        </div>
+      } @else {
+        <div class="intro-section">
+          <p class="intro-text">
+            Wählen Sie aus, wohin der Sensor seine Daten senden soll.
+            Die Tenant-ID wird vom Hub übernommen und ermöglicht später das Zusammenführen lokaler und Cloud-Daten.
+          </p>
+        </div>
+
+        <!-- Tenant Info -->
+        <div class="tenant-info">
+          <mat-icon>badge</mat-icon>
+          <div class="tenant-details">
+            <span class="tenant-label">Sensor wird Tenant zugeordnet:</span>
+            <span class="tenant-name">{{ tenantName() }}</span>
+            <span class="tenant-id">ID: {{ tenantIdShort() }}</span>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Selection Options -->
+        <div class="selection-section">
+          <h3 class="section-title">
+            <mat-icon>settings_input_component</mat-icon>
+            Daten senden an:
+          </h3>
+
+          <div class="options-container">
+            <!-- Local Hub Option -->
+            <div
+              class="option-card"
+              [class.selected]="selectedMode() === 'local'"
+              (click)="selectMode('local')"
+              (keydown.enter)="selectMode('local')"
+              (keydown.space)="selectMode('local')"
+              tabindex="0"
+              role="radio"
+              [attr.aria-checked]="selectedMode() === 'local'"
+            >
+              <div class="option-header">
+                <mat-icon class="option-icon local">home</mat-icon>
+                <div class="option-title">
+                  <span class="title">Lokaler Hub</span>
+                  <span class="subtitle">Daten bleiben im lokalen Netzwerk</span>
+                </div>
+                @if (selectedMode() === 'local') {
+                  <mat-icon class="check-icon">check_circle</mat-icon>
+                }
+              </div>
+
+              <div class="option-content">
+                <ul class="feature-list">
+                  <li><mat-icon>speed</mat-icon> Schnellste Reaktionszeit</li>
+                  <li><mat-icon>wifi_off</mat-icon> Funktioniert offline</li>
+                  <li><mat-icon>lock</mat-icon> Volle Datenkontrolle</li>
+                </ul>
+              </div>
+
+              @if (selectedMode() === 'local') {
+                <div class="address-config">
+                  <mat-form-field appearance="outline" class="address-field">
+                    <mat-label>Hub-Adresse</mat-label>
+                    <input
+                      matInput
+                      [ngModel]="localAddress()"
+                      (ngModelChange)="onAddressChange($event)"
+                      placeholder="https://192.168.1.100"
+                    >
+                    <mat-hint>z.B. https://192.168.1.100</mat-hint>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="port-field">
+                    <mat-label>Port</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      [ngModel]="localPort()"
+                      (ngModelChange)="onPortChange($event)"
+                      placeholder="5001"
+                    >
+                  </mat-form-field>
+                </div>
+              }
+            </div>
+
+            <!-- Cloud Option -->
+            <div
+              class="option-card"
+              [class.selected]="selectedMode() === 'cloud'"
+              (click)="selectMode('cloud')"
+              (keydown.enter)="selectMode('cloud')"
+              (keydown.space)="selectMode('cloud')"
+              tabindex="0"
+              role="radio"
+              [attr.aria-checked]="selectedMode() === 'cloud'"
+            >
+              <div class="option-header">
+                <mat-icon class="option-icon cloud">cloud</mat-icon>
+                <div class="option-title">
+                  <span class="title">myIoTGrid Cloud</span>
+                  <span class="subtitle">Daten werden an die Cloud gesendet</span>
+                </div>
+                @if (selectedMode() === 'cloud') {
+                  <mat-icon class="check-icon">check_circle</mat-icon>
+                }
+              </div>
+
+              <div class="option-content">
+                <ul class="feature-list">
+                  <li><mat-icon>psychology</mat-icon> KI-Analyse & Alerts</li>
+                  <li><mat-icon>devices</mat-icon> Zugriff von überall</li>
+                  <li><mat-icon>backup</mat-icon> Automatisches Backup</li>
+                </ul>
+              </div>
+
+              @if (selectedMode() === 'cloud') {
+                <div class="address-info">
+                  <div class="fixed-address">
+                    <mat-icon>link</mat-icon>
+                    <span>{{ cloudAddress() }}:{{ cloudPort() }}</span>
+                    <mat-icon class="ssl-icon" matTooltip="SSL-verschlüsselt">lock</mat-icon>
+                  </div>
+                  <span class="address-note">Adresse ist fest und kann nicht geändert werden</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Selected Summary -->
+        @if (targetConfig(); as config) {
+          <div class="summary-section">
+            <mat-divider></mat-divider>
+            <div class="summary-content">
+              <mat-icon>info</mat-icon>
+              <div class="summary-text">
+                <span class="summary-title">Gewählte Konfiguration:</span>
+                <span class="summary-details">
+                  {{ config.mode === 'local' ? 'Lokaler Hub' : 'Cloud' }} -
+                  {{ config.address }}:{{ config.port }}
+                  @if (config.useSsl) {
+                    <mat-icon class="inline-icon">lock</mat-icon>
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+        }
+      }
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      <button mat-button (click)="onCancel()">
+        Abbrechen
+      </button>
+      <button mat-button (click)="onBack()">
+        <mat-icon>arrow_back</mat-icon>
+        Zurück
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        [disabled]="!canContinue()"
+        (click)="onContinue()"
+      >
+        <mat-icon>arrow_forward</mat-icon>
+        Weiter
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

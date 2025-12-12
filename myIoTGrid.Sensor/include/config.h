@@ -5,7 +5,7 @@
 
 // Firmware Version
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.9.3"  // Fix: DS18B20 85°C power-on reset value - wait for conversion
+#define FIRMWARE_VERSION "1.10.0"  // Add Cloud mode support - skip discovery for cloud target
 #endif
 
 // Hardware Type
@@ -21,10 +21,19 @@
 // Default Hub Configuration
 namespace config {
 
-// Hub API Configuration
+// Hub API Configuration (Local Mode)
 constexpr const char* DEFAULT_HUB_HOST = "localhost";
 constexpr int DEFAULT_HUB_PORT = 5001;           // HTTPS port
 constexpr const char* DEFAULT_HUB_PROTOCOL = "https";
+
+// Cloud API Configuration (Cloud Mode)
+constexpr const char* CLOUD_API_URL = "https://api.myiotgrid.cloud";
+constexpr int CLOUD_API_PORT = 443;
+constexpr const char* CLOUD_API_PROTOCOL = "https";
+
+// Target Modes
+constexpr const char* TARGET_MODE_LOCAL = "local";
+constexpr const char* TARGET_MODE_CLOUD = "cloud";
 
 // WiFi Configuration (ESP32 only)
 constexpr const char* DEFAULT_WIFI_SSID = "";
