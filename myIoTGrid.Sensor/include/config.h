@@ -5,7 +5,7 @@
 
 // Firmware Version
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.10.2"  // Fix: No HTTP fallback for cloud URLs, no port for HTTPS
+#define FIRMWARE_VERSION "1.10.3"  // Fix: Increased HTTP timeout for Azure, fixed BLE double -SETUP suffix
 #endif
 
 // Hardware Type
@@ -42,7 +42,7 @@ constexpr const char* DEFAULT_WIFI_PASSWORD = "";
 // Timing Configuration
 constexpr uint32_t DEFAULT_INTERVAL_SECONDS = 60;
 constexpr uint32_t REGISTRATION_RETRY_DELAY_MS = 5000;
-constexpr uint32_t HTTP_TIMEOUT_MS = 10000;
+constexpr uint32_t HTTP_TIMEOUT_MS = 30000;  // 30s for HTTPS/TLS to Azure
 constexpr int HTTP_RETRY_COUNT = 3;
 
 // Discovery Configuration

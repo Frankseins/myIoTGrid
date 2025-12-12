@@ -198,7 +198,12 @@ bool BLEProvisioningService::startForReProvisioning() {
         _advertising_active = false;
 
         // Create new device name with -SETUP suffix
-        String reProvisioningName = _deviceName + "-SETUP";
+        // IMPORTANT: Strip existing -SETUP suffix to prevent double suffix bug
+        String baseName = _deviceName;
+        if (baseName.endsWith("-SETUP")) {
+            baseName = baseName.substring(0, baseName.length() - 6);
+        }
+        String reProvisioningName = baseName + "-SETUP";
         Serial.printf("[BLE] Re-initializing with name: %s\n", reProvisioningName.c_str());
 
         // NimBLE doesn't support changing device name without deinit

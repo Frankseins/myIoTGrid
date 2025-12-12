@@ -97,6 +97,7 @@ try
     builder.Services.AddScoped<ISeedDataService, SeedDataService>();
     builder.Services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
     builder.Services.AddScoped<INodeDebugLogService, NodeDebugLogService>();
+    builder.Services.AddScoped<INodeHardwareStatusService, NodeHardwareStatusService>();
 
     // =============================================================================
     // VALIDATION (FluentValidation)

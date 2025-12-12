@@ -3,6 +3,7 @@
  */
 
 #include "api_client.h"
+#include "config.h"
 #include <ArduinoJson.h>
 #include <vector>
 #ifdef PLATFORM_NATIVE
@@ -27,7 +28,7 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::stri
 #endif
 
 ApiClient::ApiClient()
-    : _timeout(10000)
+    : _timeout(config::HTTP_TIMEOUT_MS)  // Use config value (30s for HTTPS/TLS)
     , _configured(false) {
 }
 
