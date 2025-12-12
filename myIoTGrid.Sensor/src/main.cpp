@@ -2377,7 +2377,12 @@ void setup() {
         StoredConfig config = configManager.loadConfig();
         if (config.isValid) {
             Serial.printf("[Main] NodeID: %s\n", config.nodeId.c_str());
-            Serial.printf("[Main] Hub URL: %s\n", config.hubApiUrl.c_str());
+            // For Cloud mode: show the firmware constant URL (not stored URL)
+            if (config.isCloudMode()) {
+                Serial.printf("[Main] Target: CLOUD (%s)\n", config::CLOUD_API_URL);
+            } else {
+                Serial.printf("[Main] Hub URL: %s\n", config.hubApiUrl.c_str());
+            }
 
             // We have config - go directly to CONFIGURED state
             stateMachine.processEvent(StateEvent::CONFIG_FOUND);

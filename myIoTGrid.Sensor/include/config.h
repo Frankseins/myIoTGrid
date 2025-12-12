@@ -5,7 +5,7 @@
 
 // Firmware Version
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.10.6"  // Cloud mode: always use firmware constant URL, not stored URL
+#define FIRMWARE_VERSION "1.10.7"  // Fix: Setup log now shows correct Cloud URL constant
 #endif
 
 // Hardware Type
