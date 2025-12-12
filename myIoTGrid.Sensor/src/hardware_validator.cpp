@@ -7,6 +7,8 @@
 
 #ifdef PLATFORM_ESP32
 #include <Wire.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #endif
 
 // Static member initialization
@@ -174,15 +176,43 @@ bool HardwareValidator::validateI2CSensor(const SensorAssignmentConfig& sensor, 
 
 bool HardwareValidator::validateOneWireSensor(const SensorAssignmentConfig& sensor, SensorValidationResult& result) {
 #ifdef PLATFORM_ESP32
-    // OneWire validation would require DallasTemperature library
-    // For now, just check if pin is valid
-    if (sensor.oneWirePin >= 0 && sensor.oneWirePin <= 39) {
-        result.isValid = true;
-        result.status = "PIN_VALID";
-        result.detectedType = sensor.sensorCode;
-        return true;
+    // Check if pin is valid first
+    if (sensor.oneWirePin < 0 || sensor.oneWirePin > 39) {
+        result.status = "INVALID_PIN";
+        return false;
     }
-    result.status = "INVALID_PIN";
+
+    // Actually scan the OneWire bus to verify DS18B20 presence
+    DBG_DEBUG(LogCategory::HARDWARE, "Scanning OneWire on pin %d for DS18B20...", sensor.oneWirePin);
+
+    OneWire oneWire(sensor.oneWirePin);
+    DallasTemperature sensors(&oneWire);
+
+    // Give the bus time to stabilize after creating the OneWire instance
+    delay(10);
+
+    sensors.begin();
+
+    int deviceCount = sensors.getDeviceCount();
+    DBG_DEBUG(LogCategory::HARDWARE, "OneWire pin %d: %d device(s) found", sensor.oneWirePin, deviceCount);
+
+    if (deviceCount > 0) {
+        // Verify we can get a valid address (family code 0x28 = DS18B20)
+        DeviceAddress addr;
+        if (sensors.getAddress(addr, 0)) {
+            if (addr[0] == 0x28 || addr[0] == 0x10 || addr[0] == 0x22 || addr[0] == 0x3B) {
+                result.isValid = true;
+                result.status = "OK";
+                result.detectedType = sensor.sensorCode;
+                DBG_DEBUG(LogCategory::HARDWARE, "DS18B20 confirmed on pin %d (family: 0x%02X)", sensor.oneWirePin, addr[0]);
+                return true;
+            }
+        }
+    }
+
+    // Device not found on this pin
+    result.status = "NOT_FOUND";
+    DBG_DEBUG(LogCategory::HARDWARE, "No DS18B20 found on pin %d", sensor.oneWirePin);
     return false;
 #else
     result.isValid = true;

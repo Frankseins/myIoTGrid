@@ -4,6 +4,7 @@ using HealthChecks.NpgSql;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using myIoTGrid.Cloud.Infrastructure.Data;
+using myIoTGrid.Cloud.Infrastructure.Matter;
 using myIoTGrid.Cloud.Infrastructure.Repositories;
 using myIoTGrid.Cloud.Interface.BackgroundServices;
 using myIoTGrid.Cloud.Interface.Hubs;
@@ -52,14 +53,25 @@ try
         }));
 
     // =============================================================================
+    // CACHING
+    // =============================================================================
+    builder.Services.AddMemoryCache();
+
+    // =============================================================================
     // REPOSITORIES
     // =============================================================================
     builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
     // =============================================================================
+    // INFRASTRUCTURE SERVICES
+    // =============================================================================
+    builder.Services.AddSingleton<IMatterBridgeClient, NoOpMatterBridgeClient>();
+
+    // =============================================================================
     // SERVICES
     // =============================================================================
     builder.Services.AddScoped<ITenantService, TenantService>();
+    builder.Services.AddScoped<IEffectiveConfigService, EffectiveConfigService>();
     builder.Services.AddScoped<IHubService, HubService>();
     builder.Services.AddScoped<INodeService, NodeService>();
     builder.Services.AddScoped<ISensorService, SensorService>();
@@ -71,6 +83,7 @@ try
     builder.Services.AddScoped<IChartService, ChartService>();
     builder.Services.AddScoped<ISeedDataService, SeedDataService>();
     builder.Services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
+    builder.Services.AddScoped<INodeDebugLogService, NodeDebugLogService>();
 
     // =============================================================================
     // VALIDATION (FluentValidation)
@@ -88,7 +101,11 @@ try
     // SWAGGER / OPENAPI
     // =============================================================================
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        // Custom schema IDs to avoid conflicts with nested types
+        options.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
+    });
 
     // =============================================================================
     // CORS
@@ -134,13 +151,31 @@ try
     // Exception Handling
     app.UseMiddleware<ExceptionMiddleware>();
 
-    // Swagger (Development + Production)
+    // Swagger
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "myIoTGrid Cloud API v1");
         options.RoutePrefix = "swagger";
     });
+
+    // Debug endpoint for Swagger errors (only in Development)
+    if (app.Environment.IsDevelopment())
+    {
+        app.MapGet("/swagger-debug", (IServiceProvider sp) =>
+        {
+            try
+            {
+                var generator = sp.GetRequiredService<Swashbuckle.AspNetCore.Swagger.ISwaggerProvider>();
+                var swagger = generator.GetSwagger("v1");
+                return Results.Ok(new { success = true, message = "Swagger generated successfully" });
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(new { success = false, error = ex.Message, stackTrace = ex.StackTrace });
+            }
+        });
+    }
 
     // CORS
     app.UseCors();

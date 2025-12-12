@@ -1,0 +1,98 @@
+2025-12-12 08:57:17.780 +01:00 [INF] Starting myIoTGrid Cloud API...
+2025-12-12 08:57:19.173 +01:00 [INF] Applying database migrations...
+2025-12-12 08:57:19.537 +01:00 [WRN] The entity type 'Node.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 08:57:19.539 +01:00 [WRN] The entity type 'SyncedNode.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 08:57:19.541 +01:00 [WRN] The 'DebugLevel' property 'DebugLevel' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Production', since this is the CLR default for the 'DebugLevel' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 08:57:19.541 +01:00 [WRN] The 'Protocol' property 'Protocol' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Unknown', since this is the CLR default for the 'Protocol' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 08:57:21.879 +01:00 [INF] myIoTGrid Cloud API started successfully
+2025-12-12 08:57:21.879 +01:00 [INF] Swagger UI available at: /swagger
+2025-12-12 08:57:21.879 +01:00 [INF] SignalR Hub available at: /hubs/sensors
+2025-12-12 08:57:21.887 +01:00 [INF] SeedDataHostedService starting...
+2025-12-12 08:57:21.887 +01:00 [INF] Applying database migrations...
+2025-12-12 08:57:22.757 +01:00 [INF] Database migrations applied successfully
+2025-12-12 08:57:22.760 +01:00 [INF] Starting seed data process...
+2025-12-12 08:57:23.114 +01:00 [INF] Default tenant ensured
+2025-12-12 08:57:23.505 +01:00 [INF] Default Hub ensured
+2025-12-12 08:57:23.636 +01:00 [INF] Default alert types seeded
+2025-12-12 08:57:24.059 +01:00 [INF] Default sensors seeded
+2025-12-12 08:57:24.059 +01:00 [INF] Seed data process completed
+2025-12-12 08:57:24.059 +01:00 [INF] SeedDataHostedService completed successfully
+2025-12-12 08:57:24.063 +01:00 [INF] DataRetentionService started. Interval: 24h, Retention: 30 days
+2025-12-12 08:57:37.879 +01:00 [INF] Starting myIoTGrid Cloud API...
+2025-12-12 08:57:38.552 +01:00 [INF] Applying database migrations...
+2025-12-12 08:57:38.867 +01:00 [WRN] The entity type 'Node.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 08:57:38.870 +01:00 [WRN] The entity type 'SyncedNode.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 08:57:38.872 +01:00 [WRN] The 'DebugLevel' property 'DebugLevel' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Production', since this is the CLR default for the 'DebugLevel' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 08:57:38.872 +01:00 [WRN] The 'Protocol' property 'Protocol' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Unknown', since this is the CLR default for the 'Protocol' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 08:57:41.129 +01:00 [INF] myIoTGrid Cloud API started successfully
+2025-12-12 08:57:41.129 +01:00 [INF] Swagger UI available at: /swagger
+2025-12-12 08:57:41.129 +01:00 [INF] SignalR Hub available at: /hubs/sensors
+2025-12-12 08:57:41.138 +01:00 [INF] SeedDataHostedService starting...
+2025-12-12 08:57:41.138 +01:00 [INF] Applying database migrations...
+2025-12-12 08:57:41.984 +01:00 [INF] Database migrations applied successfully
+2025-12-12 08:57:41.988 +01:00 [INF] Starting seed data process...
+2025-12-12 08:57:42.319 +01:00 [INF] Default tenant ensured
+2025-12-12 08:57:42.691 +01:00 [INF] Default Hub ensured
+2025-12-12 08:57:42.819 +01:00 [INF] Default alert types seeded
+2025-12-12 08:57:43.240 +01:00 [INF] Default sensors seeded
+2025-12-12 08:57:43.240 +01:00 [INF] Seed data process completed
+2025-12-12 08:57:43.240 +01:00 [INF] SeedDataHostedService completed successfully
+2025-12-12 08:57:43.242 +01:00 [INF] DataRetentionService started. Interval: 24h, Retention: 30 days
+2025-12-12 09:02:18.302 +01:00 [INF] Starting myIoTGrid Cloud API...
+2025-12-12 09:02:18.806 +01:00 [INF] Applying database migrations...
+2025-12-12 09:02:19.135 +01:00 [WRN] The entity type 'Node.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 09:02:19.138 +01:00 [WRN] The entity type 'SyncedNode.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 09:02:19.140 +01:00 [WRN] The 'DebugLevel' property 'DebugLevel' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Production', since this is the CLR default for the 'DebugLevel' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 09:02:19.140 +01:00 [WRN] The 'Protocol' property 'Protocol' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Unknown', since this is the CLR default for the 'Protocol' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 09:02:21.616 +01:00 [INF] myIoTGrid Cloud API started successfully
+2025-12-12 09:02:21.616 +01:00 [INF] Swagger UI available at: /swagger
+2025-12-12 09:02:21.616 +01:00 [INF] SignalR Hub available at: /hubs/sensors
+2025-12-12 09:02:21.623 +01:00 [INF] SeedDataHostedService starting...
+2025-12-12 09:02:21.623 +01:00 [INF] Applying database migrations...
+2025-12-12 09:02:22.538 +01:00 [INF] Database migrations applied successfully
+2025-12-12 09:02:22.545 +01:00 [INF] Starting seed data process...
+2025-12-12 09:02:22.889 +01:00 [INF] Default tenant ensured
+2025-12-12 09:02:23.281 +01:00 [INF] Default Hub ensured
+2025-12-12 09:02:23.417 +01:00 [INF] Default alert types seeded
+2025-12-12 09:02:23.861 +01:00 [INF] Default sensors seeded
+2025-12-12 09:02:23.861 +01:00 [INF] Seed data process completed
+2025-12-12 09:02:23.861 +01:00 [INF] SeedDataHostedService completed successfully
+2025-12-12 09:02:23.863 +01:00 [INF] DataRetentionService started. Interval: 24h, Retention: 30 days
+2025-12-12 09:07:23.874 +01:00 [INF] Starting data retention cleanup. Removing data older than 2025-11-12 08:07:23Z
+2025-12-12 09:07:24.956 +01:00 [INF] Deleted 0 synced readings older than 30 days
+2025-12-12 09:07:25.095 +01:00 [INF] Deleted 0 acknowledged alerts older than 30 days
+2025-12-12 09:07:25.226 +01:00 [INF] Deleted 0 inactive alerts older than 30 days
+2025-12-12 09:07:25.385 +01:00 [INF] Data retention cleanup completed. Total deleted: Readings=0, Alerts=0
+2025-12-12 09:08:50.370 +01:00 [INF] Starting myIoTGrid Cloud API...
+2025-12-12 09:08:51.008 +01:00 [INF] Applying database migrations...
+2025-12-12 09:08:51.339 +01:00 [WRN] The entity type 'Node.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 09:08:51.342 +01:00 [WRN] The entity type 'SyncedNode.Location#Location' is an optional dependent using table sharing without any required non shared column that could be used to identify whether the entity exists. If all nullable properties contain a 'null' value in database then an object instance won't be created in the query. Add a required property to create instances with 'null' values for other properties or mark the incoming navigation as required to always create an instance.
+2025-12-12 09:08:51.344 +01:00 [WRN] The 'DebugLevel' property 'DebugLevel' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Production', since this is the CLR default for the 'DebugLevel' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 09:08:51.344 +01:00 [WRN] The 'Protocol' property 'Protocol' on entity type 'Node' is configured with a database-generated default, but has no configured sentinel value. The database-generated default will always be used for inserts when the property has the value 'Unknown', since this is the CLR default for the 'Protocol' type. Consider using a nullable type, using a nullable backing field, or setting the sentinel value for the property to ensure the database default is used when, and only when, appropriate. See https://aka.ms/efcore-docs-default-values for more information.
+2025-12-12 09:08:53.814 +01:00 [INF] myIoTGrid Cloud API started successfully
+2025-12-12 09:08:53.814 +01:00 [INF] Swagger UI available at: /swagger
+2025-12-12 09:08:53.814 +01:00 [INF] SignalR Hub available at: /hubs/sensors
+2025-12-12 09:08:53.825 +01:00 [INF] SeedDataHostedService starting...
+2025-12-12 09:08:53.825 +01:00 [INF] Applying database migrations...
+2025-12-12 09:08:54.749 +01:00 [INF] Database migrations applied successfully
+2025-12-12 09:08:54.753 +01:00 [INF] Starting seed data process...
+2025-12-12 09:08:55.084 +01:00 [INF] Default tenant ensured
+2025-12-12 09:08:55.477 +01:00 [INF] Default Hub ensured
+2025-12-12 09:08:55.615 +01:00 [INF] Default alert types seeded
+2025-12-12 09:08:56.069 +01:00 [INF] Default sensors seeded
+2025-12-12 09:08:56.069 +01:00 [INF] Seed data process completed
+2025-12-12 09:08:56.069 +01:00 [INF] SeedDataHostedService completed successfully
+2025-12-12 09:08:56.071 +01:00 [INF] DataRetentionService started. Interval: 24h, Retention: 30 days
+2025-12-12 09:09:42.243 +01:00 [INF] GET /swagger-debug responded 200 in 162.2193 ms
+2025-12-12 09:09:42.260 +01:00 [INF] GET /favicon.ico responded 404 in 0.5548 ms
+2025-12-12 09:10:23.665 +01:00 [INF] GET /swagger/v1/swagger.json responded 200 in 69.1723 ms
+2025-12-12 09:10:56.474 +01:00 [INF] GET /swagger responded 301 in 0.2816 ms
+2025-12-12 09:10:56.560 +01:00 [INF] GET /swagger/index.html responded 200 in 35.8890 ms
+2025-12-12 09:10:56.589 +01:00 [INF] GET /swagger/index.js responded 200 in 0.4025 ms
+2025-12-12 09:10:56.594 +01:00 [INF] GET /swagger/index.css responded 200 in 29.7904 ms
+2025-12-12 09:10:56.594 +01:00 [INF] GET /swagger/swagger-ui.css responded 200 in 29.8392 ms
+2025-12-12 09:10:56.595 +01:00 [INF] GET /swagger/swagger-ui-standalone-preset.js responded 200 in 29.2685 ms
+2025-12-12 09:10:56.598 +01:00 [INF] GET /swagger/swagger-ui-bundle.js responded 200 in 34.0078 ms
+2025-12-12 09:10:56.674 +01:00 [INF] GET /swagger/favicon-32x32.png responded 200 in 1.1738 ms
+2025-12-12 09:10:56.701 +01:00 [INF] GET /swagger/v1/swagger.json responded 200 in 33.8058 ms
+2025-12-12 09:11:55.021 +01:00 [INF] GET /api/Readings/latest responded 200 in 597.8590 ms

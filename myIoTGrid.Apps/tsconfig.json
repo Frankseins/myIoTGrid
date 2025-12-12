@@ -35,10 +35,16 @@
   "include": [],
   "references": [
     {
-      "path": "./tsconfig.app.json"
+      "path": "./apps/hub/tsconfig.app.json"
     },
     {
-      "path": "./tsconfig.spec.json"
+      "path": "./apps/hub/tsconfig.spec.json"
+    },
+    {
+      "path": "./apps/cloud/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/cloud/tsconfig.spec.json"
     }
   ],
   "compileOnSave": false,

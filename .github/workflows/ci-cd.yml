@@ -20,6 +20,7 @@ env:
 # Images Built:
 # - myiotgrid-hub-api          (Hub Backend API)
 # - myiotgrid-hub-frontend     (Hub Frontend)
+# - myiotgrid-cloud-api        (Cloud Backend API)
 # - myiotgrid-sensor-sim       (Sensor Simulator)
 # - myiotgrid-gateway-lorawan  (LoRaWAN Gateway Bridge Service)
 # =============================================================================
@@ -70,6 +71,50 @@ jobs:
         if: always()
         with:
           name: backend-coverage-reports
+          path: '**/TestResults/**/coverage.cobertura.xml'
+
+  # =============================================================================
+  # Build & Test Cloud Backend
+  # =============================================================================
+  build-and-test-cloud:
+    name: Build & Test Cloud Backend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: myIoTGrid.Cloud
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
+        continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-backend-test-results
+          path: '**/TestResults/**/*.trx'
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cloud-backend-coverage-reports
           path: '**/TestResults/**/coverage.cobertura.xml'
 
   # =============================================================================
@@ -195,6 +240,59 @@ jobs:
         with:
           context: .
           file: ./myIoTGrid.Hub/src/myIoTGrid.Hub.Api/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # =============================================================================
+  # Docker Image: Cloud API
+  # =============================================================================
+  docker-cloud-api:
+    name: Build Cloud API Image
+    runs-on: ubuntu-latest
+    needs: build-and-test-cloud
+    if: github.event_name == 'push'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/myiotgrid-cloud-api
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value={{date 'YYYYMMDD-HHmmss'}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
@@ -438,7 +536,7 @@ jobs:
   summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [docker-hub-api, docker-hub-frontend, docker-sensor-sim, docker-lorawan-gateway]
+    needs: [docker-hub-api, docker-hub-frontend, docker-cloud-api, docker-sensor-sim, docker-lorawan-gateway]
     if: always() && github.event_name == 'push'
 
     steps:
@@ -452,6 +550,7 @@ jobs:
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Hub API | ${{ needs.docker-hub-api.result == 'success' && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Hub Frontend | ${{ needs.docker-hub-frontend.result == 'success' && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cloud API | ${{ needs.docker-cloud-api.result == 'success' && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Sensor Simulator | ${{ needs.docker-sensor-sim.result == 'success' && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| LoRaWAN Gateway | ${{ needs.docker-lorawan-gateway.result == 'success' && ':white_check_mark:' || ':x:' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -462,6 +561,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# Hub Frontend" >> $GITHUB_STEP_SUMMARY
           echo "docker pull ghcr.io/${{ env.IMAGE_OWNER }}/myiotgrid-hub-frontend:latest" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Cloud API (https://api.myiotgrid.cloud)" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ env.IMAGE_OWNER }}/myiotgrid-cloud-api:latest" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# Sensor Simulator" >> $GITHUB_STEP_SUMMARY
           echo "docker pull ghcr.io/${{ env.IMAGE_OWNER }}/myiotgrid-sensor-sim:latest" >> $GITHUB_STEP_SUMMARY

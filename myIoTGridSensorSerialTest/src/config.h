@@ -8,7 +8,24 @@
 #define CONFIG_H
 
 // ============================================================================
-// UART Configuration
+// DS18B20 OneWire Configuration
+// ============================================================================
+
+// OneWire Pin for DS18B20 Temperature Sensor
+#define ONEWIRE_PIN         15    // GPIO15 - connect to DS18B20 Data (yellow wire)
+
+// Temperature reading interval (milliseconds)
+#define TEMP_READ_INTERVAL_MS   1000    // 1 second
+
+// Temperature resolution (9-12 bits)
+// 9 bit  = 0.5°C,    93.75ms conversion time
+// 10 bit = 0.25°C,   187.5ms conversion time
+// 11 bit = 0.125°C,  375ms conversion time
+// 12 bit = 0.0625°C, 750ms conversion time
+#define TEMP_RESOLUTION     12
+
+// ============================================================================
+// UART Configuration (legacy - for other sensors)
 // ============================================================================
 
 // UART2 Pins (connect sensor here)

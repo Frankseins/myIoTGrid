@@ -155,7 +155,14 @@ std::vector<DetectedDevice> HardwareScanner::scanOneWire(int pin) {
     OneWire oneWire(pin);
     DallasTemperature sensors(&oneWire);
 
+    // Give the 1-Wire bus time to stabilize after initializing
+    delay(10);
+
     sensors.begin();
+
+    // Small delay after begin() for reliable detection
+    delay(5);
+
     int deviceCount = sensors.getDeviceCount();
 
     if (deviceCount > 0) {

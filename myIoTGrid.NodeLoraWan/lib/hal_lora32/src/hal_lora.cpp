@@ -18,27 +18,21 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <RadioLib.h>
+#include <Preferences.h>
+
+// NVS storage for LoRaWAN session
+static Preferences loraPrefs;
 
 // ============================================================
 // HARDWARE CONFIGURATION
 // ============================================================
 
-// SPI instance for LoRa radio
-static SPIClass loraSPI(HSPI);
+// Match official RadioLib example exactly for Heltec V3:
+// SX1262 radio = new Module(8, 14, 12, 13);
+// Pin mapping: CS=8, DIO1=14, RST=12, BUSY=13
+static SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY);
 
-// Module configuration for SX1262
-static Module module(
-    LORA_CS,
-    LORA_DIO1,
-    LORA_RST,
-    LORA_BUSY,
-    loraSPI
-);
-
-// SX1262 radio module
-static SX1262 radio(&module);
-
-// LoRaWAN node instance
+// LoRaWAN node - created in init()
 static LoRaWANNode* node = nullptr;
 
 // EU868 band configuration
@@ -132,10 +126,7 @@ bool init() {
 
     LOG_INFO("Initializing LoRa radio (SX1262)...");
 
-    // Initialize SPI bus
-    loraSPI.begin(LORA_SCK, LORA_MISO, LORA_MOSI, LORA_CS);
-
-    // Initialize radio
+    // Initialize radio - exactly like official example
     int16_t state = radio.begin();
     if (state != RADIOLIB_ERR_NONE) {
         LOG_ERROR("Radio init failed with error: %d", state);
@@ -143,24 +134,133 @@ bool init() {
         return false;
     }
 
-    // Configure TCXO voltage for SX1262
+    LOG_INFO("Radio begin() successful");
+
+    // Configure TCXO voltage for SX1262 (Heltec V3 uses 1.8V)
     state = radio.setTCXO(LORA_TCXO_VOLTAGE);
     if (state != RADIOLIB_ERR_NONE) {
         LOG_WARN("TCXO config failed: %d (may work anyway)", state);
     }
 
-    // Create LoRaWAN node
-    node = new LoRaWANNode(&radio, band);
+    // Set DIO2 as RF switch control (required for Heltec V3)
+    state = radio.setDio2AsRfSwitch(true);
+    if (state != RADIOLIB_ERR_NONE) {
+        LOG_WARN("DIO2 RF switch config failed: %d", state);
+    }
+
+    // Enable RX boosted gain mode for better reception (helps with JoinAccept)
+    state = radio.setRxBoostedGainMode(true);
+    if (state == RADIOLIB_ERR_NONE) {
+        LOG_INFO("RX boosted gain mode enabled");
+    } else {
+        LOG_WARN("RX boosted gain failed: %d", state);
+    }
+
+    // Create LoRaWAN node - pass address of static radio object
+    // For EU868, subBand = 0 (uses all 8 channels)
+    node = new LoRaWANNode(&radio, band, 0);
 
     // Configure LoRaWAN parameters
     node->setADR(LORAWAN_ADR_ENABLED);
     node->setDatarate(LORAWAN_DEFAULT_DR);
+
+    // Set LoRaWAN sync word for public network (0x34 for LoRaWAN)
+    // This is critical - private networks use 0x12
+    state = radio.setSyncWord(0x34);
+    if (state != RADIOLIB_ERR_NONE) {
+        LOG_WARN("Sync word config failed: %d", state);
+    }
+
+    LOG_INFO("LoRaWAN configured: EU868, subBand=0, syncWord=0x34 (public)");
 
     radioInitialized = true;
     radioSleeping = false;
     LOG_INFO("LoRa radio initialized successfully");
 
     return true;
+}
+
+// ============================================================
+// SESSION PERSISTENCE (NVS)
+// ============================================================
+
+// RadioLib needs BOTH nonces and session buffers for persistence
+// Nonces: DevNonce counter (to prevent replay attacks)
+// Session: DevAddr, keys, frame counters, etc.
+static uint8_t noncesBuffer[16];   // RADIOLIB_LORAWAN_NONCES_BUF_SIZE
+static uint8_t sessionBuffer[256]; // RADIOLIB_LORAWAN_SESSION_BUF_SIZE
+static bool hasStoredSession = false;
+
+bool save_session() {
+    if (node == nullptr) return false;
+
+    // Get BOTH nonces and session from RadioLib
+    uint8_t* noncesPtr = node->getBufferNonces();
+    uint8_t* sessionPtr = node->getBufferSession();
+
+    if (noncesPtr == nullptr || sessionPtr == nullptr) {
+        LOG_WARN("No session data to save");
+        return false;
+    }
+
+    // Copy to our buffers
+    memcpy(noncesBuffer, noncesPtr, sizeof(noncesBuffer));
+    memcpy(sessionBuffer, sessionPtr, sizeof(sessionBuffer));
+
+    // Save BOTH to NVS
+    loraPrefs.begin("lora_session", false);
+    loraPrefs.putBytes("nonces", noncesBuffer, sizeof(noncesBuffer));
+    loraPrefs.putBytes("session", sessionBuffer, sizeof(sessionBuffer));
+    loraPrefs.putBool("valid", true);
+    loraPrefs.end();
+
+    LOG_INFO("Session saved to NVS (nonces: %u, session: %u bytes)",
+             sizeof(noncesBuffer), sizeof(sessionBuffer));
+    hasStoredSession = true;
+    return true;
+}
+
+bool load_session() {
+    loraPrefs.begin("lora_session", true);
+    bool valid = loraPrefs.getBool("valid", false);
+
+    if (!valid) {
+        loraPrefs.end();
+        LOG_INFO("No stored session found");
+        return false;
+    }
+
+    size_t noncesSize = loraPrefs.getBytes("nonces", noncesBuffer, sizeof(noncesBuffer));
+    size_t sessionSize = loraPrefs.getBytes("session", sessionBuffer, sizeof(sessionBuffer));
+    loraPrefs.end();
+
+    if (noncesSize == 0 || sessionSize == 0) {
+        LOG_WARN("Invalid stored session data");
+        return false;
+    }
+
+    LOG_INFO("Session loaded from NVS (nonces: %u, session: %u bytes)",
+             noncesSize, sessionSize);
+    hasStoredSession = true;
+    return true;
+}
+
+bool has_stored_session() {
+    if (hasStoredSession) return true;
+
+    loraPrefs.begin("lora_session", true);
+    bool valid = loraPrefs.getBool("valid", false);
+    loraPrefs.end();
+
+    return valid;
+}
+
+void clear_session() {
+    loraPrefs.begin("lora_session", false);
+    loraPrefs.clear();
+    loraPrefs.end();
+    hasStoredSession = false;
+    LOG_INFO("Session cleared from NVS");
 }
 
 void shutdown() {
@@ -172,6 +272,8 @@ void shutdown() {
         delete node;
         node = nullptr;
     }
+
+    // radio is static, no need to delete
 
     radioInitialized = false;
     LOG_INFO("LoRa radio shut down");
@@ -206,18 +308,46 @@ bool join_otaa(
     joinCallback = callback;
     currentJoinStatus = JoinStatus::JOINING;
 
-    LOG_INFO("Starting OTAA join...");
-
-    // Convert byte arrays to uint64_t (LSB first)
+    // Convert byte arrays to uint64_t (MSB first - LoRaWAN standard)
     uint64_t devEui64 = 0;
     uint64_t appEui64 = 0;
     for (int i = 0; i < 8; i++) {
-        devEui64 |= ((uint64_t)devEui[i]) << (i * 8);
-        appEui64 |= ((uint64_t)appEui[i]) << (i * 8);
+        devEui64 = (devEui64 << 8) | devEui[i];
+        appEui64 = (appEui64 << 8) | appEui[i];
     }
 
+    // Try to restore existing session first
+    if (load_session()) {
+        LOG_INFO("Attempting to restore saved session...");
+
+        // Setup OTAA credentials (required before restore)
+        node->beginOTAA(appEui64, devEui64, (uint8_t*)appKey, (uint8_t*)appKey);
+
+        // Restore BOTH nonces and session (order matters!)
+        int16_t noncesState = node->setBufferNonces(noncesBuffer);
+        int16_t sessionState = node->setBufferSession(sessionBuffer);
+
+        if (noncesState == RADIOLIB_ERR_NONE && sessionState == RADIOLIB_ERR_NONE) {
+            currentJoinStatus = JoinStatus::JOINED;
+            lastError = LoRaError::NONE;
+            LOG_INFO("Session restored from NVS - no join required!");
+
+            if (joinCallback) {
+                joinCallback(true, LoRaError::NONE);
+            }
+            return true;
+        } else {
+            LOG_WARN("Session restore failed (nonces: %d, session: %d), performing fresh join...",
+                     noncesState, sessionState);
+            clear_session();
+        }
+    }
+
+    LOG_INFO("Starting OTAA join...");
+
     // In RadioLib 6.x, beginOTAA just stores credentials, activateOTAA does the join
-    node->beginOTAA(appEui64, devEui64, (uint8_t*)appKey, nullptr);
+    // For LoRaWAN 1.0.x: pass appKey as BOTH nwkKey and appKey (they are the same in 1.0.x)
+    node->beginOTAA(appEui64, devEui64, (uint8_t*)appKey, (uint8_t*)appKey);
 
     // Attempt OTAA join - activateOTAA returns the state
     int16_t state = node->activateOTAA();
@@ -226,6 +356,9 @@ bool join_otaa(
         currentJoinStatus = JoinStatus::JOINED;
         lastError = LoRaError::NONE;
         LOG_INFO("OTAA join successful!");
+
+        // Save session to NVS for next boot
+        save_session();
 
         // Get link metrics
         lastRssi = radio.getRSSI();

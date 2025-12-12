@@ -204,14 +204,27 @@ bool SensorReader::initDS18B20(int pin) {
 
     _oneWire = new OneWire(pin);
     _ds18b20 = new DallasTemperature(_oneWire);
+
+    // Give the 1-Wire bus time to stabilize before scanning
+    delay(50);
+
     _ds18b20->begin();
     _ds18b20_pin = pin;
 
-    if (_ds18b20->getDeviceCount() > 0) {
-        _ds18b20_ready = true;
-        Serial.printf("[SensorReader] DS18B20 initialized, %d device(s)\n", _ds18b20->getDeviceCount());
-        return true;
+    // Try multiple times to detect the sensor (1-Wire can be flaky)
+    for (int attempt = 0; attempt < 3; attempt++) {
+        int deviceCount = _ds18b20->getDeviceCount();
+        if (deviceCount > 0) {
+            _ds18b20_ready = true;
+            Serial.printf("[SensorReader] DS18B20 initialized, %d device(s) found on attempt %d\n", deviceCount, attempt + 1);
+            return true;
+        }
+        // Small delay between attempts
+        delay(20);
+        _ds18b20->begin();  // Re-scan
     }
+
+    Serial.printf("[SensorReader] DS18B20 NOT FOUND on pin %d after 3 attempts\n", pin);
     return false;
 }
 
@@ -738,11 +751,34 @@ SensorReading SensorReader::readTemperature(const SensorAssignmentConfig& config
         int pin = config.oneWirePin > 0 ? config.oneWirePin : 4;
         if (!_ds18b20_ready && !initDS18B20(pin)) return SensorReading("DS18B20 not available");
         if (_ds18b20) {
+            // Set resolution to 12-bit for accurate readings (default)
+            _ds18b20->setResolution(12);
+
+            // Request temperature conversion
             _ds18b20->requestTemperatures();
+
+            // Wait for conversion to complete (750ms for 12-bit resolution)
+            // Using blocking wait to ensure valid reading
+            delay(750);
+
             float temp = _ds18b20->getTempCByIndex(0);
-            if (temp != DEVICE_DISCONNECTED_C) {
+
+            // 85.0°C is the power-on reset value - indicates conversion not complete
+            // or sensor communication issue
+            if (temp == 85.0) {
+                Serial.println("[SensorReader] DS18B20: Got 85°C (power-on reset value) - retrying...");
+                // Retry once with fresh request
+                _ds18b20->requestTemperatures();
+                delay(750);
+                temp = _ds18b20->getTempCByIndex(0);
+            }
+
+            if (temp != DEVICE_DISCONNECTED_C && temp != 85.0) {
                 Serial.printf("[SensorReader] DS18B20 Temp: %.2f°C\n", temp);
                 return SensorReading(temp);
+            } else if (temp == 85.0) {
+                Serial.println("[SensorReader] DS18B20: Still 85°C after retry - check wiring/power");
+                return SensorReading("DS18B20 power-on reset (check wiring)");
             }
         }
         return SensorReading("DS18B20 disconnected");

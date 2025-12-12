@@ -199,7 +199,7 @@
 #define JOIN_RETRY_INTERVAL_SECONDS 30
 
 // Maximum Join-Versuche bevor Deep Sleep
-#define MAX_JOIN_RETRIES 10
+#define MAX_JOIN_RETRIES 100
 
 // OLED Auto-Off Timeout (Millisekunden)
 #define OLED_AUTO_OFF_MS 30000  // 30 Sekunden

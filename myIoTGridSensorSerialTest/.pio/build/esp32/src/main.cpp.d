@@ -133,6 +133,13 @@
  /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
- src/config.h src/uart_handler.h \
- /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/cores/esp32/HardwareSerial.h \
- src/baudrate_scanner.h src/statistics.h src/hex_dump.h src/led_status.h
+ src/config.h src/sd_card_test.h \
+ /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src/SPI.h \
+ /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-spi.h \
+ /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/SD.h \
+ /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/libraries/FS/src/FS.h \
+ /Users/frankbersch/.platformio/packages/framework-arduinoespressif32/libraries/SD/src/sd_defines.h \
+ src/ds18b20_handler.h .pio/libdeps/esp32/OneWire/OneWire.h \
+ .pio/libdeps/esp32/OneWire/util/OneWire_direct_regtype.h \
+ .pio/libdeps/esp32/DallasTemperature/DallasTemperature.h \
+ src/ultrasonic_test.h src/led_status.h

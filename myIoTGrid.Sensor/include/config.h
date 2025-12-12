@@ -5,7 +5,7 @@
 
 // Firmware Version
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.9.1"  // Sprint OS-01: Offline Storage
+#define FIRMWARE_VERSION "1.9.3"  // Fix: DS18B20 85°C power-on reset value - wait for conversion
 #endif
 
 // Hardware Type

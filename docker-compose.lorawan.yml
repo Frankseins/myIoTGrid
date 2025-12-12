@@ -1,0 +1,181 @@
+# =============================================================================
+# myIoTGrid - LoRaWAN Gateway Stack für Raspberry Pi
+# =============================================================================
+# Services:
+# - gateway-bridge:  ChirpStack Gateway Bridge (UDP:1700)
+# - chirpstack:      ChirpStack Network Server (Web:8080, gRPC:8090)
+# - postgres:        PostgreSQL Database
+# - redis:           Redis Cache
+# - mosquitto:       MQTT Broker (Internal:1883, External:1884)
+# - bridge:          myIoTGrid LoRaWAN Bridge Service
+#
+# Start: docker compose -f docker-compose.lorawan.yml up -d
+# =============================================================================
+
+networks:
+  myiotgrid-lorawan-internal:
+    driver: bridge
+    name: myiotgrid-lorawan-internal
+  myiotgrid-lorawan-external:
+    driver: bridge
+    name: myiotgrid-lorawan-external
+
+volumes:
+  myiotgrid-lorawan-postgres-data:
+    name: myiotgrid-lorawan-postgres-data
+  myiotgrid-lorawan-redis-data:
+    name: myiotgrid-lorawan-redis-data
+  myiotgrid-lorawan-mosquitto-data:
+    name: myiotgrid-lorawan-mosquitto-data
+
+services:
+  # ---------------------------------------------------------------------------
+  # ChirpStack Gateway Bridge - UDP:1700
+  # ---------------------------------------------------------------------------
+  gateway-bridge:
+    image: chirpstack/chirpstack-gateway-bridge:4
+    container_name: myiotgrid-lorawan-bridge
+    restart: unless-stopped
+    networks:
+      - myiotgrid-lorawan-internal
+    ports:
+      - "1700:1700/udp"
+    volumes:
+      - ./config/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml:/etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml:ro
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep chirpstack-gateway-bridge | grep -v grep || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # ChirpStack Network Server - Web:8080, gRPC:8090
+  # ---------------------------------------------------------------------------
+  chirpstack:
+    image: chirpstack/chirpstack:4
+    container_name: myiotgrid-lorawan-chirpstack
+    restart: unless-stopped
+    command: -c /etc/chirpstack
+    networks:
+      - myiotgrid-lorawan-internal
+    ports:
+      - "8080:8080"
+      - "8090:8090"
+    volumes:
+      - ./config/chirpstack:/etc/chirpstack:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    environment:
+      - POSTGRESQL_HOST=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: myiotgrid-lorawan-postgres
+    restart: unless-stopped
+    networks:
+      - myiotgrid-lorawan-internal
+    environment:
+      POSTGRES_DB: chirpstack
+      POSTGRES_USER: chirpstack
+      POSTGRES_PASSWORD: chirpstack
+    volumes:
+      - myiotgrid-lorawan-postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chirpstack -d chirpstack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: myiotgrid-lorawan-redis
+    restart: unless-stopped
+    networks:
+      - myiotgrid-lorawan-internal
+    volumes:
+      - myiotgrid-lorawan-redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
+  # Mosquitto MQTT Broker - Internal:1883, External:1884
+  # ---------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: myiotgrid-lorawan-mosquitto
+    restart: unless-stopped
+    networks:
+      - myiotgrid-lorawan-internal
+      - myiotgrid-lorawan-external
+    ports:
+      - "1883:1883"
+      - "1884:1884"
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - myiotgrid-lorawan-mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/broker/uptime", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # myIoTGrid LoRaWAN Bridge Service
+  # ---------------------------------------------------------------------------
+  bridge:
+    image: ghcr.io/frankseins/myiotgrid-gateway-lorawan:latest
+    container_name: myiotgrid-lorawan-bridge-service
+    restart: unless-stopped
+    networks:
+      - myiotgrid-lorawan-internal
+      - myiotgrid-lorawan-external
+    ports:
+      - "5100:5100"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5100
+      - ChirpStack__MqttServer=tcp://mosquitto:1883
+      - MyIoTGrid__MqttServer=tcp://mosquitto:1884
+      - MyIoTGrid__HubUrl=http://host.docker.internal:5002
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      chirpstack:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5100/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

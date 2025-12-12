@@ -1,2 +1,4 @@
-SD
+paulstoffregen/OneWire@^2.3.8
 SPI
+SD
+milesburton/DallasTemperature@^3.11.0

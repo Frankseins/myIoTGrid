@@ -1,76 +1,89 @@
 # =============================================================================
-# myIoTGrid Cloud API Dockerfile
-# Multi-stage build for .NET 10 with PostgreSQL
+# myIoTGrid Cloud API - Multi-Stage Dockerfile
+# =============================================================================
+# Optimized for:
+# - Multi-Architecture builds (amd64 + arm64)
+# - Layer caching (dependencies first)
+# - Security (non-root user)
+# - Small image size (aspnet runtime only)
+# - Production HTTPS on Port 443 (with Wildcard Certificate *.myiotgrid.cloud)
 # =============================================================================
 
+# -----------------------------------------------------------------------------
 # Stage 1: Build
+# -----------------------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy solution and project files
-COPY myIoTGrid.Cloud/myIoTGrid.Cloud.sln ./myIoTGrid.Cloud/
-COPY myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api/myIoTGrid.Cloud.Api.csproj ./myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api/
-COPY myIoTGrid.Cloud/src/myIoTGrid.Cloud.Domain/myIoTGrid.Cloud.Domain.csproj ./myIoTGrid.Cloud/src/myIoTGrid.Cloud.Domain/
-COPY myIoTGrid.Cloud/src/myIoTGrid.Cloud.Shared/myIoTGrid.Cloud.Shared.csproj ./myIoTGrid.Cloud/src/myIoTGrid.Cloud.Shared/
-COPY myIoTGrid.Cloud/src/myIoTGrid.Cloud.Service/myIoTGrid.Cloud.Service.csproj ./myIoTGrid.Cloud/src/myIoTGrid.Cloud.Service/
-COPY myIoTGrid.Cloud/src/myIoTGrid.Cloud.Infrastructure/myIoTGrid.Cloud.Infrastructure.csproj ./myIoTGrid.Cloud/src/myIoTGrid.Cloud.Infrastructure/
-COPY myIoTGrid.Cloud/src/myIoTGrid.Cloud.Interface/myIoTGrid.Cloud.Interface.csproj ./myIoTGrid.Cloud/src/myIoTGrid.Cloud.Interface/
+# Copy solution and project files first (for better layer caching)
+# Cloud projects
+COPY ["myIoTGrid.Cloud/myIoTGrid.Cloud.sln", "myIoTGrid.Cloud/"]
+COPY ["myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api/myIoTGrid.Cloud.Api.csproj", "myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api/"]
+COPY ["myIoTGrid.Cloud/src/myIoTGrid.Cloud.Domain/myIoTGrid.Cloud.Domain.csproj", "myIoTGrid.Cloud/src/myIoTGrid.Cloud.Domain/"]
+COPY ["myIoTGrid.Cloud/src/myIoTGrid.Cloud.Shared/myIoTGrid.Cloud.Shared.csproj", "myIoTGrid.Cloud/src/myIoTGrid.Cloud.Shared/"]
+COPY ["myIoTGrid.Cloud/src/myIoTGrid.Cloud.Service/myIoTGrid.Cloud.Service.csproj", "myIoTGrid.Cloud/src/myIoTGrid.Cloud.Service/"]
+COPY ["myIoTGrid.Cloud/src/myIoTGrid.Cloud.Infrastructure/myIoTGrid.Cloud.Infrastructure.csproj", "myIoTGrid.Cloud/src/myIoTGrid.Cloud.Infrastructure/"]
+COPY ["myIoTGrid.Cloud/src/myIoTGrid.Cloud.Interface/myIoTGrid.Cloud.Interface.csproj", "myIoTGrid.Cloud/src/myIoTGrid.Cloud.Interface/"]
 
-# Copy shared project files
-COPY myIoTGrid.Shared/myIoTGrid.Shared.Common/myIoTGrid.Shared.Common.csproj ./myIoTGrid.Shared/myIoTGrid.Shared.Common/
-COPY myIoTGrid.Shared/myIoTGrid.Shared.Contracts/myIoTGrid.Shared.Contracts.csproj ./myIoTGrid.Shared/myIoTGrid.Shared.Contracts/
-COPY myIoTGrid.Shared/myIoTGrid.Shared.Utilities/myIoTGrid.Shared.Utilities.csproj ./myIoTGrid.Shared/myIoTGrid.Shared.Utilities/
+# Shared projects
+COPY ["myIoTGrid.Shared/myIoTGrid.Shared.Common/myIoTGrid.Shared.Common.csproj", "myIoTGrid.Shared/myIoTGrid.Shared.Common/"]
+COPY ["myIoTGrid.Shared/myIoTGrid.Shared.Contracts/myIoTGrid.Shared.Contracts.csproj", "myIoTGrid.Shared/myIoTGrid.Shared.Contracts/"]
+COPY ["myIoTGrid.Shared/myIoTGrid.Shared.Utilities/myIoTGrid.Shared.Utilities.csproj", "myIoTGrid.Shared/myIoTGrid.Shared.Utilities/"]
 
-# Restore dependencies
-WORKDIR /src/myIoTGrid.Cloud
-RUN dotnet restore
+# Restore dependencies (cached if .csproj files haven't changed)
+RUN dotnet restore "myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api/myIoTGrid.Cloud.Api.csproj"
 
-# Copy all source files
-WORKDIR /src
-COPY myIoTGrid.Cloud/ ./myIoTGrid.Cloud/
-COPY myIoTGrid.Shared/ ./myIoTGrid.Shared/
+# Copy everything else and build
+COPY ["myIoTGrid.Cloud/", "myIoTGrid.Cloud/"]
+COPY ["myIoTGrid.Shared/", "myIoTGrid.Shared/"]
+WORKDIR "/src/myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api"
+RUN dotnet build "myIoTGrid.Cloud.Api.csproj" -c Release -o /app/build
 
-# Build
-WORKDIR /src/myIoTGrid.Cloud/src/myIoTGrid.Cloud.Api
-RUN dotnet build -c Release -o /app/build
-
+# -----------------------------------------------------------------------------
 # Stage 2: Publish
+# -----------------------------------------------------------------------------
 FROM build AS publish
-RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "myIoTGrid.Cloud.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
+# -----------------------------------------------------------------------------
 # Stage 3: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+# -----------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 WORKDIR /app
 
-# Install useful tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Install curl for health checks
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+# Create logs and certs directories
+# Note: .NET images already have an 'app' user (UID 1654)
+RUN mkdir -p /app/logs /app/certs && \
+    chown -R app:app /app
 
-# Create directories
-RUN mkdir -p /app/logs /app/data && \
-    chown -R appuser:appgroup /app
-
-# Copy published app
+# Copy published files
 COPY --from=publish /app/publish .
 
-# Switch to non-root user
-USER appuser
+# Change ownership to non-root user
+RUN chown -R app:app /app
+
+# Switch to non-root user (built-in .NET user)
+USER app
+
+# Expose HTTPS port 443
+EXPOSE 443
 
 # Environment variables
-ENV ASPNETCORE_URLS=http://+:5002
+# Certificate paths for Wildcard cert (*.myiotgrid.cloud) mounted from host
+ENV ASPNETCORE_URLS=https://+:443
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_Kestrel__Certificates__Default__Path=/app/certs/fullchain.pem
+ENV ASPNETCORE_Kestrel__Certificates__Default__KeyPath=/app/certs/privkey.pem
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5002/health || exit 1
-
-# Expose port
-EXPOSE 5002
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -fk https://localhost:443/health || exit 1
 
 # Entry point
 ENTRYPOINT ["dotnet", "myIoTGrid.Cloud.Api.dll"]

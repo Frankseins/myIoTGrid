@@ -1,0 +1,87 @@
+{
+  "name": "hub",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/hub/src",
+  "tags": ["type:app", "scope:hub"],
+  "targets": {
+    "build": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/hub",
+        "browser": "apps/hub/src/main.ts",
+        "polyfills": ["zone.js"],
+        "tsConfig": "apps/hub/tsconfig.app.json",
+        "inlineStyleLanguage": "scss",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/hub/public"
+          }
+        ],
+        "styles": ["apps/hub/src/styles.scss"]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "1mb",
+              "maximumError": "2mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "10kb",
+              "maximumError": "20kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular/build:dev-server",
+      "options": {
+        "port": 4200,
+        "open": true
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "hub:build:production"
+        },
+        "development": {
+          "buildTarget": "hub:build:development",
+          "proxyConfig": "apps/hub/proxy.conf.json"
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "extract-i18n": {
+      "executor": "@angular/build:extract-i18n",
+      "options": {
+        "buildTarget": "hub:build"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["apps/hub/src/**/*.ts", "apps/hub/src/**/*.html"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/apps/hub"],
+      "options": {
+        "jestConfig": "apps/hub/jest.config.ts"
+      }
+    }
+  }
+}

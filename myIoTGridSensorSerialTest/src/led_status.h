@@ -67,6 +67,19 @@ public:
     }
 
     /**
+     * Blink pattern for error (rapid double blink)
+     */
+    void blinkError() {
+        on();
+        delay(100);
+        off();
+        delay(100);
+        on();
+        delay(100);
+        off();
+    }
+
+    /**
      * Update LED state (call in loop)
      */
     void update() {

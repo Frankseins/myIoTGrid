@@ -29,7 +29,14 @@ bool SDManager::init(int misoPin, int mosiPin, int sckPin, int csPin) {
                   _misoPin, _mosiPin, _sckPin, _csPin);
 
     // Initialize SPI with custom pins
+    // ESP32-S3 uses FSPI (SPI2_HOST), ESP32 uses VSPI (SPI3_HOST)
+#if CONFIG_IDF_TARGET_ESP32S3
+    _spi = new SPIClass(FSPI);
+    Serial.println("[SDManager] Using FSPI for ESP32-S3");
+#else
     _spi = new SPIClass(VSPI);
+    Serial.println("[SDManager] Using VSPI for ESP32");
+#endif
     _spi->begin(_sckPin, _misoPin, _mosiPin, _csPin);
 
     // Try to mount SD card

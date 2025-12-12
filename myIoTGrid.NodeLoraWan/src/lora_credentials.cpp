@@ -15,11 +15,16 @@
 #include "config.h"
 
 // Include secrets if available (for compile-time credentials)
+// Try multiple include paths for secrets.h
 #if __has_include("secrets.h")
-#include "secrets.h"
-#define HAS_SECRETS 1
+    #include "secrets.h"
+    #define HAS_SECRETS 1
+#elif __has_include("../include/secrets.h")
+    #include "../include/secrets.h"
+    #define HAS_SECRETS 1
 #else
-#define HAS_SECRETS 0
+    #define HAS_SECRETS 0
+    #warning "secrets.h not found - credentials must be set via serial commands"
 #endif
 
 #include <cstring>
@@ -100,20 +105,15 @@ bool CredentialManager::init() {
         return false;
     }
 
-    // Try to load stored credentials from NVS first
-    if (loadFromNvs()) {
+    // secrets.h has PRIORITY over NVS (compile-time credentials override stored ones)
+    if (loadFromSecrets()) {
+        LOG_INFO("Loaded credentials from secrets.h (priority over NVS)");
+        // Save to NVS for persistence
+        saveToNvs();
+    } else if (loadFromNvs()) {
         LOG_INFO("Loaded credentials from NVS");
     } else {
-        LOG_INFO("No stored credentials in NVS");
-
-        // Try to load from secrets.h (compile-time credentials)
-        if (loadFromSecrets()) {
-            LOG_INFO("Loaded credentials from secrets.h");
-            // Auto-save to NVS for persistence
-            saveToNvs();
-        } else {
-            LOG_WARN("No credentials configured");
-        }
+        LOG_WARN("No credentials configured - use serial commands to set them");
     }
 
     // Load frame counters
