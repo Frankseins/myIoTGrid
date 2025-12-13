@@ -5,7 +5,7 @@
 
 // Firmware Version
 #ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "1.10.22"  // Add watchdog timer (90s) to prevent hangs
+#define FIRMWARE_VERSION "1.10.27"  // Fallback to API if SD card fails
 #endif
 
 // Hardware Type
@@ -42,8 +42,9 @@ constexpr const char* DEFAULT_WIFI_PASSWORD = "";
 // Timing Configuration
 constexpr uint32_t DEFAULT_INTERVAL_SECONDS = 60;
 constexpr uint32_t REGISTRATION_RETRY_DELAY_MS = 5000;
-constexpr uint32_t HTTP_TIMEOUT_MS = 60000;  // 60s for Azure cold starts
+constexpr uint32_t HTTP_TIMEOUT_MS = 15000;  // 15s timeout (reduced to prevent hangs)
 constexpr int HTTP_RETRY_COUNT = 3;
+constexpr int MAX_REGISTRATION_FAILURES = 3;  // After 3 failures, go to BLE pairing
 
 // Discovery Configuration
 constexpr int DISCOVERY_PORT = 5001;

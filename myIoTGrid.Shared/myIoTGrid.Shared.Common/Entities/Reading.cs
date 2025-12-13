@@ -38,6 +38,9 @@ public class Reading
     /// <summary>Whether this reading was synced to cloud</summary>
     public bool IsSyncedToCloud { get; set; }
 
+    /// <summary>When this reading was synced to cloud</summary>
+    public DateTime? SyncedAt { get; set; }
+
     // === Navigation Properties ===
 
     /// <summary>Node that recorded this reading</summary>

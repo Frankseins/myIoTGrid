@@ -42,6 +42,10 @@ public class NodeSensorAssignmentConfiguration : IEntityTypeConfiguration<NodeSe
         builder.Property(a => a.AssignedAt)
             .IsRequired();
 
+        // Cloud Sync
+        builder.Property(a => a.CloudSensorId);
+        builder.Property(a => a.LastSyncedAt);
+
         // Relationships
         builder.HasOne(a => a.Node)
             .WithMany(n => n.SensorAssignments)
@@ -65,5 +69,6 @@ public class NodeSensorAssignmentConfiguration : IEntityTypeConfiguration<NodeSe
         builder.HasIndex(a => new { a.NodeId, a.EndpointId }).IsUnique();
         builder.HasIndex(a => a.IsActive);
         builder.HasIndex(a => a.LastSeenAt);
+        builder.HasIndex(a => a.CloudSensorId);
     }
 }

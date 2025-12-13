@@ -128,6 +128,12 @@ try
     builder.Services.AddScoped<INodeDebugLogService, NodeDebugLogService>();
     builder.Services.AddScoped<INodeHardwareStatusService, NodeHardwareStatusService>();
 
+    // Cloud Sync Services
+    builder.Services.Configure<CloudApiOptions>(
+        builder.Configuration.GetSection(CloudApiOptions.SectionName));
+    builder.Services.AddHttpClient<ICloudApiClient, myIoTGrid.Hub.Infrastructure.Cloud.CloudApiClient>();
+    builder.Services.AddScoped<IManualCloudSyncService, ManualCloudSyncService>();
+
     // Memory Cache for Sensors
     builder.Services.AddMemoryCache();
 
@@ -260,8 +266,9 @@ try
 
     app.MapControllers();
 
-    // SignalR Hub
+    // SignalR Hubs
     app.MapHub<SensorHub>("/hubs/sensors");
+    app.MapHub<SyncProgressHub>("/hubs/sync-progress");
 
     // Willkommensnachricht im Root
     app.MapGet("/", () => Results.Ok(new

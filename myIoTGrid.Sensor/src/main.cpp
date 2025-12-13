@@ -51,44 +51,7 @@
 #include <esp_mac.h>
 #include <WiFi.h>
 #include <Wire.h>
-#include <esp_http_client.h>
 #include <esp_task_wdt.h>
-
-// ISRG Root X1 (Let's Encrypt) - valid until 2035
-// Used by httpbin.org and many other sites
-static const char* ISRG_ROOT_X1_CERT = R"(
------BEGIN CERTIFICATE-----
-MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
-TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
-cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
-WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
-ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
-MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
-h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
-0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
-A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
-T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
-B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
-B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
-KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
-OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
-jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
-qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
-rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
-HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
-hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
-ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
-3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
-NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
-ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
-TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
-jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
-oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
-4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
-mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
-emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
------END CERTIFICATE-----
-)";
 #endif
 
 #ifdef PLATFORM_NATIVE
@@ -813,56 +776,72 @@ void onReProvisioningConfigReceived(const BLEConfig& config) {
 // WiFi Callbacks
 // ============================================================================
 
+/**
+ * Sync time - tries Hub first, then NTP as fallback
+ * Hub time works in local networks without internet
+ */
+void syncTime() {
+#ifdef PLATFORM_ESP32
+    bool timeSynced = false;
+
+    // Method 1: Try to get time from Hub (works without internet)
+    if (apiClient.isConfigured()) {
+        Serial.println("[Time] Trying to sync from Hub...");
+        TimeResponse timeResp = apiClient.fetchTime();
+        if (timeResp.success && timeResp.unixTimestamp > 1000000000) {
+            // Set system time from Hub
+            struct timeval tv;
+            tv.tv_sec = timeResp.unixTimestamp;
+            tv.tv_usec = 0;
+            settimeofday(&tv, nullptr);
+
+            time_t now = time(nullptr);
+            struct tm* timeinfo = localtime(&now);
+            Serial.printf("[Time] Synced from Hub: %04d-%02d-%02d %02d:%02d:%02d\n",
+                          timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
+                          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+            timeSynced = true;
+        } else {
+            Serial.println("[Time] Hub time sync failed, trying NTP...");
+        }
+    }
+
+    // Method 2: NTP fallback (requires internet)
+    if (!timeSynced) {
+        Serial.println("[Time] Trying NTP servers...");
+        configTime(3600, 3600, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
+
+        // Wait for time to be set (max 5 seconds)
+        int ntpRetries = 0;
+        while (time(nullptr) < 1000000000 && ntpRetries < 10) {
+            delay(500);
+            ntpRetries++;
+            Serial.print(".");
+        }
+        Serial.println();
+
+        if (time(nullptr) > 1000000000) {
+            time_t now = time(nullptr);
+            struct tm* timeinfo = localtime(&now);
+            Serial.printf("[Time] Synced from NTP: %04d-%02d-%02d %02d:%02d:%02d\n",
+                          timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
+                          timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+            timeSynced = true;
+        }
+    }
+
+    if (!timeSynced) {
+        Serial.println("[Time] WARNING: Time sync failed! Timestamps may be incorrect.");
+    }
+#endif
+}
+
 void onWiFiConnected(const String& ip) {
     Serial.printf("[Main] WiFi connected! IP: %s\n", ip.c_str());
 
 #ifdef PLATFORM_ESP32
-    // Sync time via NTP (required for SSL/TLS certificate validation)
-    Serial.println("[NTP] Synchronizing time...");
-    configTime(3600, 3600, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
-
-    // Wait for time to be set (max 10 seconds)
-    int ntpRetries = 0;
-    while (time(nullptr) < 1000000000 && ntpRetries < 20) {
-        delay(500);
-        ntpRetries++;
-        Serial.print(".");
-    }
-    Serial.println();
-
-    if (time(nullptr) > 1000000000) {
-        time_t now = time(nullptr);
-        struct tm* timeinfo = localtime(&now);
-        Serial.printf("[NTP] Time synchronized: %04d-%02d-%02d %02d:%02d:%02d\n",
-                      timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
-                      timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
-
-        // Test HTTPS connection using ESP-IDF HTTP client with embedded Root CA
-        Serial.println("[TEST] Testing HTTPS to httpbin.org with esp_http_client...");
-
-        esp_http_client_config_t httpConfig = {};
-        httpConfig.url = "https://httpbin.org/get";
-        httpConfig.timeout_ms = 30000;
-        httpConfig.transport_type = HTTP_TRANSPORT_OVER_SSL;
-        httpConfig.cert_pem = ISRG_ROOT_X1_CERT;  // Use embedded Let's Encrypt Root CA
-
-        esp_http_client_handle_t client = esp_http_client_init(&httpConfig);
-        if (client != nullptr) {
-            esp_err_t err = esp_http_client_perform(client);
-            if (err == ESP_OK) {
-                int statusCode = esp_http_client_get_status_code(client);
-                int contentLength = esp_http_client_get_content_length(client);
-                Serial.printf("[TEST] HTTPS success! Status: %d, Content-Length: %d\n", statusCode, contentLength);
-            } else {
-                Serial.printf("[TEST] HTTPS failed: %s (0x%x)\n", esp_err_to_name(err), err);
-            }
-            esp_http_client_cleanup(client);
-        } else {
-            Serial.println("[TEST] Failed to init HTTP client!");
-        }
-    } else {
-        Serial.println("[NTP] Time sync failed - SSL may not work!");
-    }
+    // Sync time (Hub first, then NTP fallback)
+    syncTime();
 #endif
 
     stateMachine.processEvent(StateEvent::WIFI_CONNECTED);
@@ -1359,33 +1338,13 @@ void readAndSendDueSensors(unsigned long now) {
                 bool storedLocally = false;
 
 #ifdef PLATFORM_ESP32
-                if (offlineStorageEnabled) {
-                    StorageMode mode = storageConfigManager.getMode();
-                    bool wifiAvailable = wifiManager.isConnected();
+                // ALWAYS send to API first (priority)
+                sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
 
-                    // Decide where to store/send based on mode
-                    if (mode == StorageMode::LOCAL_ONLY) {
-                        // Only store locally
-                        storedLocally = readingStorage.storeReading(
-                            cap.measurementType, value, cap.unit, sensor.endpointId);
-                    } else if (mode == StorageMode::REMOTE_ONLY) {
-                        // Only send to Hub (original behavior)
-                        sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
-                    } else {
-                        // LOCAL_AND_REMOTE or LOCAL_AUTOSYNC
-                        // Store locally first
-                        storedLocally = readingStorage.storeReading(
-                            cap.measurementType, value, cap.unit, sensor.endpointId);
-
-                        // Also send to Hub if WiFi available (for LOCAL_AND_REMOTE)
-                        // For LOCAL_AUTOSYNC, sync manager handles the upload
-                        if (mode == StorageMode::LOCAL_AND_REMOTE && wifiAvailable) {
-                            sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
-                        }
-                    }
-                } else {
-                    // No offline storage - send directly
-                    sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
+                // If SD card available, also store locally as backup
+                if (offlineStorageEnabled && sdManager.isAvailable()) {
+                    storedLocally = readingStorage.storeReading(
+                        cap.measurementType, value, cap.unit, sensor.endpointId);
                 }
 #else
                 sentToHub = apiClient.sendReading(cap.measurementType, value, cap.unit, sensor.endpointId);
@@ -1432,24 +1391,13 @@ void readAndSendDueSensors(unsigned long now) {
             bool storedLocally = false;
 
 #ifdef PLATFORM_ESP32
-            if (offlineStorageEnabled) {
-                StorageMode mode = storageConfigManager.getMode();
-                bool wifiAvailable = wifiManager.isConnected();
+            // ALWAYS send to API first (priority)
+            sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
 
-                if (mode == StorageMode::LOCAL_ONLY) {
-                    storedLocally = readingStorage.storeReading(
-                        sensor.sensorCode, value, "", sensor.endpointId);
-                } else if (mode == StorageMode::REMOTE_ONLY) {
-                    sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
-                } else {
-                    storedLocally = readingStorage.storeReading(
-                        sensor.sensorCode, value, "", sensor.endpointId);
-                    if (mode == StorageMode::LOCAL_AND_REMOTE && wifiAvailable) {
-                        sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
-                    }
-                }
-            } else {
-                sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
+            // If SD card available, also store locally as backup
+            if (offlineStorageEnabled && sdManager.isAvailable()) {
+                storedLocally = readingStorage.storeReading(
+                    sensor.sensorCode, value, "", sensor.endpointId);
             }
 #else
             sentToHub = apiClient.sendReading(sensor.sensorCode, value, "", sensor.endpointId);
@@ -2076,14 +2024,32 @@ void handleConfiguredState() {
 
     // If WiFi connected and API configured, register with Hub
     if (wifiManager.isConnected() && apiConfigured && !nodeRegistered) {
-        Serial.println("[Main] Registering with Hub...");
+        static int registrationFailures = 0;
+
+        Serial.printf("[Main] Registering with Hub (attempt %d/%d)...\n",
+                     registrationFailures + 1, config::MAX_REGISTRATION_FAILURES);
 
         if (registerWithHub()) {
             nodeRegistered = true;
+            registrationFailures = 0;  // Reset counter on success
             stateMachine.processEvent(StateEvent::API_VALIDATED);
         } else {
-            // Registration failed - go to error state
-            stateMachine.processEvent(StateEvent::API_FAILED);
+            registrationFailures++;
+            Serial.printf("[Main] Registration failed (%d/%d)\n",
+                         registrationFailures, config::MAX_REGISTRATION_FAILURES);
+
+            if (registrationFailures >= config::MAX_REGISTRATION_FAILURES) {
+                Serial.println("[Main] Max registration failures reached!");
+                Serial.println("[Main] Switching to BLE Pairing mode for reconfiguration...");
+                registrationFailures = 0;  // Reset for next time
+                apiConfigured = false;     // Reset API config
+                configManager.clearConfig();  // Clear stored config
+                stateMachine.processEvent(StateEvent::ERROR_OCCURRED);  // Go to PAIRING
+            } else {
+                // Wait before next attempt
+                Serial.printf("[Main] Waiting %d ms before retry...\n", config::REGISTRATION_RETRY_DELAY_MS);
+                delay(config::REGISTRATION_RETRY_DELAY_MS);
+            }
         }
     }
 #endif
@@ -2352,6 +2318,16 @@ void setup() {
                     });
 
                     offlineStorageEnabled = true;
+
+                    // AUTO-SET: If SD card is available, use LOCAL_AND_REMOTE
+                    // This ensures: 1) Always store locally, 2) Send to API immediately
+                    // If API fails, data stays local and syncs later
+                    StorageMode currentMode = storageConfigManager.getMode();
+                    if (currentMode == StorageMode::REMOTE_ONLY) {
+                        Serial.println("[Main] SD card detected - forcing LOCAL_AND_REMOTE mode");
+                        storageConfigManager.setMode(StorageMode::LOCAL_AND_REMOTE);
+                        storageConfigManager.save(sdManager);
+                    }
                 }
             }
         }

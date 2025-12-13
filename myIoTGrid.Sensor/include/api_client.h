@@ -111,6 +111,15 @@ struct DebugConfigurationResponse {
 };
 
 /**
+ * Time response from Hub (for offline time sync)
+ */
+struct TimeResponse {
+    bool success;
+    long unixTimestamp;       // Unix timestamp in seconds
+    String error;
+};
+
+/**
  * API Client for Hub communication
  */
 class ApiClient {
@@ -186,6 +195,13 @@ public:
      * @return Debug configuration response
      */
     DebugConfigurationResponse fetchDebugConfiguration(const String& serialNumber);
+
+    /**
+     * Fetch current time from Hub
+     * Used when NTP is not available (no internet, local network only)
+     * @return Time response with Unix timestamp
+     */
+    TimeResponse fetchTime();
 
     /**
      * Check if configured

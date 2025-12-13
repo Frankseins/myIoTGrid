@@ -71,6 +71,14 @@ public class NodeSensorAssignment : IEntity
     /// <summary>When the sensor was assigned to this node</summary>
     public DateTime AssignedAt { get; set; }
 
+    // === Cloud Sync ===
+
+    /// <summary>Cloud-assigned ID for this sensor assignment (null if never synced)</summary>
+    public Guid? CloudSensorId { get; set; }
+
+    /// <summary>When this assignment was last synced to Cloud</summary>
+    public DateTime? LastSyncedAt { get; set; }
+
     // === Navigation Properties ===
 
     /// <summary>Node this sensor is installed on</summary>

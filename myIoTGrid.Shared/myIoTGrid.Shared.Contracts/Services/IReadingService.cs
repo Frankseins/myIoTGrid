@@ -39,8 +39,17 @@ public interface IReadingService
     /// <summary>Returns unsynced Readings (for cloud sync)</summary>
     Task<IEnumerable<ReadingDto>> GetUnsyncedAsync(int limit = 100, CancellationToken ct = default);
 
+    /// <summary>Returns unsynced Readings for a specific Node (for Hub-to-Cloud sync)</summary>
+    Task<IEnumerable<ReadingDto>> GetUnsyncedByNodeAsync(Guid nodeId, int limit = 1000, int offset = 0, CancellationToken ct = default);
+
+    /// <summary>Returns the count of unsynced Readings for a specific Node</summary>
+    Task<int> GetUnsyncedCountByNodeAsync(Guid nodeId, CancellationToken ct = default);
+
     /// <summary>Marks Readings as synced to cloud</summary>
     Task MarkAsSyncedAsync(IEnumerable<long> ids, CancellationToken ct = default);
+
+    /// <summary>Marks Readings as synced to cloud with timestamp</summary>
+    Task MarkAsSyncedWithTimestampAsync(IEnumerable<long> ids, CancellationToken ct = default);
 
     /// <summary>Deletes Readings within a date range, optionally filtered by sensor and measurement type</summary>
     Task<DeleteReadingsResultDto> DeleteRangeAsync(DeleteReadingsRangeDto dto, CancellationToken ct = default);

@@ -312,7 +312,8 @@ NodeConfigurationResponse ApiClient::fetchConfiguration(const String& serialNumb
             result.defaultIntervalSeconds = respDoc["defaultIntervalSeconds"] | 60;
 
             // Sprint OS-01: Parse storageMode from API
-            result.storageMode = respDoc["storageMode"] | 0;  // Default: RemoteOnly
+            // Default: LOCAL_AUTOSYNC (3) - store locally and sync when possible
+            result.storageMode = respDoc["storageMode"] | 3;
 
             // Parse sensors array
             JsonArray sensorsArray = respDoc["sensors"].as<JsonArray>();
@@ -440,6 +441,41 @@ DebugConfigurationResponse ApiClient::fetchDebugConfiguration(const String& seri
         result.error = response.error.length() > 0 ? response.error : "Failed to fetch debug configuration";
         Serial.printf("[API] Debug config fetch failed: %d - %s\n",
                       response.statusCode, result.error.c_str());
+    }
+
+    return result;
+}
+
+TimeResponse ApiClient::fetchTime() {
+    TimeResponse result;
+    result.success = false;
+    result.unixTimestamp = 0;
+
+    if (_baseUrl.length() == 0) {
+        result.error = "Base URL not configured";
+        return result;
+    }
+
+    String path = "/api/time";
+    Serial.println("[API] Fetching time from Hub...");
+
+    ApiResponse response = httpGet(path);
+
+    if (response.success && response.statusCode == 200) {
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, response.body);
+
+        if (!error) {
+            result.success = true;
+            result.unixTimestamp = doc["unixTimestamp"] | 0L;
+            Serial.printf("[API] Hub time: %ld (Unix timestamp)\n", result.unixTimestamp);
+        } else {
+            result.error = "Failed to parse time response";
+            Serial.printf("[API] Time JSON parse error: %s\n", error.c_str());
+        }
+    } else {
+        result.error = response.error.length() > 0 ? response.error : "Failed to fetch time";
+        Serial.printf("[API] Time fetch failed: %d - %s\n", response.statusCode, result.error.c_str());
     }
 
     return result;

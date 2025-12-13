@@ -703,6 +703,49 @@ public class ReadingService : IReadingService
     }
 
     /// <inheritdoc />
+    public async Task MarkAsSyncedWithTimestampAsync(IEnumerable<long> ids, CancellationToken ct = default)
+    {
+        var idList = ids.ToList();
+        if (idList.Count == 0) return;
+
+        var now = DateTime.UtcNow;
+        await _context.Readings
+            .Where(r => idList.Contains(r.Id))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.IsSyncedToCloud, true)
+                .SetProperty(r => r.SyncedAt, now), ct);
+
+        _logger.LogDebug("Marked {Count} readings as synced to cloud at {Timestamp}", idList.Count, now);
+    }
+
+    /// <inheritdoc />
+    public async Task<IEnumerable<ReadingDto>> GetUnsyncedByNodeAsync(Guid nodeId, int limit = 1000, int offset = 0, CancellationToken ct = default)
+    {
+        var readings = await _context.Readings
+            .AsNoTracking()
+            .Include(r => r.Node)
+                .ThenInclude(n => n!.Location)
+            .Include(r => r.Assignment)
+                .ThenInclude(a => a!.Sensor)
+                    .ThenInclude(s => s!.Capabilities)
+            .Where(r => r.NodeId == nodeId && !r.IsSyncedToCloud)
+            .OrderBy(r => r.Timestamp)
+            .Skip(offset)
+            .Take(limit)
+            .ToListAsync(ct);
+
+        return readings.ToDtos();
+    }
+
+    /// <inheritdoc />
+    public async Task<int> GetUnsyncedCountByNodeAsync(Guid nodeId, CancellationToken ct = default)
+    {
+        return await _context.Readings
+            .Where(r => r.NodeId == nodeId && !r.IsSyncedToCloud)
+            .CountAsync(ct);
+    }
+
+    /// <inheritdoc />
     public async Task<DeleteReadingsResultDto> DeleteRangeAsync(DeleteReadingsRangeDto dto, CancellationToken ct = default)
     {
         var tenantId = _tenantService.GetCurrentTenantId();
