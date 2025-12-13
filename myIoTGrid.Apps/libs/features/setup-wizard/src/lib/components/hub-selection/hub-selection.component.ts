@@ -55,9 +55,9 @@ export class HubSelectionComponent implements OnInit {
     return id ? `${id.substring(0, 8)}...` : '';
   });
 
-  // Cloud defaults: http://api.myiotgrid.cloud (port 80)
-  readonly cloudAddress = computed(() => this.hubProperties()?.cloudAddress ?? 'http://api.myiotgrid.cloud');
-  readonly cloudPort = computed(() => this.hubProperties()?.cloudPort ?? 80);
+  // Cloud defaults: https://api.myiotgrid.cloud (port 443)
+  readonly cloudAddress = computed(() => this.hubProperties()?.cloudAddress ?? 'https://api.myiotgrid.cloud');
+  readonly cloudPort = computed(() => this.hubProperties()?.cloudPort ?? 443);
 
   readonly canContinue = computed(() => {
     const mode = this.selectedMode();

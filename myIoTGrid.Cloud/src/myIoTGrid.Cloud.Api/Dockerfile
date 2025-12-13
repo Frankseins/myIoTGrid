@@ -71,13 +71,12 @@ RUN chown -R app:app /app
 # Switch to non-root user (built-in .NET user)
 USER app
 
-# Expose HTTP ports (8080 for Azure Ingress, 80 for direct HTTP access)
+# Expose HTTP port (8080 for Azure Ingress)
 EXPOSE 8080
-EXPOSE 80
 
 # Environment variables for Azure Container Apps
 # No certificates needed - Azure handles HTTPS termination
-ENV ASPNETCORE_URLS=http://+:8080;http://+:80
+ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_RUNNING_IN_CONTAINER=true
 

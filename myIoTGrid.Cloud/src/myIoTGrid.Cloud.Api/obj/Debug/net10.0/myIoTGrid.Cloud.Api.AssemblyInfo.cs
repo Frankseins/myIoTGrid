@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("myIoTGrid.Cloud.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4ddb919e8516b2632c9ddbb9e382e3e0728bc176")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b15def570e6a091b401d5ba2e848a2ee3b7d8c2")]
 [assembly: System.Reflection.AssemblyProductAttribute("myIoTGrid.Cloud.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("myIoTGrid.Cloud.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

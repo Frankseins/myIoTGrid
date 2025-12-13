@@ -1,0 +1,17 @@
+# myIoTGrid Sensor - ESP-IDF Configuration
+# This file enables the certificate bundle for HTTPS connections
+
+# Enable mbedTLS certificate bundle
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+
+# ESP-TLS settings
+CONFIG_ESP_TLS_USING_MBEDTLS=y
+CONFIG_ESP_TLS_INSECURE=n
+
+# HTTP Client settings
+CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y
+
+# Increase SSL buffer for better compatibility
+CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=16384
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=4096

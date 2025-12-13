@@ -3,9 +3,4 @@ properties:
     ingress:
       external: true
       targetPort: 8080
-      transport: http
-      additionalPortMappings:
-        - targetPort: 80
-          exposedPort: 80
-          external: true
-          transport: http
+      transport: auto
